@@ -1,9 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace TraceabilitySystem.Shared.Models;
 
 public class PagedApiResponse<T> : ApiResponse<IEnumerable<T>>
 {
-    public PaginationMetadata Pagination { get; set; } = null!;
-
     public static PagedApiResponse<T> Ok(PagedResult<T> pagedResult, string message = "Success") => new()
     {
         Success = true,
@@ -11,22 +11,32 @@ public class PagedApiResponse<T> : ApiResponse<IEnumerable<T>>
         Data = pagedResult.Items,
         Pagination = new PaginationMetadata
         {
-            TotalCount = pagedResult.TotalCount,
+            Total = pagedResult.TotalCount,
             Page = pagedResult.Page,
-            PageSize = pagedResult.PageSize,
-            TotalPages = pagedResult.TotalPages,
-            HasPreviousPage = pagedResult.HasPreviousPage,
-            HasNextPage = pagedResult.HasNextPage
+            Limit = pagedResult.PageSize,
+            TotalPage = pagedResult.TotalPages
         }
     };
+
+    [JsonPropertyOrder(100)]
+    public PaginationMetadata Pagination { get; set; } = null!;
 }
 
 public class PaginationMetadata
 {
-    public int TotalCount { get; set; }
+    [JsonPropertyOrder(1)]
+    [JsonPropertyName("page")]
     public int Page { get; set; }
-    public int PageSize { get; set; }
-    public int TotalPages { get; set; }
-    public bool HasPreviousPage { get; set; }
-    public bool HasNextPage { get; set; }
+
+    [JsonPropertyOrder(2)]
+    [JsonPropertyName("limit")]
+    public int Limit { get; set; }
+
+    [JsonPropertyOrder(3)]
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyOrder(4)]
+    [JsonPropertyName("total_page")]
+    public int TotalPage { get; set; }
 }

@@ -6,9 +6,10 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
