@@ -64,6 +64,8 @@ npm-debug.log
 .env.production.local
 
 # User-specific settings
+appsettings.json
+appsettings.Development.json
 appsettings.Local.json
 
 # Tooling
