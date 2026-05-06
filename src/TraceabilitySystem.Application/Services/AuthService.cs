@@ -111,7 +111,7 @@ public class AuthService : IAuthService
             AccessToken = accessToken,
             RefreshToken = refreshTokenValue,
             AccessTokenExpiry = DateTime.UtcNow.AddMinutes(AppConstants.Jwt.AccessTokenExpirationMinutes),
-            User = _mapper.Map<UserDto>(user)
+            // User = _mapper.Map<UserDto>(user)
         };
     }
 }

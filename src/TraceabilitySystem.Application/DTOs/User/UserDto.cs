@@ -1,4 +1,4 @@
-namespace TraceabilitySystem.Application.DTOs;
+namespace TraceabilitySystem.Application.DTOs.User;
 
 public class UserDto
 {

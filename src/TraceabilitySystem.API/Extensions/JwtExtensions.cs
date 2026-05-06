@@ -1,7 +1,9 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Text.Json;
 using TraceabilitySystem.Infrastructure.Services;
+using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Extensions;
 
@@ -41,6 +43,29 @@ public static class JwtExtensions
                         var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtAuthentication");
                         logger.LogError(context.Exception, "Authentication failed: {Message}", context.Exception.Message);
                         return Task.CompletedTask;
+                    },
+                    OnChallenge = context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json";
+                        
+                        var result = JsonSerializer.Serialize(
+                            new { success = false, message = "Unauthorized. Token is missing, invalid, or expired." },
+                            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+                        );
+                        return context.Response.WriteAsync(result);
+                    },
+                    OnForbidden = context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        context.Response.ContentType = "application/json";
+                        
+                        var result = JsonSerializer.Serialize(
+                            new { success = false, message = "Forbidden. You do not have permission to access this resource." },
+                            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+                        );
+                        return context.Response.WriteAsync(result);
                     }
                 };
             });

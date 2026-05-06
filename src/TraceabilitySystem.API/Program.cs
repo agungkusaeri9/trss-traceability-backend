@@ -57,6 +57,8 @@ try
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 
+    builder.Services.AddRouting(options => options.LowercaseUrls = true);
+
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerConfiguration();
     builder.Services.AddJwtAuthentication(builder.Configuration);

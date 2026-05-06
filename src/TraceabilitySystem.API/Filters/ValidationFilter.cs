@@ -29,8 +29,7 @@ public class ValidationFilter : IAsyncActionFilter
             if (!result.IsValid)
             {
                 var errors = result.Errors.Select(e => e.ErrorMessage).ToList();
-                context.Result = new UnprocessableEntityObjectResult(
-                    ApiResponse.Fail("Validation failed.", errors));
+                context.Result = TraceabilitySystem.Shared.Helpers.ResponseFormatter.ValidationError("Validation failed.", errors);
                 return;
             }
         }

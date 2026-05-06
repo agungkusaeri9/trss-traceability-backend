@@ -1,4 +1,4 @@
-using TraceabilitySystem.Application.DTOs;
+using TraceabilitySystem.Application.DTOs.User;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Shared.Models;
 

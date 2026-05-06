@@ -1,5 +1,5 @@
 using FluentValidation;
-using TraceabilitySystem.Application.DTOs;
+using TraceabilitySystem.Application.DTOs.User;
 
 namespace TraceabilitySystem.Application.Validators;
 

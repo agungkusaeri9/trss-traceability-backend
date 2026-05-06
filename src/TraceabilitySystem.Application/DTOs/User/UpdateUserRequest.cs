@@ -1,6 +1,4 @@
-using TraceabilitySystem.Domain.Enums;
-
-namespace TraceabilitySystem.Application.DTOs;
+namespace TraceabilitySystem.Application.DTOs.User;
 
 public class UpdateUserRequest
 {
