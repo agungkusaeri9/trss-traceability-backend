@@ -17,18 +17,35 @@ try
 
     // ── Serilog ────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, services, config) =>
+    {
         config.ReadFrom.Configuration(ctx.Configuration)
               .ReadFrom.Services(services)
-              .Enrich.FromLogContext()
-              .WriteTo.Console()
-              .WriteTo.File("../../logs/all/log-.txt", 
-                  rollingInterval: RollingInterval.Day,
-                  retainedFileCountLimit: 7)
-              .WriteTo.Logger(lc => lc
-                  .Filter.ByIncludingOnly(evt => evt.Level >= Serilog.Events.LogEventLevel.Error)
-                  .WriteTo.File("../../logs/errors/error-.txt", 
-                      rollingInterval: RollingInterval.Day,
-                      retainedFileCountLimit: 14)));
+              .Enrich.FromLogContext();
+
+        var customLogging = ctx.Configuration.GetSection("CustomLogging");
+        bool debugIsTerminal = customLogging.GetValue<bool>("DebugIsTerminal", false);
+        string logFolder = customLogging.GetValue<string>("LogFolder", "logging/logs");
+
+        if (debugIsTerminal)
+        {
+            config.WriteTo.Async(a => a.Console());
+        }
+        else
+        {
+            // Menggunakan Map untuk memaksa format nama file yyyy-MM-dd
+            config.WriteTo.Map(
+                le => le.Timestamp.ToString("yyyy-MM-dd"),
+                (date, wt) => wt.Async(a => a.File($"{logFolder}/{date}.txt")),
+                sinkMapCountLimit: 2);
+            
+            config.WriteTo.Logger(lc => lc
+                .Filter.ByIncludingOnly(evt => evt.Level >= Serilog.Events.LogEventLevel.Error)
+                .WriteTo.Map(
+                    le => le.Timestamp.ToString("yyyy-MM-dd"),
+                    (date, wt) => wt.Async(a => a.File($"{logFolder}/errors/error-{date}.txt")),
+                    sinkMapCountLimit: 2));
+        }
+    });
 
     // ── Services ───────────────────────────────────────────────────────────
     builder.Services.AddControllers(opts =>
