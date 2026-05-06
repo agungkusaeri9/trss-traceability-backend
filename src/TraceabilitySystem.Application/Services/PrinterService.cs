@@ -1,0 +1,145 @@
+using Mapster;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using TraceabilitySystem.Application.DTOs.StockIn;
+using TraceabilitySystem.Application.DTOs.Pagination;
+using TraceabilitySystem.Application.DTOs.Printer;
+using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Domain.Entities;
+using TraceabilitySystem.Domain.Interfaces;
+using TraceabilitySystem.Shared.Exceptions;
+using TraceabilitySystem.Shared.Models;
+
+namespace TraceabilitySystem.Application.Services;
+
+public class PrinterService : BaseService<Printer, PrinterDto>, IPrinterService
+{
+    private readonly IPrinterRepository _printerRepository;
+    private readonly IAppConfigRepository _appConfigRepository;
+    private readonly IServiceScopeFactory _scopeFactory;
+
+    public PrinterService(
+        IPrinterRepository repository,
+        IAppConfigRepository appConfigRepository,
+        IServiceScopeFactory scopeFactory) : base(repository)
+    {
+        _printerRepository = repository;
+        _appConfigRepository = appConfigRepository;
+        _scopeFactory = scopeFactory;
+    }
+
+    public async Task<PagedResult<PrinterDto>> GetPrintersAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default)
+    {
+        Expression<Func<Printer, bool>>? predicate = null;
+
+        if (!string.IsNullOrEmpty(search) || isActive.HasValue)
+        {
+            predicate = p =>
+                (string.IsNullOrEmpty(search) ||
+                    p.Name.Contains(search) ||
+                    p.IpAddress.Contains(search)) &&
+                (!isActive.HasValue || p.IsActive == isActive.Value);
+        }
+
+        var (items, totalCount) = await _printerRepository.GetPagedAsync(
+            page,
+            pageSize,
+            predicate,
+            q => q.OrderBy(p => p.Name),
+            cancellationToken);
+
+        return new PagedResult<PrinterDto>
+        {
+            Items = items.Adapt<IEnumerable<PrinterDto>>(),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<PrinterDto> GetPrinterByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _printerRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Printer), id);
+
+        return entity.Adapt<PrinterDto>();
+    }
+
+    public async Task<PrinterDto> CreatePrinterAsync(CreatePrinterRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var printer = new Printer
+        {
+            Name = request.Name,
+            IpAddress = request.IpAddress,
+            Port = request.Port,
+            Description = request.Description,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _printerRepository.AddAsync(printer, cancellationToken);
+        await _printerRepository.SaveChangesAsync(cancellationToken);
+
+        return printer.Adapt<PrinterDto>();
+    }
+
+    public async Task<PrinterDto> UpdatePrinterAsync(int id, UpdatePrinterRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var printer = await _printerRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Printer), id);
+
+        printer.Name = request.Name;
+        printer.IpAddress = request.IpAddress;
+        printer.Port = request.Port;
+        printer.Description = request.Description;
+        printer.IsActive = request.IsActive;
+        printer.UpdatedAt = DateTime.UtcNow;
+
+        _printerRepository.Update(printer);
+        await _printerRepository.SaveChangesAsync(cancellationToken);
+
+        return printer.Adapt<PrinterDto>();
+    }
+
+    public async Task DeletePrinterAsync(int id, CancellationToken cancellationToken = default)
+    {
+        await DeleteAsync(id, cancellationToken);
+    }
+
+    public async Task PrintLabelStockIn(StockInDto stockIn)
+    {
+        var config = await _appConfigRepository.GetByKeyAsync("PRINTER_NAME_STOCK_IN");
+        if (config != null && !string.IsNullOrEmpty(config.Value))
+        {
+            var printer = await _printerRepository.FirstOrDefaultAsync(p => p.Name == config.Value);
+            if (printer != null)
+            {
+                // Execute printing in background
+                _ = Task.Run(async () =>
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var printService = scope.ServiceProvider.GetRequiredService<IPrintService>();
+                    try
+                    {
+                        await printService.PrintStockInLabelAsync(stockIn, printer.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Background task should log the error
+                        Console.WriteLine($"Background printing failed: {ex.Message}");
+                    }
+                });
+            }
+        }
+    }
+}

@@ -27,6 +27,9 @@ public static class DependencyInjection
         services.AddScoped<IPartService, PartService>();
         services.AddScoped<IProcessService, ProcessService>();
         services.AddScoped<IParameterService, ParameterService>();
+        services.AddScoped<IStockInService, StockInService>();
+        services.AddScoped<IPrinterService, PrinterService>();
+        services.AddScoped<IAppConfigService, AppConfigService>();
 
         return services;
     }

@@ -34,10 +34,15 @@ public static class DependencyInjection
         services.AddScoped<IPartRepository, PartRepository>();
         services.AddScoped<IProcessRepository, ProcessRepository>();
         services.AddScoped<IParameterRepository, ParameterRepository>();
+        services.AddScoped<IStockInRepository, StockInRepository>();
+        services.AddScoped<IIssueRepository, IssueRepository>();
+        services.AddScoped<IPrinterRepository, PrinterRepository>();
+        services.AddScoped<IAppConfigRepository, AppConfigRepository>();
 
         // Infrastructure Services
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IPrintService, PrintService>();
 
         return services;
     }

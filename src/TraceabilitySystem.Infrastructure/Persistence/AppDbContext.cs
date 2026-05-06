@@ -13,6 +13,10 @@ public class AppDbContext : DbContext
     public DbSet<Process> Processes => Set<Process>();
     public DbSet<Parameter> Parameters => Set<Parameter>();
     public DbSet<ProcessParameter> ProcessParameters => Set<ProcessParameter>();
+    public DbSet<StockIn> StockIns => Set<StockIn>();
+    public DbSet<Issue> Issues => Set<Issue>();
+    public DbSet<Printer> Printers => Set<Printer>();
+    public DbSet<AppConfig> AppConfigs => Set<AppConfig>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -79,6 +83,26 @@ public class AppDbContext : DbContext
             {
                 if (entry.State == EntityState.Added) token.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) token.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is StockIn stockIn)
+            {
+                if (entry.State == EntityState.Added) stockIn.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) stockIn.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is Issue issue)
+            {
+                if (entry.State == EntityState.Added) issue.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) issue.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is Printer printer)
+            {
+                if (entry.State == EntityState.Added) printer.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) printer.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is AppConfig config)
+            {
+                if (entry.State == EntityState.Added) config.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) config.UpdatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

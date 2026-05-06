@@ -18,19 +18,31 @@ public class ConfigController : ControllerBase
     private readonly IPartService _partService;
     private readonly IProcessRepository _processRepository;
     private readonly IParameterRepository _parameterRepository;
+    private readonly IStockInRepository _stockInRepository;
+    private readonly IPartRepository _partRepository;
+    private readonly IPrinterRepository _printerRepository;
+    private readonly IAppConfigRepository _appConfigRepository;
 
     public ConfigController(
         IAuthService authService,
         IUserRepository userRepository,
         IPartService partService,
         IProcessRepository processRepository,
-        IParameterRepository parameterRepository)
+        IParameterRepository parameterRepository,
+        IStockInRepository stockInRepository,
+        IPartRepository partRepository,
+        IPrinterRepository printerRepository,
+        IAppConfigRepository appConfigRepository)
     {
         _authService = authService;
         _userRepository = userRepository;
         _partService = partService;
         _processRepository = processRepository;
         _parameterRepository = parameterRepository;
+        _stockInRepository = stockInRepository;
+        _partRepository = partRepository;
+        _printerRepository = printerRepository;
+        _appConfigRepository = appConfigRepository;
     }
 
     /// <summary>Seed a dummy admin user.</summary>
@@ -403,5 +415,180 @@ public class ConfigController : ControllerBase
         await _processRepository.SaveChangesAsync(cancellationToken);
 
         return ResponseFormatter.Success(message: "Unified processes and parameters successfully cleaned and seeded together.");
+    }
+
+    /// <summary>Seed StockIn records with associated Issue arrays.</summary>
+    [HttpPost("seed-stockins")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedStockIns(CancellationToken cancellationToken)
+    {
+        // 1. Delete all existing StockIn records
+        var existingStockIns = await _stockInRepository.GetAllAsync(cancellationToken);
+        _stockInRepository.RemoveRange(existingStockIns);
+        await _stockInRepository.SaveChangesAsync(cancellationToken);
+
+        // 2. Ensure we have at least one Part to associate with StockIn
+        var parts = await _partRepository.GetAllAsync(cancellationToken);
+        var part = parts.FirstOrDefault();
+        if (part == null)
+        {
+            part = new Part
+            {
+                Number = "PN-SEED-01",
+                Name = "Default Radiator Bracket Assembly",
+                Description = "Auto-generated default part for stock-in seeding.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _partRepository.AddAsync(part, cancellationToken);
+            await _partRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        // 3. Seed 30 StockIn records, each with exactly 1 Issue
+        // Re-fetch parts so the newly created default part is included
+        var partList = (await _partRepository.GetAllAsync(cancellationToken)).ToList();
+
+        var supplyQtys = new[] { 50, 100, 150, 200, 250, 300, 500, 750, 1000, 1200 };
+        var random = new Random(42);
+
+        for (int i = 1; i <= 30; i++)
+        {
+            var partForThisEntry = partList.Count > 1
+                ? partList[(i - 1) % partList.Count]
+                : part;
+
+            var supplyQty = supplyQtys[random.Next(supplyQtys.Length)];
+            var receiptQty = supplyQty - random.Next(0, 5);
+            var daysAgo = random.Next(1, 60);
+
+            var stockIn = new StockIn
+            {
+                Code = $"STI-{i:D5}",
+                PartId = partForThisEntry.Id,
+                SupplyQty = supplyQty,
+                SupplyDate = DateTime.UtcNow.AddDays(-daysAgo),
+                ReceiptQty = receiptQty,
+                ReceiptDate = DateTime.UtcNow.AddDays(-daysAgo).AddHours(random.Next(1, 8)),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _stockInRepository.AddAsync(stockIn, cancellationToken);
+
+            // Exactly 1 issue per stock-in
+            stockIn.Issues.Add(new Issue
+            {
+                Number = $"ISS-{i:D5}",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _stockInRepository.SaveChangesAsync(cancellationToken);
+
+        return ResponseFormatter.Success(message: "Successfully seeded 30 dummy stock-in records, each with exactly 1 issue.");
+    }
+
+    /// <summary>Seed 10 dummy printers.</summary>
+    [HttpPost("seed-printers")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedPrinters(CancellationToken cancellationToken)
+    {
+        int createdCount = 0;
+
+        var dummyPrinters = new[]
+        {
+            new { Name = "Printer-Line-01", IpAddress = "192.168.1.101", Port = 9100, Desc = "Label printer for Stamping Press line 1." },
+            new { Name = "Printer-Line-02", IpAddress = "192.168.1.102", Port = 9100, Desc = "Label printer for Fin Mill line 2." },
+            new { Name = "Printer-Line-03", IpAddress = "192.168.1.103", Port = 9100, Desc = "Label printer for Tube Mill line 3." },
+            new { Name = "Printer-Line-04", IpAddress = "192.168.1.104", Port = 9100, Desc = "Label printer for Core Assembly station." },
+            new { Name = "Printer-Line-05", IpAddress = "192.168.1.105", Port = 9100, Desc = "Label printer for Brazing Furnace exit." },
+            new { Name = "Printer-Line-06", IpAddress = "192.168.1.106", Port = 9100, Desc = "Label printer for Tank Assembly station." },
+            new { Name = "Printer-Line-07", IpAddress = "192.168.1.107", Port = 9100, Desc = "Label printer for Leakage Testing area." },
+            new { Name = "Printer-Line-08", IpAddress = "192.168.1.108", Port = 9100, Desc = "Label printer for Final Inspection gate." },
+            new { Name = "Printer-Line-09", IpAddress = "192.168.1.109", Port = 9100, Desc = "Label printer for Packaging station." },
+            new { Name = "Printer-Line-10", IpAddress = "192.168.1.110", Port = 9100, Desc = "Label printer for Shipping dock." },
+        };
+
+        foreach (var dp in dummyPrinters)
+        {
+            var exists = await _printerRepository.ExistsAsync(p => p.IpAddress == dp.IpAddress, cancellationToken);
+
+            if (!exists)
+            {
+                var printer = new Printer
+                {
+                    Name = dp.Name,
+                    IpAddress = dp.IpAddress,
+                    Port = dp.Port,
+                    Description = dp.Desc,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _printerRepository.AddAsync(printer, cancellationToken);
+                createdCount++;
+            }
+        }
+
+        if (createdCount > 0)
+        {
+            await _printerRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return ResponseFormatter.Success(message: $"{createdCount} dummy printers seeded successfully.");
+    }
+
+    /// <summary>Seed initial AppConfigs for printers.</summary>
+    [HttpPost("seed-appconfigs")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedAppConfigs(CancellationToken cancellationToken)
+    {
+        int createdCount = 0;
+
+        // Get some printers to use as values
+        var printers = (await _printerRepository.GetAllAsync(cancellationToken)).ToList();
+        
+        var stockInPrinter = printers.FirstOrDefault(p => p.Name.Contains("Line-10"))?.Name ?? "Printer-Line-10";
+        var line1Printer = printers.FirstOrDefault(p => p.Name.Contains("Line-01"))?.Name ?? "Printer-Line-01";
+        var line2Printer = printers.FirstOrDefault(p => p.Name.Contains("Line-02"))?.Name ?? "Printer-Line-02";
+
+        var dummyConfigs = new[]
+        {
+            new { Key = "PRINTER_NAME_STOCK_IN", Value = stockInPrinter, Desc = "Printer name for Stock In process." },
+            new { Key = "PRINTER_NAME_LINE_1", Value = line1Printer, Desc = "Printer name for Line 1 production." },
+            new { Key = "PRINTER_NAME_LINE_2", Value = line2Printer, Desc = "Printer name for Line 2 production." },
+        };
+
+        foreach (var dc in dummyConfigs)
+        {
+            var config = await _appConfigRepository.GetByKeyAsync(dc.Key, cancellationToken);
+
+            if (config == null)
+            {
+                config = new AppConfig
+                {
+                    Key = dc.Key,
+                    Value = dc.Value,
+                    Description = dc.Desc,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _appConfigRepository.AddAsync(config, cancellationToken);
+                createdCount++;
+            }
+            else
+            {
+                // Update value if already exists to match requirement
+                config.Value = dc.Value;
+                _appConfigRepository.Update(config);
+                createdCount++;
+            }
+        }
+
+        if (createdCount > 0)
+        {
+            await _appConfigRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return ResponseFormatter.Success(message: $"{createdCount} app configs seeded/updated successfully.");
     }
 }
