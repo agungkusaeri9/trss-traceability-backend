@@ -1,5 +1,4 @@
-using AutoMapper;
-using TraceabilitySystem.Application.DTOs;
+using Mapster;
 using TraceabilitySystem.Application.DTOs.Auth;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
@@ -15,20 +14,16 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IJwtService _jwtService;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IMapper _mapper;
-
     public AuthService(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         IJwtService jwtService,
-        IPasswordHasher passwordHasher,
-        IMapper mapper)
+        IPasswordHasher passwordHasher)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _jwtService = jwtService;
         _passwordHasher = passwordHasher;
-        _mapper = mapper;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
@@ -40,6 +35,7 @@ public class AuthService : IAuthService
         {
             Name = request.Name,
             Username = request.Username.ToLower(),
+            Role = request.Role.ToLower(),
             PasswordHash = _passwordHasher.Hash(request.Password)
         };
 
@@ -111,7 +107,7 @@ public class AuthService : IAuthService
             AccessToken = accessToken,
             RefreshToken = refreshTokenValue,
             AccessTokenExpiry = DateTime.UtcNow.AddMinutes(AppConstants.Jwt.AccessTokenExpirationMinutes),
-            // User = _mapper.Map<UserDto>(user)
+            // User = user.Adapt<UserDto>()
         };
     }
 }

@@ -1,4 +1,4 @@
-using AutoMapper;
+using Mapster;
 using TraceabilitySystem.Application.DTOs.User;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
@@ -15,29 +15,26 @@ public class UserService : BaseService<User, UserDto>, IUserService
 
     public UserService(
         IUserRepository userRepository,
-        IPasswordHasher passwordHasher,
-        IMapper mapper) : base(userRepository, mapper)
+        IPasswordHasher passwordHasher) : base(userRepository)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
     }
 
     public async Task<PagedResult<UserDto>> GetUsersAsync(
-        int page, int pageSize, string? searchTerm = null, CancellationToken cancellationToken = default)
+        int page, int pageSize, string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default)
     {
         // Using the enhanced generic GetPagedAsync from repository
         var (users, totalCount) = await _userRepository.GetPagedAsync(
             page,
             pageSize,
-            predicate: u => string.IsNullOrWhiteSpace(searchTerm)
-                || u.Name.Contains(searchTerm)
-                || u.Username.Contains(searchTerm),
-            orderBy: q => q.OrderByDescending(u => u.CreatedAt),
+            searchTerm,
+            isActive,
             cancellationToken: cancellationToken);
 
         return new PagedResult<UserDto>
         {
-            Items = _mapper.Map<IEnumerable<UserDto>>(users),
+            Items = users.Adapt<IEnumerable<UserDto>>(),
             TotalCount = totalCount,
             Page = page,
             PageSize = pageSize
@@ -54,39 +51,53 @@ public class UserService : BaseService<User, UserDto>, IUserService
         var exists = await _userRepository.ExistsAsync(u => u.Username == request.Username.ToLower(), cancellationToken);
         if (exists) throw new AppException("Username is already registered.", 409);
 
-        var user = _mapper.Map<User>(request);
+        var user = request.Adapt<User>();
         user.Username = request.Username.ToLower();
         user.PasswordHash = _passwordHasher.Hash(request.Password);
 
         await _userRepository.AddAsync(user, cancellationToken);
         await _userRepository.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<UserDto>(user);
+        return user.Adapt<UserDto>();
     }
 
-    public async Task<UserDto> UpdateUserAsync(int id, UpdateUserRequest request, CancellationToken cancellationToken = default)
+    public async Task<UserDto> UpdateUserAsync(
+        int id,
+        UpdateUserRequest request,
+        CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.GetByIdAsync(id, cancellationToken)
-            ?? throw new NotFoundException(nameof(User), id);
+                   ?? throw new NotFoundException(nameof(User), id);
 
-        if (request.Username is not null && request.Username.ToLower() != user.Username)
+        if (!string.IsNullOrWhiteSpace(request.Username)
+            && request.Username.ToLower() != user.Username)
         {
             var exists = await _userRepository.ExistsAsync(
-                u => u.Username == request.Username.ToLower() && u.Id != id, cancellationToken);
-            if (exists) throw new AppException("Username is already in use.", 409);
+                u => u.Username == request.Username.ToLower() && u.Id != id,
+                cancellationToken);
+
+            if (exists)
+                throw new AppException("Username is already in use.", 409);
+
             user.Username = request.Username.ToLower();
         }
 
-        if (request.Name is not null) user.Name = request.Name;
-        if (request.Role is not null) user.Role = request.Role.ToString();
-        if (request.IsActive is not null) user.IsActive = request.IsActive.Value;
+        if (!string.IsNullOrWhiteSpace(request.Name))
+            user.Name = request.Name;
+
+        if (request.Role is not null)
+            user.Role = request.Role.ToString();
+
+        if (request.IsActive is not null)
+            user.IsActive = request.IsActive.Value;
 
         _userRepository.Update(user);
+
         await _userRepository.SaveChangesAsync(cancellationToken);
 
-        return _mapper.Map<UserDto>(user);
+        return user.Adapt<UserDto>();
     }
-
+    
     public async Task DeleteUserAsync(int id, CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.GetByIdAsync(id, cancellationToken)

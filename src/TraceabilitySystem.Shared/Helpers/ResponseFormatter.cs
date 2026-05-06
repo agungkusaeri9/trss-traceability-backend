@@ -37,7 +37,7 @@ public static class ResponseFormatter
                 page = pagedResult.Page,
                 limit = pagedResult.PageSize,
                 total = pagedResult.TotalCount,
-                total_page = pagedResult.TotalPages
+                totalPage = pagedResult.TotalPages
             }
         })
         {

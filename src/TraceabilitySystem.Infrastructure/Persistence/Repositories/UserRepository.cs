@@ -12,14 +12,15 @@ public class UserRepository : BaseRepository<User>, IUserRepository
         => await _dbSet.FirstOrDefaultAsync(u => u.Username == Username, cancellationToken);
 
     public Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(
-        int page, int pageSize, string? searchTerm = null, CancellationToken cancellationToken = default)
+        int page, int pageSize, string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default)
     {
         return GetPagedAsync(
             page,
             pageSize,
-            predicate: u => string.IsNullOrWhiteSpace(searchTerm)
+            predicate: u => (string.IsNullOrEmpty(searchTerm)
                 || u.Name.Contains(searchTerm)
-                || u.Username.Contains(searchTerm),
+                || u.Username.Contains(searchTerm))
+                && (!isActive.HasValue || u.IsActive == isActive.Value),
             orderBy: q => q.OrderByDescending(u => u.CreatedAt),
             cancellationToken: cancellationToken);
     }

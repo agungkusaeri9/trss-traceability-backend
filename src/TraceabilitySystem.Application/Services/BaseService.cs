@@ -1,4 +1,4 @@
-using AutoMapper;
+using Mapster;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
@@ -9,12 +9,10 @@ namespace TraceabilitySystem.Application.Services;
 public abstract class BaseService<TEntity, TDto> : IBaseService<TEntity, TDto> where TEntity : class
 {
     protected readonly IRepository<TEntity> _repository;
-    protected readonly IMapper _mapper;
 
-    protected BaseService(IRepository<TEntity> repository, IMapper mapper)
+    protected BaseService(IRepository<TEntity> repository)
     {
         _repository = repository;
-        _mapper = mapper;
     }
 
     public virtual async Task<PagedResult<TDto>> GetPagedAsync(
@@ -24,7 +22,7 @@ public abstract class BaseService<TEntity, TDto> : IBaseService<TEntity, TDto> w
 
         return new PagedResult<TDto>
         {
-            Items = _mapper.Map<IEnumerable<TDto>>(items),
+            Items = items.Adapt<IEnumerable<TDto>>(),
             TotalCount = totalCount,
             Page = page,
             PageSize = pageSize
@@ -36,7 +34,7 @@ public abstract class BaseService<TEntity, TDto> : IBaseService<TEntity, TDto> w
         var entity = await _repository.GetByIdAsync(id, cancellationToken)
             ?? throw new NotFoundException(typeof(TEntity).Name, id);
 
-        return _mapper.Map<TDto>(entity);
+        return entity.Adapt<TDto>();
     }
 
     public virtual async Task DeleteAsync(int id, CancellationToken cancellationToken = default)

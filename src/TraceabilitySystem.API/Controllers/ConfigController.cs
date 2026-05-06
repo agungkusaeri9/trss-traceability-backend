@@ -13,11 +13,13 @@ public class ConfigController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IUserRepository _userRepository;
+    private readonly IPartService _partService;
 
-    public ConfigController(IAuthService authService, IUserRepository userRepository)
+    public ConfigController(IAuthService authService, IUserRepository userRepository, IPartService partService)
     {
         _authService = authService;
         _userRepository = userRepository;
+        _partService = partService;
     }
 
     /// <summary>Seed a dummy admin user.</summary>
@@ -39,6 +41,7 @@ public class ConfigController : ControllerBase
         {
             Name = "admin",
             Username = "admin",
+            Role = "admin",
             Password = "password",
             ConfirmPassword = "password"
         };
@@ -65,6 +68,7 @@ public class ConfigController : ControllerBase
                 {
                     Name = $"Dummy User {i}",
                     Username = username,
+                    Role = "user",
                     Password = "password",
                     ConfirmPassword = "password"
                 };
@@ -75,5 +79,38 @@ public class ConfigController : ControllerBase
         }
 
         return ResponseFormatter.Success(message: $"{createdCount} dummy users seeded successfully.");
+    }
+
+    /// <summary>Seed 100 dummy parts.</summary>
+    [HttpPost("seed-parts")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedParts(CancellationToken cancellationToken)
+    {
+        int createdCount = 0;
+        
+        for (int i = 1; i <= 100; i++)
+        {
+            var number = $"PN-{i:D4}";
+            
+            try
+            {
+                var request = new TraceabilitySystem.Application.DTOs.Part.CreatePartRequestDto
+                {
+                    Number = number,
+                    Name = $"Sample Part {i}",
+                    Description = $"This is an auto-generated sample description for part {i}."
+                };
+                
+                await _partService.CreatePartAsync(request, cancellationToken);
+                createdCount++;
+            }
+            catch (TraceabilitySystem.Shared.Exceptions.AppException)
+            {
+                // Number is already registered, skip
+                continue;
+            }
+        }
+
+        return ResponseFormatter.Success(message: $"{createdCount} dummy parts seeded successfully.");
     }
 }

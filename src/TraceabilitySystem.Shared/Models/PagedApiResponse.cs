@@ -37,6 +37,6 @@ public class PaginationMetadata
     public int Total { get; set; }
 
     [JsonPropertyOrder(4)]
-    [JsonPropertyName("total_page")]
+    [JsonPropertyName("totalPage")]
     public int TotalPage { get; set; }
 }

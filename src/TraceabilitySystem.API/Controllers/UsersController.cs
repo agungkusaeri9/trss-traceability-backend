@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.User;
+using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
@@ -24,12 +25,12 @@ public class UsersController : ControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(PagedApiResponse<UserDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUsers(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10,
+        [FromQuery] PaginationDto pagination,
         [FromQuery] string? search = null,
+        [FromQuery] bool? isActive = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await _userService.GetUsersAsync(page, pageSize, search, cancellationToken);
+        var result = await _userService.GetUsersAsync(pagination.Page, pagination.Limit, search, isActive, cancellationToken);
         return ResponseFormatter.PagedSuccess(result);
     }
 
@@ -41,7 +42,7 @@ public class UsersController : ControllerBase
         int id, CancellationToken cancellationToken)
     {
         var result = await _userService.GetUserByIdAsync(id, cancellationToken);
-        return ResponseFormatter.Success(result);
+        return ResponseFormatter.Success(result,"User retrived successfully.");
     }
 
     /// <summary>Create a new user. (Admin only)</summary>
@@ -70,13 +71,13 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>Soft-delete a user. (Admin only)</summary>
-    [HttpDelete("{id:int}")]
-    // [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)
-    {
-        await _userService.DeleteUserAsync(id, cancellationToken);
-        return ResponseFormatter.Success(message: "User deleted successfully.");
-    }
+    // [HttpDelete("{id:int}")]
+    // // [Authorize(Roles = "Admin")]
+    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    // public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)
+    // {
+    //     await _userService.DeleteUserAsync(id, cancellationToken);
+    //     return ResponseFormatter.Success(message: "User deleted successfully.");
+    // }
 }

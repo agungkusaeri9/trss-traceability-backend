@@ -1,6 +1,8 @@
-﻿namespace TraceabilitySystem.Domain.Interfaces;
+﻿using TraceabilitySystem.Domain.Entities;
 
-public class IPartRepository
+namespace TraceabilitySystem.Domain.Interfaces;
+
+public interface IPartRepository : IRepository<Part>
 {
     
 }
