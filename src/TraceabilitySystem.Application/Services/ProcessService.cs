@@ -11,10 +11,14 @@ namespace TraceabilitySystem.Application.Services;
 public class ProcessService : BaseService<Process, ProcessDto>, IProcessService
 {
     private readonly IProcessRepository _processRepository;
+    private readonly IParameterRepository _parameterRepository;
 
-    public ProcessService(IProcessRepository repository) : base(repository)
+    public ProcessService(
+        IProcessRepository repository,
+        IParameterRepository parameterRepository) : base(repository)
     {
         _processRepository = repository;
+        _parameterRepository = parameterRepository;
     }
 
     public async Task<PagedResult<ProcessDto>> GetProcessesAsync(
@@ -105,5 +109,51 @@ public class ProcessService : BaseService<Process, ProcessDto>, IProcessService
     public async Task DeleteProcessAsync(int id, CancellationToken cancellationToken = default)
     {
         await DeleteAsync(id, cancellationToken);
+    }
+
+    public async Task AssignParametersAsync(int id, AdjustProcessParametersRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var process = await _processRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Process), id);
+
+        foreach (var paramId in request.ParameterIds)
+        {
+            var paramExists = await _parameterRepository.ExistsAsync(p => p.Id == paramId, cancellationToken);
+            if (!paramExists)
+            {
+                throw new NotFoundException(nameof(Parameter), paramId);
+            }
+
+            var alreadyExists = process.ProcessParameters.Any(pp => pp.ParameterId == paramId);
+            if (!alreadyExists)
+            {
+                process.ProcessParameters.Add(new ProcessParameter
+                {
+                    ProcessId = id,
+                    ParameterId = paramId
+                });
+            }
+        }
+
+        _processRepository.Update(process);
+        await _processRepository.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task RemoveParametersAsync(int id, AdjustProcessParametersRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var process = await _processRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Process), id);
+
+        var itemsToRemove = process.ProcessParameters
+            .Where(pp => request.ParameterIds.Contains(pp.ParameterId))
+            .ToList();
+
+        foreach (var item in itemsToRemove)
+        {
+            process.ProcessParameters.Remove(item);
+        }
+
+        _processRepository.Update(process);
+        await _processRepository.SaveChangesAsync(cancellationToken);
     }
 }

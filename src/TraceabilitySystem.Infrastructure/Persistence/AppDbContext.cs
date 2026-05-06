@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Part> Parts => Set<Part>();
     public DbSet<Process> Processes => Set<Process>();
     public DbSet<Parameter> Parameters => Set<Parameter>();
+    public DbSet<ProcessParameter> ProcessParameters => Set<ProcessParameter>();
 
     public static bool IsInMemory { get; private set; }
 

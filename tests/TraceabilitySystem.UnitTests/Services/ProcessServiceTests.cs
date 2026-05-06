@@ -17,12 +17,14 @@ namespace TraceabilitySystem.UnitTests.Services;
 public class ProcessServiceTests
 {
     private readonly Mock<IProcessRepository> _processRepositoryMock;
+    private readonly Mock<IParameterRepository> _parameterRepositoryMock;
     private readonly ProcessService _processService;
 
     public ProcessServiceTests()
     {
         _processRepositoryMock = new Mock<IProcessRepository>();
-        _processService = new ProcessService(_processRepositoryMock.Object);
+        _parameterRepositoryMock = new Mock<IParameterRepository>();
+        _processService = new ProcessService(_processRepositoryMock.Object, _parameterRepositoryMock.Object);
     }
 
     [Fact]

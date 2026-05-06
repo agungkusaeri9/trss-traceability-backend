@@ -12,4 +12,6 @@ public class Process
     
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? UpdatedAt { get; set; }
+
+    public ICollection<ProcessParameter> ProcessParameters { get; set; } = new List<ProcessParameter>();
 }

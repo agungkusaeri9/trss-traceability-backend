@@ -181,4 +181,50 @@ public class ProcessesControllerTests : IClassFixture<CustomWebApplicationFactor
         Assert.True(apiResponse.Success);
         Assert.Equal("Process deactivated successfully.", apiResponse.Message);
     }
+
+    [Fact]
+    public async Task AssignAndRemoveParameters_ShouldSucceed_WhenValid()
+    {
+        // 1. Create a parameter
+        var paramRequest = new { Code = "PRM-TEST-M2M", Name = "M2M Test Param" };
+        var paramResponse = await _client.PostAsJsonAsync("/api/parameters", paramRequest);
+        Assert.Equal(HttpStatusCode.Created, paramResponse.StatusCode);
+        var createdParam = await paramResponse.Content.ReadFromJsonAsync<ApiResponse<TraceabilitySystem.Application.DTOs.Parameter.ParameterDto>>();
+
+        // 2. Create a process
+        var procRequest = new CreateProcessRequestDto { Code = "PRC-TEST-M2M", Name = "M2M Test Process" };
+        var procResponse = await _client.PostAsJsonAsync("/api/processes", procRequest);
+        Assert.Equal(HttpStatusCode.Created, procResponse.StatusCode);
+        var createdProc = await procResponse.Content.ReadFromJsonAsync<ApiResponse<ProcessDto>>();
+
+        // 3. Assign Parameter to Process
+        var assignRequest = new AdjustProcessParametersRequestDto
+        {
+            ParameterIds = new System.Collections.Generic.List<int> { createdParam!.Data!.Id }
+        };
+        var assignResponse = await _client.PostAsJsonAsync($"/api/processes/{createdProc!.Data!.Id}/parameters", assignRequest);
+        Assert.Equal(HttpStatusCode.OK, assignResponse.StatusCode);
+
+        // 4. Fetch Process and verify parameter exists
+        var fetchResponse = await _client.GetAsync($"/api/processes/{createdProc!.Data!.Id}");
+        Assert.Equal(HttpStatusCode.OK, fetchResponse.StatusCode);
+        var fetchedProc = await fetchResponse.Content.ReadFromJsonAsync<ApiResponse<ProcessDto>>();
+        Assert.Single(fetchedProc!.Data!.Parameters);
+        Assert.Equal("PRM-TEST-M2M", fetchedProc.Data.Parameters[0].Code);
+
+        // 5. Remove Parameter from Process
+        var requestMessage = new HttpRequestMessage
+        {
+            Content = JsonContent.Create(assignRequest),
+            Method = HttpMethod.Delete,
+            RequestUri = new System.Uri(_client.BaseAddress ?? new System.Uri("http://localhost"), $"/api/processes/{createdProc.Data.Id}/parameters")
+        };
+        var removeResult = await _client.SendAsync(requestMessage);
+        Assert.Equal(HttpStatusCode.OK, removeResult.StatusCode);
+
+        // 6. Fetch Process and verify parameter is deleted
+        var finalFetchResponse = await _client.GetAsync($"/api/processes/{createdProc.Data.Id}");
+        var finalFetchedProc = await finalFetchResponse.Content.ReadFromJsonAsync<ApiResponse<ProcessDto>>();
+        Assert.Empty(finalFetchedProc!.Data!.Parameters);
+    }
 }

@@ -11,4 +11,6 @@ public interface IProcessService
     Task<ProcessDto> UpdateProcessAsync(int id, UpdateProcessRequestDto request, CancellationToken cancellationToken = default);
     Task ChangeStatusAsync(int id, bool isActive, CancellationToken cancellationToken = default);
     Task DeleteProcessAsync(int id, CancellationToken cancellationToken = default);
+    Task AssignParametersAsync(int id, AdjustProcessParametersRequestDto request, CancellationToken cancellationToken = default);
+    Task RemoveParametersAsync(int id, AdjustProcessParametersRequestDto request, CancellationToken cancellationToken = default);
 }

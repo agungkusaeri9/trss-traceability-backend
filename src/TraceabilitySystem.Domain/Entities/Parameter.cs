@@ -11,4 +11,6 @@ public class Parameter
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+
+    public ICollection<ProcessParameter> ProcessParameters { get; set; } = new List<ProcessParameter>();
 }

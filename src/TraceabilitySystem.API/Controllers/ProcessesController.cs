@@ -82,4 +82,24 @@ public class ProcessesController : ControllerBase
         await _processService.DeleteProcessAsync(id, cancellationToken);
         return ResponseFormatter.Success(message: "Process deleted successfully.");
     }
+
+    [HttpPost("{id:int}/parameters")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AssignParameters(
+        int id, [FromBody] AdjustProcessParametersRequestDto request, CancellationToken cancellationToken)
+    {
+        await _processService.AssignParametersAsync(id, request, cancellationToken);
+        return ResponseFormatter.Success(message: "Parameters successfully assigned to the process.");
+    }
+
+    [HttpDelete("{id:int}/parameters")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveParameters(
+        int id, [FromBody] AdjustProcessParametersRequestDto request, CancellationToken cancellationToken)
+    {
+        await _processService.RemoveParametersAsync(id, request, cancellationToken);
+        return ResponseFormatter.Success(message: "Parameters successfully removed from the process.");
+    }
 }
