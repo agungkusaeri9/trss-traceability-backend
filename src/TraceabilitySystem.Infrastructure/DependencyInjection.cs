@@ -18,8 +18,11 @@ public static class DependencyInjection
         // Database
         services.AddDbContext<AppDbContext>(options =>
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
-            options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+            if (configuration["UseInMemoryDatabase"] != "true")
+            {
+                var connectionString = configuration.GetConnectionString("DefaultConnection");
+                options.UseMySql(connectionString, new MySqlServerVersion(new System.Version(8, 0, 21)));
+            }
         });
 
         // JWT Settings

@@ -13,9 +13,12 @@ public class PartConfiguration : IEntityTypeConfiguration<Part>
         builder.Property(u => u.Name).IsRequired().IsUnicode().HasMaxLength(50);
         builder.Property(u => u.Description).HasMaxLength(255).IsRequired(false);
         builder.Property(u => u.IsActive).HasDefaultValue(true);
-        builder.Property(u => u.CreatedAt)
-            .HasColumnType("timestamp")
-            .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        if (!AppDbContext.IsInMemory)
+        {
+            builder.Property(u => u.CreatedAt)
+                .HasColumnType("timestamp")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+        }
         builder.Property(u => u.UpdatedAt).IsRequired(false);
     }
     

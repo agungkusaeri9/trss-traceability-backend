@@ -24,6 +24,7 @@ public class ExceptionMiddleware
         }
         catch (Exception ex)
         {
+            System.Console.Error.WriteLine($"TEST_EXCEPTION: {ex}");
             _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
             await HandleExceptionAsync(context, ex);
         }

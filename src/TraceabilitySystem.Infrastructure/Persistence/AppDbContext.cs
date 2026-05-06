@@ -11,40 +11,46 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Part> Parts => Set<Part>();
 
+    public static bool IsInMemory { get; private set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        IsInMemory = Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory";
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        if (Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")
         {
-            // Table names to lowercase snake_case
-            var tableName = entity.GetTableName();
-            if (tableName != null) entity.SetTableName(ToSnakeCase(tableName));
-
-            // Column names to lowercase snake_case
-            foreach (var property in entity.GetProperties())
+            foreach (var entity in modelBuilder.Model.GetEntityTypes())
             {
-                property.SetColumnName(ToSnakeCase(property.Name));
-            }
+                // Table names to lowercase snake_case
+                var tableName = entity.GetTableName();
+                if (tableName != null) entity.SetTableName(ToSnakeCase(tableName));
 
-            // Keys and Indexes
-            foreach (var key in entity.GetKeys())
-            {
-                var keyName = key.GetName();
-                if (keyName != null) key.SetName(ToSnakeCase(keyName));
-            }
+                // Column names to lowercase snake_case
+                foreach (var property in entity.GetProperties())
+                {
+                    property.SetColumnName(ToSnakeCase(property.Name));
+                }
 
-            foreach (var index in entity.GetIndexes())
-            {
-                var indexName = index.GetDatabaseName();
-                if (indexName != null) index.SetDatabaseName(ToSnakeCase(indexName));
-            }
+                // Keys and Indexes
+                foreach (var key in entity.GetKeys())
+                {
+                    var keyName = key.GetName();
+                    if (keyName != null) key.SetName(ToSnakeCase(keyName));
+                }
 
-            foreach (var foreignKey in entity.GetForeignKeys())
-            {
-                var constraintName = foreignKey.GetConstraintName();
-                if (constraintName != null) foreignKey.SetConstraintName(ToSnakeCase(constraintName));
+                foreach (var index in entity.GetIndexes())
+                {
+                    var indexName = index.GetDatabaseName();
+                    if (indexName != null) index.SetDatabaseName(ToSnakeCase(indexName));
+                }
+
+                foreach (var foreignKey in entity.GetForeignKeys())
+                {
+                    var constraintName = foreignKey.GetConstraintName();
+                    if (constraintName != null) foreignKey.SetConstraintName(ToSnakeCase(constraintName));
+                }
             }
         }
     }

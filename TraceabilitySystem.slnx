@@ -6,4 +6,8 @@
     <Project Path="src/TraceabilitySystem.Infrastructure/TraceabilitySystem.Infrastructure.csproj" />
     <Project Path="src/TraceabilitySystem.Shared/TraceabilitySystem.Shared.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TraceabilitySystem.UnitTests/TraceabilitySystem.UnitTests.csproj" />
+    <Project Path="tests/TraceabilitySystem.IntegrationTests/TraceabilitySystem.IntegrationTests.csproj" />
+  </Folder>
 </Solution>
