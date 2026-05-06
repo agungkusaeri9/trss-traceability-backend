@@ -98,9 +98,13 @@ public class PartService : BaseService<Part, PartDto>, IPartService
         await _partRepository.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeletePartAsync(int id, CancellationToken cancellationToken = default)
+    {
+        await DeleteAsync(id, cancellationToken);
+    }
+
     private Task<bool> CheckByNumberAsync(string number, CancellationToken cancellationToken = default)
     {
         return _partRepository.ExistsAsync(p => p.Number == number, cancellationToken);
     }
-    
 }

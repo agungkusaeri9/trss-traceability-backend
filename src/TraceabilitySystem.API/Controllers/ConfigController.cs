@@ -5,6 +5,8 @@ using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
 
+using TraceabilitySystem.Domain.Entities;
+
 namespace TraceabilitySystem.API.Controllers;
 
 [ApiController]
@@ -14,12 +16,21 @@ public class ConfigController : ControllerBase
     private readonly IAuthService _authService;
     private readonly IUserRepository _userRepository;
     private readonly IPartService _partService;
+    private readonly IProcessRepository _processRepository;
+    private readonly IParameterRepository _parameterRepository;
 
-    public ConfigController(IAuthService authService, IUserRepository userRepository, IPartService partService)
+    public ConfigController(
+        IAuthService authService,
+        IUserRepository userRepository,
+        IPartService partService,
+        IProcessRepository processRepository,
+        IParameterRepository parameterRepository)
     {
         _authService = authService;
         _userRepository = userRepository;
         _partService = partService;
+        _processRepository = processRepository;
+        _parameterRepository = parameterRepository;
     }
 
     /// <summary>Seed a dummy admin user.</summary>
@@ -112,5 +123,130 @@ public class ConfigController : ControllerBase
         }
 
         return ResponseFormatter.Success(message: $"{createdCount} dummy parts seeded successfully.");
+    }
+
+    /// <summary>Seed 10 dummy processes.</summary>
+    [HttpPost("seed-processes")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedProcesses(CancellationToken cancellationToken)
+    {
+        int createdCount = 0;
+        var processNames = new[] { "Blanking", "Piercing", "Bending", "Welding", "Painting", "Assembly", "Quality Control", "Packaging", "Shipping", "Stamping" };
+        
+        for (int i = 0; i < 10; i++)
+        {
+            var code = $"PRC-{(i + 1):D3}";
+            var exists = await _processRepository.ExistsAsync(p => p.Code == code, cancellationToken);
+            
+            if (!exists)
+            {
+                var process = new Process
+                {
+                    Code = code,
+                    Name = processNames[i],
+                    Description = $"Auto-generated process for {processNames[i]}.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                
+                await _processRepository.AddAsync(process, cancellationToken);
+                createdCount++;
+            }
+        }
+
+        if (createdCount > 0)
+        {
+            await _processRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return ResponseFormatter.Success(message: $"{createdCount} dummy processes seeded successfully.");
+    }
+
+    /// <summary>Seed 50 dummy parameters for radiator manufacturing.</summary>
+    [HttpPost("seed-parameters")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedParameters(CancellationToken cancellationToken)
+    {
+        int createdCount = 0;
+        var dummyParams = new[]
+        {
+            new { Code = "PRM-001", Name = "Welding Temperature", Desc = "Tube Mill welding temperature for core tubes." },
+            new { Code = "PRM-002", Name = "Oxygen Level", Desc = "Brazing furnace oxygen level to prevent oxidation." },
+            new { Code = "PRM-003", Name = "Furnace Temperature Zone 1", Desc = "Brazing furnace heating zone 1 temperature." },
+            new { Code = "PRM-004", Name = "Furnace Temperature Zone 2", Desc = "Brazing furnace heating zone 2 temperature." },
+            new { Code = "PRM-005", Name = "Brazing Belt Speed", Desc = "Speed of core transport through brazing furnace." },
+            new { Code = "PRM-006", Name = "Crimping Force", Desc = "Clinching/crimping force for tank-to-core assembly." },
+            new { Code = "PRM-007", Name = "Crimping Depth", Desc = "Clinching/crimping depth measurement." },
+            new { Code = "PRM-008", Name = "Test Air Pressure", Desc = "Radiator air pressure used in leakage test." },
+            new { Code = "PRM-009", Name = "Leak Rate", Desc = "Radiator leak rate measured in leakage test." },
+            new { Code = "PRM-010", Name = "Pressing Force", Desc = "Stamping press machine force for header plates." },
+            new { Code = "PRM-011", Name = "Fin Height", Desc = "Height of the generated radiator fin." },
+            new { Code = "PRM-012", Name = "Fin Pitch", Desc = "Fin pitch distance on fin mill." },
+            new { Code = "PRM-013", Name = "Fin Width", Desc = "Measured width of the radiator fin." },
+            new { Code = "PRM-014", Name = "Fin Forming Lubricant Flow", Desc = "Flow rate of fin forming lubricant oil." },
+            new { Code = "PRM-015", Name = "Fin Cutter Speed", Desc = "Cutter rotary speed on fin mill." },
+            new { Code = "PRM-016", Name = "Tube Thickness", Desc = "Wall thickness of radiator tubes." },
+            new { Code = "PRM-017", Name = "Tube Width", Desc = "Width of formed tube mill profile." },
+            new { Code = "PRM-018", Name = "Welding Current", Desc = "High frequency induction welding current." },
+            new { Code = "PRM-019", Name = "Welding Voltage", Desc = "High frequency induction welding voltage." },
+            new { Code = "PRM-020", Name = "Sizing Roller Pressure", Desc = "Pressure applied by tube sizing rollers." },
+            new { Code = "PRM-021", Name = "Pre-heating Zone Temp", Desc = "Furnace pre-heating chamber temperature." },
+            new { Code = "PRM-022", Name = "Dew Point Level", Desc = "Dew point measurement inside brazing chamber." },
+            new { Code = "PRM-023", Name = "Nitrogen Gas Flow Rate", Desc = "Nitrogen gas flow rate inside brazing furnace." },
+            new { Code = "PRM-024", Name = "Clinching Speed", Desc = "Clinching/crimping tool feed speed." },
+            new { Code = "PRM-025", Name = "Gasket Compression Rate", Desc = "Compression percentage of tank sealing gasket." },
+            new { Code = "PRM-026", Name = "Chamber Temperature", Desc = "Testing chamber ambient temperature." },
+            new { Code = "PRM-027", Name = "Test Cycle Time", Desc = "Total time taken for leakage test cycle." },
+            new { Code = "PRM-028", Name = "Core Assembly Press Force", Desc = "Clamping force of core assembly fixture." },
+            new { Code = "PRM-029", Name = "Core Height Deviation", Desc = "Deviation from nominal radiator core height." },
+            new { Code = "PRM-030", Name = "Core Width Deviation", Desc = "Deviation from nominal radiator core width." },
+            new { Code = "PRM-031", Name = "Sheet Metal Thickness", Desc = "Thickness of stamping sheet metal coils." },
+            new { Code = "PRM-032", Name = "Die Cushion Pressure", Desc = "Press cushion pressure on stamping machine." },
+            new { Code = "PRM-033", Name = "Lubricant Viscosity", Desc = "Viscosity of drawing oil for stamping dies." },
+            new { Code = "PRM-034", Name = "Press Stroke Speed", Desc = "Stamping press machine stroke rate." },
+            new { Code = "PRM-035", Name = "Header Plate Pitch", Desc = "Pitch of tube slots on header plate." },
+            new { Code = "PRM-036", Name = "Side Plate Tension Force", Desc = "Tension force applied to side plates during assembly." },
+            new { Code = "PRM-037", Name = "Brazing Paste Volume", Desc = "Volume of brazing paste dispensed per core." },
+            new { Code = "PRM-038", Name = "Flux Spray Coverage", Desc = "Percentage of flux coverage on radiator core." },
+            new { Code = "PRM-039", Name = "Flux Concentration", Desc = "Concentration of active flux solution." },
+            new { Code = "PRM-040", Name = "Drying Oven Temp", Desc = "Temperature of drying oven post flux application." },
+            new { Code = "PRM-041", Name = "Solder Melt Temp", Desc = "Melting point of solder alloy." },
+            new { Code = "PRM-042", Name = "Solder Bath Level", Desc = "Level of molten solder in dip tank." },
+            new { Code = "PRM-043", Name = "Air Leak Test Stabilization Time", Desc = "Stabilization delay during air leak test." },
+            new { Code = "PRM-044", Name = "Water Bath Immersion Time", Desc = "Immersion duration for bubble leak test." },
+            new { Code = "PRM-045", Name = "Burst Pressure", Desc = "Maximum burst pressure tolerance limit." },
+            new { Code = "PRM-046", Name = "Fan Assembly Torque", Desc = "Torque applied on cooling fan bolts." },
+            new { Code = "PRM-047", Name = "Shroud Attachment Clip Force", Desc = "Clip lock force of fan shroud." },
+            new { Code = "PRM-048", Name = "Radiator Weight", Desc = "Total empty dry weight of the radiator." },
+            new { Code = "PRM-049", Name = "Paint Coating Thickness", Desc = "Dry film thickness of protective paint." },
+            new { Code = "PRM-050", Name = "Final Inspection Visual Score", Desc = "Visual quality score from automated vision system." }
+        };
+        
+        foreach (var dp in dummyParams)
+        {
+            var exists = await _parameterRepository.ExistsAsync(p => p.Code == dp.Code, cancellationToken);
+            
+            if (!exists)
+            {
+                var parameter = new Parameter
+                {
+                    Code = dp.Code,
+                    Name = dp.Name,
+                    Description = dp.Desc,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                
+                await _parameterRepository.AddAsync(parameter, cancellationToken);
+                createdCount++;
+            }
+        }
+
+        if (createdCount > 0)
+        {
+            await _parameterRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return ResponseFormatter.Success(message: $"{createdCount} radiator manufacturing dummy parameters seeded successfully.");
     }
 }

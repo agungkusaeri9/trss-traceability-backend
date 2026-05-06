@@ -72,4 +72,13 @@ public class PartsController :  ControllerBase
         var statusMsg = request.IsActive ? "activated" : "deactivated";
         return ResponseFormatter.Success(message: $"Part {statusMsg} successfully.");
     }
+
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeletePart(int id, CancellationToken cancellationToken)
+    {
+        await _partService.DeletePartAsync(id, cancellationToken);
+        return ResponseFormatter.Success(message: "Part deleted successfully.");
+    }
 }

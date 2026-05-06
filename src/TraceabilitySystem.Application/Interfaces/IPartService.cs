@@ -10,4 +10,5 @@ public interface IPartService
     Task<PartDto> CreatePartAsync(CreatePartRequestDto request, CancellationToken cancellationToken = default);
     Task<PartDto> UpdatePartAsync(int id, UpdatePartRequestDto request, CancellationToken cancellationToken = default);
     Task ChangeStatusAsync(int id, bool isActive, CancellationToken cancellationToken = default);
+    Task DeletePartAsync(int id, CancellationToken cancellationToken = default);
 }

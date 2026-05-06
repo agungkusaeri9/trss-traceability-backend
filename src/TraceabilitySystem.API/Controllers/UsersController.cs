@@ -70,14 +70,14 @@ public class UsersController : ControllerBase
         return ResponseFormatter.Success(result, "User updated successfully.");
     }
 
-    /// <summary>Soft-delete a user. (Admin only)</summary>
-    // [HttpDelete("{id:int}")]
-    // // [Authorize(Roles = "Admin")]
-    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    // public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)
-    // {
-    //     await _userService.DeleteUserAsync(id, cancellationToken);
-    //     return ResponseFormatter.Success(message: "User deleted successfully.");
-    // }
+    /// <summary>Delete a user. (Admin only)</summary>
+    [HttpDelete("{id:int}")]
+    // [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)
+    {
+        await _userService.DeleteUserAsync(id, cancellationToken);
+        return ResponseFormatter.Success(message: "User deleted successfully.");
+    }
 }
