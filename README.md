@@ -39,6 +39,11 @@ documentation/
 | `GET` | `/api/dashboard/stats` | Data chart (Pie OK/NG, Bar Top Parts, Trend 7 Hari) |
 | `GET` | `/api/dashboard/recent-logs` | Daftar log produksi terbaru |
 
+### Real-time Monitoring (WebSockets)
+| Type | Hub Endpoint | Event Name | Deskripsi |
+| :--- | :--- | :--- | :--- |
+| `SignalR` | `/hubs/printer` | `PrinterStatusUpdated` | Broadcast daftar printer yang **Offline** (setiap 10 detik) |
+
 ### Process Log
 | Method | Endpoint | Deskripsi |
 | :--- | :--- | :--- |

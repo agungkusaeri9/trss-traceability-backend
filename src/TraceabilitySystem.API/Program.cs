@@ -1,7 +1,9 @@
 using Serilog;
 using System.Text.Json.Serialization;
+using TraceabilitySystem.API.BackgroundServices;
 using TraceabilitySystem.API.Extensions;
 using TraceabilitySystem.API.Filters;
+using TraceabilitySystem.API.Hubs;
 using TraceabilitySystem.API.Middleware;
 using TraceabilitySystem.Application;
 using TraceabilitySystem.Infrastructure;
@@ -65,6 +67,22 @@ try
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
+    // ── CORS ───────────────────────────────────────────────────────────────
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .SetIsOriginAllowed(_ => true) // Mengizinkan semua origin
+                  .AllowCredentials();
+        });
+    });
+
+    // ── SignalR ────────────────────────────────────────────────────────────
+    builder.Services.AddSignalR();
+    builder.Services.AddHostedService<PrinterMonitorService>();
+
     // ── Build ──────────────────────────────────────────────────────────────
     var app = builder.Build();
 
@@ -86,10 +104,15 @@ try
     }
 
     app.UseHttpsRedirection();
+    app.UseStaticFiles(); // Tambahkan ini jika belum ada
+    app.UseCors("AllowAll"); // Aktifkan CORS di sini
     app.UseSerilogRequestLogging();
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
+
+    // ── SignalR Hubs ───────────────────────────────────────────────────────
+    app.MapHub<PrinterHub>("/hubs/printer");
 
     await app.RunAsync();
 }
