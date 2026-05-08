@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IPrinterService, PrinterService>();
         services.AddScoped<IAppConfigService, AppConfigService>();
         services.AddScoped<IProcessLogService, ProcessLogService>();
+        services.AddScoped<IDashboardService, DashboardService>();
 
         return services;
     }

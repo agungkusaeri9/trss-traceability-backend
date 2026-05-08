@@ -692,6 +692,55 @@ public class ConfigController : ControllerBase
             createdCount++;
         }
 
+        // --- SPECIAL SCENARIO: REJECT & REWORK (ISS-00027) ---
+        var specialIssueNo = "ISS-00027";
+        var specialProcess = processList.FirstOrDefault(p => p.Name.Contains("Leak")) ?? processList[0];
+
+        // 1. NG LOG (REPAIR/REJECT)
+        var ngLog = new ProcessLog
+        {
+            IssueNo = specialIssueNo + "-R", // Penanda Repair
+            IsActive = false,
+            CreatedAt = DateTime.Now.AddHours(-5)
+        };
+        foreach (var procParam in specialProcess.ProcessParameters)
+        {
+            var detail = new ProcessLogDetail
+            {
+                ProcessId = specialProcess.Id,
+                ParameterId = procParam.ParameterId,
+                CreatedAt = ngLog.CreatedAt.AddMinutes(1),
+                ValueBoolean = false, // Force NG
+                ValueNumber = 999.99m, // Force Out of range
+                ValueText = "REJECTED: Pressure drop detected"
+            };
+            ngLog.Details.Add(detail);
+        }
+        await _processLogRepository.AddAsync(ngLog, cancellationToken);
+
+        // 2. OK LOG (AFTER REWORK/CHECK)
+        var okLog = new ProcessLog
+        {
+            IssueNo = specialIssueNo,
+            IsActive = true,
+            CreatedAt = DateTime.Now.AddHours(-2)
+        };
+        foreach (var procParam in specialProcess.ProcessParameters)
+        {
+            var detail = new ProcessLogDetail
+            {
+                ProcessId = specialProcess.Id,
+                ParameterId = procParam.ParameterId,
+                CreatedAt = okLog.CreatedAt.AddMinutes(1),
+                ValueBoolean = true, // Force OK
+                ValueNumber = 12.5m, // Normal value
+                ValueText = "RE-CHECKED: OK"
+            };
+            okLog.Details.Add(detail);
+        }
+        await _processLogRepository.AddAsync(okLog, cancellationToken);
+        createdCount += 2;
+
         await _processLogRepository.SaveChangesAsync(cancellationToken);
 
         return ResponseFormatter.Success(message: $"Successfully seeded {createdCount} dummy process logs with grouped parameters.");
