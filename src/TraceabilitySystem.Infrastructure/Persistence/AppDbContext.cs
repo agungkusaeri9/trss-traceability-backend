@@ -17,6 +17,8 @@ public class AppDbContext : DbContext
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<Printer> Printers => Set<Printer>();
     public DbSet<AppConfig> AppConfigs => Set<AppConfig>();
+    public DbSet<ProcessLog> ProcessLogs => Set<ProcessLog>();
+    public DbSet<ProcessLogDetail> ProcessLogDetails => Set<ProcessLogDetail>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -103,6 +105,16 @@ public class AppDbContext : DbContext
             {
                 if (entry.State == EntityState.Added) config.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) config.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is ProcessLog log)
+            {
+                if (entry.State == EntityState.Added) log.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) log.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is ProcessLogDetail detail)
+            {
+                if (entry.State == EntityState.Added) detail.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) detail.UpdatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

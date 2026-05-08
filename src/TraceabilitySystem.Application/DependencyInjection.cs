@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IStockInService, StockInService>();
         services.AddScoped<IPrinterService, PrinterService>();
         services.AddScoped<IAppConfigService, AppConfigService>();
+        services.AddScoped<IProcessLogService, ProcessLogService>();
 
         return services;
     }

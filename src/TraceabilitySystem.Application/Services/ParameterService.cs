@@ -56,7 +56,14 @@ public class ParameterService : BaseService<Parameter, ParameterDto>, IParameter
         bool exists = await _parameterRepository.ExistsAsync(p => p.Code == request.Code, cancellationToken);
         if (exists) throw new AppException("Code is already registered.", 409);
 
+        var allowedTypes = new[] { "boolean", "text", "number" };
+        if (!allowedTypes.Contains(request.DataType.ToLower()))
+        {
+            throw new AppException("Invalid DataType. Allowed values are: boolean, text, number.", 400);
+        }
+
         var parameter = request.Adapt<Parameter>();
+        parameter.DataType = request.DataType.ToLower();
         parameter.CreatedAt = DateTime.UtcNow;
 
         await _parameterRepository.AddAsync(parameter, cancellationToken);
@@ -80,6 +87,17 @@ public class ParameterService : BaseService<Parameter, ParameterDto>, IParameter
 
         if (request.Name is not null) parameter.Name = request.Name;
         if (request.Description is not null) parameter.Description = request.Description;
+        
+        if (request.DataType is not null)
+        {
+            var allowedTypes = new[] { "boolean", "text", "number" };
+            if (!allowedTypes.Contains(request.DataType.ToLower()))
+            {
+                throw new AppException("Invalid DataType. Allowed values are: boolean, text, number.", 400);
+            }
+            parameter.DataType = request.DataType.ToLower();
+        }
+
         if (request.IsActive.HasValue) parameter.IsActive = request.IsActive.Value;
 
         parameter.UpdatedAt = DateTime.UtcNow;

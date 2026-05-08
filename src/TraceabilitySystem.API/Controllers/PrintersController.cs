@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.DTOs.Printer;
+using TraceabilitySystem.Application.DTOs.StockIn;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
@@ -69,5 +70,13 @@ public class PrintersController : ControllerBase
     {
         await _printerService.DeletePrinterAsync(id, cancellationToken);
         return ResponseFormatter.Success(message: "Printer deleted successfully.");
+    }
+
+    [HttpPost("test-stockin")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> TestStockInPrint([FromBody] StockInDto stockIn)
+    {
+        await _printerService.PrintLabelStockIn(stockIn);
+        return ResponseFormatter.Success(message: "Stock-In label print triggered. Check terminal for preview.");
     }
 }

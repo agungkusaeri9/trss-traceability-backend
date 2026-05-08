@@ -20,6 +20,10 @@ public class ParameterConfiguration : IEntityTypeConfiguration<Parameter>
         builder.Property(p => p.Description)
             .HasMaxLength(255);
 
+        builder.Property(p => p.DataType)
+            .IsRequired()
+            .HasMaxLength(20);
+
         builder.Property(p => p.IsActive)
             .HasDefaultValue(true);
 

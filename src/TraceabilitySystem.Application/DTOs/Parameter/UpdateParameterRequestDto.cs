@@ -15,4 +15,7 @@ public class UpdateParameterRequestDto
     public string? Description { get; set; }
 
     public bool? IsActive { get; set; }
+
+    [StringLength(20, ErrorMessage = "Data Type cannot exceed 20 characters.")]
+    public string? DataType { get; set; }
 }

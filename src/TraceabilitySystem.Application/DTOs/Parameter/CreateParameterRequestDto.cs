@@ -13,4 +13,8 @@ public class CreateParameterRequestDto
 
     [StringLength(255, ErrorMessage = "Description cannot exceed 255 characters.")]
     public string? Description { get; set; }
+
+    [Required(ErrorMessage = "Data Type is required.")]
+    [StringLength(20, ErrorMessage = "Data Type cannot exceed 20 characters.")]
+    public string DataType { get; set; } = string.Empty;
 }
