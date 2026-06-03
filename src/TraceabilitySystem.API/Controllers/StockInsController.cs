@@ -16,10 +16,12 @@ namespace TraceabilitySystem.API.Controllers;
 public class StockInsController : ControllerBase
 {
     private readonly IStockInService _stockInService;
+    private readonly IPrintService _printService;
 
-    public StockInsController(IStockInService stockInService)
+    public StockInsController(IStockInService stockInService, IPrintService printService)
     {
         _stockInService = stockInService;
+        _printService = printService;
     }
 
     [HttpGet]
@@ -60,5 +62,20 @@ public class StockInsController : ControllerBase
     {
         var result = await _stockInService.CreateStockInAsync(request, cancellationToken);
         return ResponseFormatter.Success(result, "Stock-in created successfully.", StatusCodes.Status201Created);
+    }
+
+    /// <summary>
+    /// Print stock-in label
+    /// </summary>
+    [HttpPost("{id:int}/print")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PrintStockIn(int id, CancellationToken cancellationToken)
+    {
+        var stockIn = await _stockInService.GetStockInByIdAsync(id, cancellationToken);
+
+        await _printService.PrintStockInLabelWithSdkAsync(stockIn);
+
+        return ResponseFormatter.Success(message: "Stock-in label print triggered.");
     }
 }

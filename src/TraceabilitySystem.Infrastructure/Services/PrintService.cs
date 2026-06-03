@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Net.Sockets;
@@ -6,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TraceabilitySystem.Application.DTOs.StockIn;
 using TraceabilitySystem.Application.Interfaces;
-using TraceabilitySystem.Domain.Interfaces;
+using Zebra.Sdk.Comm;
 
 namespace TraceabilitySystem.Infrastructure.Services;
 
@@ -18,44 +19,98 @@ namespace TraceabilitySystem.Infrastructure.Services;
 /// </summary>
 public class PrintService : IPrintService
 {
-    private const string StockInPrinterIp   = "192.168.245.248";
-    private const int    StockInPrinterPort = 9100;
-
-    private readonly IPrinterRepository _printerRepository;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<PrintService> _logger;
+    private readonly IPrinterService _printerService;
 
-    public PrintService(IPrinterRepository printerRepository, ILogger<PrintService> logger)
+    public PrintService(
+        IServiceScopeFactory serviceScopeFactory,
+        ILogger<PrintService> logger,
+        IPrinterService printerService)
     {
-        _printerRepository = printerRepository;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
+        _printerService = printerService;
     }
 
-    public async Task PrintStockInLabelAsync(StockInDto stockIn, int printerId, CancellationToken cancellationToken = default)
+    public async Task PrintStockInLabelAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
     {
-        var printer = await _printerRepository.GetByIdAsync(printerId, cancellationToken);
-        if (printer is null || !printer.IsActive)
+        var printer = await _printerService.GetStockInPrinterAsync(cancellationToken);
+        if (printer is null)
         {
-            _logger.LogWarning("Printer with ID {PrinterId} not found or inactive. Skipping print job.", printerId);
+            _logger.LogWarning("StockIn printer not found. Skipping print job.");
             return;
         }
 
         var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
-        var partNumber  = stockIn.Part?.Number ?? "-";
-        var partName    = stockIn.Part?.Name   ?? "-";
+        var partNumber = stockIn.Part?.Number ?? "-";
+        var partName = stockIn.Part?.Name ?? "-";
 
         var zpl = BuildZplLabelStockIn(
             stockIn.Code, issueNumber, partNumber, partName,
             stockIn.SupplyQty, stockIn.SupplyDate);
 
-        await SendRawTcpAsync(StockInPrinterIp, StockInPrinterPort, zpl, cancellationToken);
+        // Use printer IP and Port from database
+        await SendRawTcpAsync(printer.IpAddress, printer.Port, zpl, cancellationToken);
 
         _logger.LogInformation(
-            "Print job sent for StockIn [{Code}] to StockIn printer at {Ip}:{Port}.",
-            stockIn.Code, StockInPrinterIp, StockInPrinterPort);
-
-        PreviewZplToConsole(stockIn.Code, issueNumber, partNumber, partName,
-                            stockIn.SupplyQty, stockIn.SupplyDate, zpl);
+            "Print job sent for StockIn [{Code}] to printer {Name} at {Ip}:{Port}.",
+            stockIn.Code, printer.Name, printer.IpAddress, printer.Port);
     }
+
+    /// <summary>
+    /// Prints using Zebra SDK (Zebra Link-OS SDK for .NET)
+    /// This method uses the official Zebra SDK instead of raw TCP socket.
+    /// Requires Zebra.Printer.SDK NuGet package.
+    /// </summary>
+    public async Task PrintStockInLabelWithSdkAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
+    {
+        var printer = await _printerService.GetStockInPrinterAsync(cancellationToken);
+        if (printer is null)
+        {
+            _logger.LogWarning("StockIn printer not found. Skipping print job.");
+            return;
+        }
+
+        var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
+        var partNumber = stockIn.Part?.Number ?? "-";
+        var partName = stockIn.Part?.Name ?? "-";
+
+        var zpl = BuildZplLabelStockIn(
+            stockIn.Code, issueNumber, partNumber, partName,
+            stockIn.SupplyQty, stockIn.SupplyDate);
+
+        // Use printer IP and Port from database
+        await SendViaZebraSdkAsync(printer.IpAddress, printer.Port, zpl);
+
+        _logger.LogInformation(
+            "Print job sent (SDK) for StockIn [{Code}] to printer {Name} at {Ip}:{Port}.",
+            stockIn.Code, printer.Name, printer.IpAddress, printer.Port);
+    }
+
+    /// <summary>
+    /// Get raw ZPL string for a StockIn label
+    /// </summary>
+    public string GetZplForStockIn(StockInDto stockIn)
+    {
+        var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
+        var partNumber = stockIn.Part?.Number ?? "-";
+        var partName = stockIn.Part?.Name ?? "-";
+
+        return BuildZplLabelStockIn(
+            stockIn.Code, issueNumber, partNumber, partName,
+            stockIn.SupplyQty, stockIn.SupplyDate);
+    }
+
+    /// <summary>
+    /// Get the configured StockIn printer from PrinterService
+    /// </summary>
+    // private async Task<Domain.Entities.Printer?> GetStockInPrinterAsync(CancellationToken cancellationToken)
+    // {
+    //     // using var scope = _serviceScopeFactory.CreateScope();
+    //     // var printerService = scope.ServiceProvider.GetRequiredService<IPrinterService>();
+    //     return await printerService.GetStockInPrinterAsync(cancellationToken);
+    // }
 
     private static string BuildZplLabelStockIn(
         string code,
@@ -68,57 +123,29 @@ public class PrintService : IPrintService
         const int labelW = 464;
         const int labelH = 184;
 
-        // ^MD30 sets darkness (0-30), ^PR2 sets print speed (2 inches/sec)
         return $"""
             ^XA
             ^POI
-            ^MD30
+            ^MD28
             ^PR2
             ^PW{labelW}
             ^LL{labelH}
             ^CI28
 
-            ^FO350,10^BQN,2,3^FDQA,{code}^FS
+            ^FO330,75^BQN,3,3^FDQA,{code}^FS
 
-            ^FO20,15^A0N,22,22^FDY {code}^FS
-            ^FO20,40^A0N,22,22^FDA {partNumber}^FS
+            ^FO40,15^A0N,30,50^FDY {code}^FS
 
-            ^FO350,100^A0N,22,22^FDPCS{qty:D5}^FS
-            ^FO350,130^A0N,22,22^FD{supplyDate:ddMMyyyy}^FS
+            ^FO40,40^A0N,30,50^FDA {partNumber}^FS
 
-            ^FO20,130^A0N,15,15^FDMADE IN INDONESIA^FS
+            ^FO20,75^A0N,22,22^FDPCS{qty:D5}^FS
 
-            ^FO350,155^GB25,25,1,B,10^FS
-            ^FO355,161^A0N,12,12^FDTRSS^FS
+            ^FO20,110^A0N,22,22^FD{supplyDate:ddMMyyyy}^FS
+            ^FO170,115^A0N,15,15^FDMADE IN INDONESIA^FS
+
 
             ^XZ
-            """;
-    }
-
-    private static void PreviewZplToConsole(
-        string code, string issueNumber, string partNumber,
-        string partName, int qty, DateTime supplyDate, string rawZpl)
-    {
-        const int W = 62;
-        var border = new string('=', W);
-
-        Console.WriteLine();
-        Console.WriteLine(border);
-        Console.WriteLine($" [QR: {code,-10}]   Y {code}");
-        Console.WriteLine($"                  A {partNumber}");
-        Console.WriteLine();
-        Console.WriteLine($" PCS{qty:D5}");
-        Console.WriteLine($" {supplyDate:ddMMyyyy}           MADE IN INDONESIA");
-        Console.WriteLine();
-        Console.WriteLine(" [TRSS]");
-        Console.WriteLine(border);
-
-        Console.WriteLine();
-        Console.WriteLine("── RAW ZPL ──────────────────────────────────────────────────");
-        Console.WriteLine(rawZpl);
-        Console.WriteLine("─────────────────────────────────────────────────────────────");
-        Console.WriteLine($"► Sending to {StockInPrinterIp}:{StockInPrinterPort}");
-        Console.WriteLine();
+        """;
     }
 
     private static async Task SendRawTcpAsync(string ip, int port, string data, CancellationToken cancellationToken)
@@ -130,5 +157,42 @@ public class PrintService : IPrintService
         var stream = client.GetStream();
         await stream.WriteAsync(bytes, cancellationToken);
         await stream.FlushAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends ZPL data to printer using Zebra SDK TcpConnection.
+    /// This provides better error handling and connection management than raw TCP.
+    /// </summary>
+    private Task SendViaZebraSdkAsync(string ip, int port, string zplData)
+    {
+        return Task.Run(() =>
+        {
+            var connection = new TcpConnection(ip, port);
+
+            try
+            {
+                _logger.LogInformation("Connecting to Zebra printer at {Ip}:{Port}...", ip, port);
+                connection.Open();
+
+                var bytes = Encoding.UTF8.GetBytes(zplData);
+                connection.Write(bytes);
+
+                _logger.LogInformation("Print completed successfully.");
+            }
+            catch (ConnectionException ex)
+            {
+                _logger.LogError(ex, "Connection error with Zebra printer at {Ip}:{Port}", ip, port);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error when printing to Zebra printer");
+                throw;
+            }
+            finally
+            {
+                connection.Close();
+            }
+        });
     }
 }

@@ -1,4 +1,5 @@
 using Mapster;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,15 +23,18 @@ public class PrinterService : BaseService<Printer, PrinterDto>, IPrinterService
     private readonly IPrinterRepository _printerRepository;
     private readonly IAppConfigRepository _appConfigRepository;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<PrinterService> _logger;
 
     public PrinterService(
         IPrinterRepository repository,
         IAppConfigRepository appConfigRepository,
-        IServiceScopeFactory scopeFactory) : base(repository)
+        IServiceScopeFactory scopeFactory,
+        ILogger<PrinterService> logger) : base(repository)
     {
         _printerRepository = repository;
         _appConfigRepository = appConfigRepository;
         _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     public async Task<PagedResult<PrinterDto>> GetPrintersAsync(
@@ -71,6 +75,14 @@ public class PrinterService : BaseService<Printer, PrinterDto>, IPrinterService
     {
         var entity = await _printerRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new NotFoundException(nameof(Printer), id);
+
+        return entity.Adapt<PrinterDto>();
+    }
+
+    public async Task<PrinterDto> GetPrinterByNameAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var entity = await _printerRepository.FirstOrDefaultAsync(x => x.Name == name, cancellationToken)
+            ?? throw new NotFoundException(nameof(Printer), name);
 
         return entity.Adapt<PrinterDto>();
     }
@@ -116,30 +128,32 @@ public class PrinterService : BaseService<Printer, PrinterDto>, IPrinterService
         await DeleteAsync(id, cancellationToken);
     }
 
+    public async Task<PrinterDto> GetStockInPrinterAsync(CancellationToken cancellationToken = default)
+    {
+        var stockInPrinter = await _appConfigRepository.GetByKeyAsync("PRINTER_NAME_STOCK_IN", cancellationToken);
+
+        return await GetPrinterByNameAsync(stockInPrinter!.Value, cancellationToken);
+    }
+
     public async Task PrintLabelStockIn(StockInDto stockIn)
     {
-        var config = await _appConfigRepository.GetByKeyAsync("PRINTER_NAME_STOCK_IN");
-        if (config != null && !string.IsNullOrEmpty(config.Value))
+        // Execute printing in background with proper logging
+        _ = Task.Run(async () =>
         {
-            var printer = await _printerRepository.FirstOrDefaultAsync(p => p.Name == config.Value);
-            if (printer != null)
+            using var scope = _scopeFactory.CreateScope();
+            var printService = scope.ServiceProvider.GetRequiredService<IPrintService>();
+            try
             {
-                // Execute printing in background
-                _ = Task.Run(async () =>
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var printService = scope.ServiceProvider.GetRequiredService<IPrintService>();
-                    try
-                    {
-                        await printService.PrintStockInLabelAsync(stockIn, printer.Id);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Background task should log the error
-                        Console.WriteLine($"Background printing failed: {ex.Message}");
-                    }
-                });
+                _logger.LogInformation("Starting print job for StockIn {Code}",
+                    stockIn.Code);
+                await printService.PrintStockInLabelWithSdkAsync(stockIn);
+                _logger.LogInformation("Print job completed for StockIn {Code}", stockIn.Code);
             }
-        }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Background printing failed for StockIn {Code}: {Error}",
+                    stockIn.Code, ex.Message);
+            }
+        });
     }
 }

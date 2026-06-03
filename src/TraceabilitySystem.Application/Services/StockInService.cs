@@ -18,15 +18,18 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
     private readonly IPartRepository _partRepository;
     private readonly IPrinterService _printerService;
     private readonly IStockInRepository _stockInRepository;
+    private readonly IPrintService _printService;
 
     public StockInService(
         IStockInRepository repository,
         IPartRepository partRepository,
-        IPrinterService printerService) : base(repository)
+        IPrinterService printerService,
+        IPrintService printService) : base(repository)
     {
         _stockInRepository = repository;
         _partRepository = partRepository;
         _printerService = printerService;
+        _printService = printService;
     }
 
     public async Task<PagedResult<StockInDto>> GetStockInsAsync(
@@ -81,11 +84,11 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
         // 2. Generate auto-generated codes based on the highest sequence today
         var today = DateTime.UtcNow.Date;
         var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
-        
+
         // Fetch all codes starting with STyyyyMMdd to find the max sequence
         var prefix = $"ST{datePart}";
         var existingCodes = await _stockInRepository.FindAsync(s => s.Code.StartsWith(prefix), cancellationToken);
-        
+
         int nextSeq = 1;
         if (existingCodes.Any())
         {
@@ -127,7 +130,8 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
         var dto = saved.Adapt<StockInDto>();
 
         // 5. Trigger print label - Refactored to PrinterService with background execution
-        await _printerService.PrintLabelStockIn(dto);
+        // await _printerService.PrintLabelStockIn(dto);
+        await _printService.PrintStockInLabelWithSdkAsync(dto);
 
         return dto;
     }

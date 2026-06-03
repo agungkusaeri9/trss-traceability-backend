@@ -16,10 +16,12 @@ namespace TraceabilitySystem.API.Controllers;
 public class PrintersController : ControllerBase
 {
     private readonly IPrinterService _printerService;
+    private readonly IPrintService _printService;
 
-    public PrintersController(IPrinterService printerService)
+    public PrintersController(IPrinterService printerService, IPrintService printService)
     {
         _printerService = printerService;
+        _printService = printService;
     }
 
     [HttpGet]
@@ -72,11 +74,23 @@ public class PrintersController : ControllerBase
         return ResponseFormatter.Success(message: "Printer deleted successfully.");
     }
 
-    [HttpPost("test-stockin")]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> TestStockInPrint([FromBody] StockInDto stockIn)
-    {
-        await _printerService.PrintLabelStockIn(stockIn);
-        return ResponseFormatter.Success(message: "Stock-In label print triggered. Check terminal for preview.");
-    }
+    // [HttpPost("test-stockin")]
+    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    // public async Task<IActionResult> TestStockInPrint([FromBody] StockInDto stockIn)
+    // {
+    //     await _printerService.PrintLabelStockIn(stockIn);
+    //     return ResponseFormatter.Success(message: "Stock-In label print triggered. Check server logs for status.");
+    // }
+
+    /// <summary>
+    /// Get raw ZPL string for a StockIn label
+    /// Use http://labelary.com/viewer.html to preview the ZPL
+    /// </summary>
+    // [HttpPost("zpl-stockin")]
+    // [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    // public IActionResult GetStockInZpl([FromBody] StockInDto stockIn)
+    // {
+    //     var zpl = _printService.GetZplForStockIn(stockIn);
+    //     return ResponseFormatter.Success(zpl, "ZPL generated successfully.");
+    // }
 }

@@ -18,6 +18,8 @@ public interface IPrinterService : IBaseService<Printer, PrinterDto>
         CancellationToken cancellationToken = default);
 
     Task<PrinterDto> GetPrinterByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<PrinterDto> GetStockInPrinterAsync(CancellationToken cancellationToken = default);
+    Task<PrinterDto> GetPrinterByNameAsync(string name, CancellationToken cancellationToken = default);
 
     Task<PrinterDto> CreatePrinterAsync(CreatePrinterRequestDto request, CancellationToken cancellationToken = default);
 
@@ -25,5 +27,5 @@ public interface IPrinterService : IBaseService<Printer, PrinterDto>
 
     Task DeletePrinterAsync(int id, CancellationToken cancellationToken = default);
 
-    Task PrintLabelStockIn(StockInDto stockIn);
+    // Task PrintLabelStockIn(StockInDto stockIn);
 }
