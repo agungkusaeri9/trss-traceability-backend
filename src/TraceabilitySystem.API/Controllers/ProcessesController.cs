@@ -6,9 +6,11 @@ using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TraceabilitySystem.API.Controllers;
 
+[Authorize(Roles = "admin")]
 [ApiController]
 [Route("api/[controller]")]
 public class ProcessesController : ControllerBase

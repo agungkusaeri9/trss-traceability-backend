@@ -33,10 +33,10 @@ public class ProcessLogsController : ControllerBase
         return ResponseFormatter.PagedSuccess(result);
     }
 
-    [HttpGet("{id:long}")]
+    [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProcessLog(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetProcessLog(int id, CancellationToken cancellationToken)
     {
         var result = await _processLogService.GetProcessLogByIdAsync(id, cancellationToken);
         return ResponseFormatter.Success(result, "Process log retrieved successfully.");

@@ -4,12 +4,13 @@ using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TraceabilitySystem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class PartsController :  ControllerBase
+public class PartsController : ControllerBase
 {
     private readonly IPartService _partService;
 
@@ -17,7 +18,7 @@ public class PartsController :  ControllerBase
     {
         _partService = partService;
     }
-    
+
     [HttpGet]
     [ProducesResponseType(typeof(PagedApiResponse<PartDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetParts(
@@ -29,9 +30,9 @@ public class PartsController :  ControllerBase
         var result = await _partService.GetPartsAsync(pagination.Page, pagination.Limit, search, isActive, cancellationToken);
         return ResponseFormatter.PagedSuccess(result);
     }
-    
+
+    [Authorize(Roles = "admin,user")]
     [HttpPost]
-    // [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(ApiResponse<PartDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status422UnprocessableEntity)]
@@ -41,7 +42,7 @@ public class PartsController :  ControllerBase
         var result = await _partService.CreatePartAsync(request, cancellationToken);
         return ResponseFormatter.Success(result, "Part created successfully.", StatusCodes.Status201Created);
     }
-    
+
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<PartDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -51,6 +52,7 @@ public class PartsController :  ControllerBase
         return ResponseFormatter.Success(result, "Part retrieved successfully.");
     }
 
+    [Authorize(Roles = "admin,user")]
     [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<PartDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -62,6 +64,7 @@ public class PartsController :  ControllerBase
         return ResponseFormatter.Success(result, "Part updated successfully.");
     }
 
+    [Authorize(Roles = "admin,user")]
     [HttpPatch("{id:int}/change-status")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -73,6 +76,7 @@ public class PartsController :  ControllerBase
         return ResponseFormatter.Success(message: $"Part {statusMsg} successfully.");
     }
 
+    [Authorize(Roles = "admin,user")]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]

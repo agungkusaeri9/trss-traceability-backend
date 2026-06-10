@@ -7,6 +7,7 @@ using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TraceabilitySystem.API.Controllers;
 
@@ -58,6 +59,260 @@ public class ConfigController : ControllerBase
         _context = context;
     }
 
+    /// <summary>Reset all master data (Process, Parameter, Process Log) and their relations.</summary>
+    [HttpPost("reset-master-data")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ResetMasterData(CancellationToken cancellationToken)
+    {
+        // 1. Delete all existing process logs & details
+        var logs = await _processLogRepository.GetAllAsync(cancellationToken);
+        _processLogRepository.RemoveRange(logs);
+
+        // 2. Delete all existing process parameters (join table)
+        var processParams = await _context.ProcessParameters.ToListAsync(cancellationToken);
+        _context.ProcessParameters.RemoveRange(processParams);
+
+        // 3. Delete all existing processes
+        var existingProcesses = await _processRepository.GetAllAsync(cancellationToken);
+        _processRepository.RemoveRange(existingProcesses);
+
+        // 4. Delete all existing parameters
+        var existingParameters = await _parameterRepository.GetAllAsync(cancellationToken);
+        _parameterRepository.RemoveRange(existingParameters);
+
+        await _processRepository.SaveChangesAsync(cancellationToken);
+
+        return ResponseFormatter.Success(message: "All master data (Process, Parameter, Process Log) and their relations have been successfully reset.");
+    }
+
+    /// <summary>Seed specific processes and parameters for TRSS Traceability System.</summary>
+    [HttpPost("seed-trss-master-data")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedTrssMasterData(CancellationToken cancellationToken)
+    {
+        // 1. Reset existing data first
+        await ResetMasterData(cancellationToken);
+
+        // 2. Define the TRSS Traceability seed data
+        var seedData = new[]
+        {
+            new
+            {
+                ProcCode = "CLINCHING_SHORT_SIDE",
+                ProcName = "CLINCHING SHORT SIDE",
+                ProcDesc = "Process for clinching the short side of radiator.",
+                Params = new[]
+                {
+                    new { Code = "CORE_ASM_RESULT", Name = "Core Asm", Type = "boolean" },
+                    new { Code = "UPPER_TANK_ASM_RESULT", Name = "Upper Tank Asm Result", Type = "boolean" },
+                    new { Code = "LOWER_TANK_ASM_RESULT", Name = "Lower Tank Asm Result", Type = "boolean" }
+                }
+            },
+            new
+            {
+                ProcCode = "CLINCHING_LONG_SIDE",
+                ProcName = "Clincing long side",
+                ProcDesc = "Process for clinching the long side of radiator.",
+                Params = new[]
+                {
+                    new { Code = "CLINCHING_HEIGHT_RESULT", Name = "Clinching Height Result", Type = "boolean" },
+                    new { Code = "CLINCHING_HEIGHT_VALUE", Name = "Clinching Height Value", Type = "number" },
+                    new { Code = "END_PLATE_WIDTH_VALUE", Name = "End Plate Width Value", Type = "number" }
+                }
+            },
+            new
+            {
+                ProcCode = "HE_LEAK",
+                ProcName = "He Leak",
+                ProcDesc = "Helium leak testing process.",
+                Params = new[]
+                {
+                    new { Code = "CAP_TYPE_POSITION_RESULT", Name = "Cap Type & Position", Type = "boolean" },
+                    new { Code = "LEAK_TEST_RESULT", Name = "Leak Test Result", Type = "boolean" },
+                    new { Code = "LEAK_VALUE", Name = "Leak Value", Type = "number" }
+                }
+            },
+            new
+            {
+                ProcCode = "M_FAN_ASSY",
+                ProcName = "M Fan Assy",
+                ProcDesc = "Main fan assembly process.",
+                Params = new[]
+                {
+                    new { Code = "FAN_ASM_RESULT", Name = "Fan Asm Result", Type = "boolean" },
+                    new { Code = "MOTOR_ASM_RESULT", Name = "Motor Asm Result", Type = "boolean" },
+                    new { Code = "FUN_GUIDE_ASM_RESULT", Name = "Fun Guide Asm Result", Type = "boolean" },
+                    new { Code = "BOLT_TIGHTEN_RESULT", Name = "Bolt tighten result", Type = "boolean" },
+                    new { Code = "BOLT_TIGHTEN_VALUE", Name = "Bold Tighten Value", Type = "number" },
+                    new { Code = "NUT_TIGHTEN_RESULT", Name = "Nut Tighten Result", Type = "boolean" }
+                }
+            },
+            new
+            {
+                ProcCode = "M_FAN_INSPECTION",
+                ProcName = "M Fan Characteristics Inspection",
+                ProcDesc = "Inspection of main fan operational characteristics.",
+                Params = new[]
+                {
+                    new { Code = "M_FAN_TEST_RESULT", Name = "M Fan Test Result", Type = "boolean" },
+                    new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_VALUE", Name = "M Fan Inspection Rotation Speed Value", Type = "number" },
+                    new { Code = "M_FAN_INSPECTION_AMPERE_VALUE", Name = "M Fan Inspection Amperage Value", Type = "number" },
+                    new { Code = "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", Name = "M Fan Inspection Wind Direction Value", Type = "number" }
+                }
+            },
+            new
+            {
+                ProcCode = "ECM_ASSY",
+                ProcName = "Ecm Assy",
+                ProcDesc = "Electronic Control Module assembly process.",
+                Params = new[]
+                {
+                    new { Code = "RAD_CORE_ASM_NAME_LABEL_RESULT", Name = "Rad Core Asm Name Label Result", Type = "boolean" },
+                    new { Code = "MOTOR_FAN_ASSY_LABEL_RESULT", Name = "Motor Fan Assy Label Result", Type = "boolean" },
+                    new { Code = "ECM_ASSY_BOLT_TIGHTEN_VALUE", Name = "ECM Assy Bolt Tighten Result", Type = "number" },
+                    new { Code = "ECM_ASSY_BOLT_TIGHTEN_RESULT", Name = "ECM Assy Nut Tighten Result", Type = "boolean" }
+                }
+            },
+            new
+            {
+                ProcCode = "FINAL_INSPECTION",
+                ProcName = "Final Inspection",
+                ProcDesc = "Final quality gate and inspection.",
+                Params = new[]
+                {
+                    new { Code = "FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT", Name = "Final Inspection Rad Core Asm Name Label Result", Type = "boolean" },
+                    new { Code = "ALL_CHECK_POINT_RESULT", Name = "All Check Point Result", Type = "boolean" }
+                }
+            }
+        };
+
+        var parameterCache = new Dictionary<string, Parameter>();
+
+        foreach (var data in seedData)
+        {
+            var process = new Process
+            {
+                Code = data.ProcCode,
+                Name = data.ProcName,
+                Description = data.ProcDesc,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _processRepository.AddAsync(process, cancellationToken);
+
+            foreach (var dp in data.Params)
+            {
+                if (!parameterCache.TryGetValue(dp.Code, out var parameter))
+                {
+                    parameter = new Parameter
+                    {
+                        Code = dp.Code,
+                        Name = dp.Name,
+                        DataType = dp.Type,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _parameterRepository.AddAsync(parameter, cancellationToken);
+                    parameterCache[dp.Code] = parameter;
+                }
+
+                process.ProcessParameters.Add(new ProcessParameter
+                {
+                    Process = process,
+                    Parameter = parameter
+                });
+            }
+        }
+
+        await _processRepository.SaveChangesAsync(cancellationToken);
+
+        return ResponseFormatter.Success(message: "TRSS master data (Processes and Parameters) successfully seeded.");
+    }
+
+    /// <summary>Seed exactly 1 dummy process log with full details (all processes, many values) for TRSS.</summary>
+    [HttpPost("seed-process-logs")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedProcessLogs(CancellationToken cancellationToken)
+    {
+        // 1. Delete all existing process logs first to keep it clean
+        var logs = await _processLogRepository.GetAllAsync(cancellationToken);
+        _processLogRepository.RemoveRange(logs);
+        await _processLogRepository.SaveChangesAsync(cancellationToken);
+
+        // 2. Get all processes and parameters for reference
+        var processes = await _context.Processes
+            .Include(p => p.ProcessParameters)
+            .ThenInclude(pp => pp.Parameter)
+            .ToListAsync(cancellationToken);
+
+        if (!processes.Any())
+        {
+            return ResponseFormatter.Error("No processes found. Please run seed-trss-master-data first.");
+        }
+
+        var random = new Random();
+
+        // 3. Create exactly ONE comprehensive process log
+        var issueNo = $"ISS-{DateTime.UtcNow:yyyyMMdd}-0001";
+
+        var processLog = new ProcessLog
+        {
+            IssueNo = issueNo,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _processLogRepository.AddAsync(processLog, cancellationToken);
+
+        // 4. Fill with details for EVERY process
+        foreach (var process in processes)
+        {
+            // For each parameter in that process
+            foreach (var procParam in process.ProcessParameters)
+            {
+                var param = procParam.Parameter;
+                if (param == null) continue;
+
+                // Create 10-15 values per parameter as requested
+                int valueCount = random.Next(10, 16);
+                for (int v = 0; v < valueCount; v++)
+                {
+                    var detail = new ProcessLogDetail
+                    {
+                        ProcessLog = processLog,
+                        ProcessId = process.Id,
+                        ParameterId = param.Id,
+                        CreatedAt = processLog.CreatedAt.AddMinutes(random.Next(1, 120))
+                    };
+
+                    if (param.DataType.ToLower() == "boolean")
+                    {
+                        detail.ValueBoolean = random.Next(0, 10) > 1; // 90% chance of true/OK
+                    }
+                    else if (param.DataType.ToLower() == "number")
+                    {
+                        // Generate logical random numbers based on parameter names
+                        if (param.Code.Contains("TEMP")) detail.ValueNumber = (decimal)(170 + random.NextDouble() * 20);
+                        else if (param.Code.Contains("VOLTAGE")) detail.ValueNumber = (decimal)(215 + random.NextDouble() * 10);
+                        else if (param.Code.Contains("TORQUE")) detail.ValueNumber = (decimal)(10 + random.NextDouble() * 5);
+                        else detail.ValueNumber = (decimal)(random.NextDouble() * 100);
+                    }
+                    else
+                    {
+                        detail.ValueText = "Data-" + random.Next(1000, 9999);
+                    }
+
+                    processLog.Details.Add(detail);
+                }
+            }
+        }
+
+        await _processLogRepository.SaveChangesAsync(cancellationToken);
+
+        return ResponseFormatter.Success(message: $"Single comprehensive process log [{issueNo}] with all 7 processes and 10-15 values per parameter seeded successfully.");
+    }
+
     /// <summary>Seed a dummy admin user.</summary>
     [HttpPost("seed-admin")]
     [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
@@ -66,7 +321,7 @@ public class ConfigController : ControllerBase
     {
         // Cek apakah user admin sudah ada (mengakses repository auth/user)
         var exists = await _userRepository.ExistsAsync(u => u.Username == "admin", cancellationToken);
-        
+
         if (exists)
         {
             return ResponseFormatter.Success(message: "Admin user already exists.");
@@ -92,12 +347,12 @@ public class ConfigController : ControllerBase
     public async Task<IActionResult> SeedUsers(CancellationToken cancellationToken)
     {
         int createdCount = 0;
-        
+
         for (int i = 1; i <= 100; i++)
         {
             var username = $"user{i}";
             var exists = await _userRepository.ExistsAsync(u => u.Username == username, cancellationToken);
-            
+
             if (!exists)
             {
                 var request = new RegisterRequest
@@ -108,7 +363,7 @@ public class ConfigController : ControllerBase
                     Password = "password",
                     ConfirmPassword = "password"
                 };
-                
+
                 await _authService.RegisterAsync(request, cancellationToken);
                 createdCount++;
             }
@@ -123,11 +378,11 @@ public class ConfigController : ControllerBase
     public async Task<IActionResult> SeedParts(CancellationToken cancellationToken)
     {
         int createdCount = 0;
-        
+
         for (int i = 1; i <= 100; i++)
         {
             var number = $"PN-{i:D4}";
-            
+
             try
             {
                 var request = new TraceabilitySystem.Application.DTOs.Part.CreatePartRequestDto
@@ -136,7 +391,7 @@ public class ConfigController : ControllerBase
                     Name = $"Sample Part {i}",
                     Description = $"This is an auto-generated sample description for part {i}."
                 };
-                
+
                 await _partService.CreatePartAsync(request, cancellationToken);
                 createdCount++;
             }
@@ -157,12 +412,12 @@ public class ConfigController : ControllerBase
     {
         int createdCount = 0;
         var processNames = new[] { "Blanking", "Piercing", "Bending", "Welding", "Painting", "Assembly", "Quality Control", "Packaging", "Shipping", "Stamping" };
-        
+
         for (int i = 0; i < 10; i++)
         {
             var code = $"PRC-{(i + 1):D3}";
             var exists = await _processRepository.ExistsAsync(p => p.Code == code, cancellationToken);
-            
+
             if (!exists)
             {
                 var process = new Process
@@ -173,7 +428,7 @@ public class ConfigController : ControllerBase
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                
+
                 await _processRepository.AddAsync(process, cancellationToken);
                 createdCount++;
             }
@@ -246,11 +501,11 @@ public class ConfigController : ControllerBase
             new { Code = "PRM-049", Name = "Paint Coating Thickness", Desc = "Dry film thickness of protective paint.", Type = "number" },
             new { Code = "PRM-050", Name = "Leakage Test Result", Desc = "Final result of the leakage test (OK/NG).", Type = "boolean" }
         };
-        
+
         foreach (var dp in dummyParams)
         {
             var exists = await _parameterRepository.ExistsAsync(p => p.Code == dp.Code, cancellationToken);
-            
+
             if (!exists)
             {
                 var parameter = new Parameter
@@ -262,7 +517,7 @@ public class ConfigController : ControllerBase
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
-                
+
                 await _parameterRepository.AddAsync(parameter, cancellationToken);
                 createdCount++;
             }
@@ -562,7 +817,7 @@ public class ConfigController : ControllerBase
 
         // Get some printers to use as values
         var printers = (await _printerRepository.GetAllAsync(cancellationToken)).ToList();
-        
+
         var stockInPrinter = printers.FirstOrDefault(p => p.Name.Contains("Line-10"))?.Name ?? "Printer-Line-10";
         var line1Printer = printers.FirstOrDefault(p => p.Name.Contains("Line-01"))?.Name ?? "Printer-Line-01";
         var line2Printer = printers.FirstOrDefault(p => p.Name.Contains("Line-02"))?.Name ?? "Printer-Line-02";
@@ -606,144 +861,6 @@ public class ConfigController : ControllerBase
         }
 
         return ResponseFormatter.Success(message: $"{createdCount} app configs seeded/updated successfully.");
-    }
-
-    /// <summary>Seed dummy process logs for existing issues.</summary>
-    [HttpPost("seed-process-logs")]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> SeedProcessLogs(CancellationToken cancellationToken)
-    {
-        // 1. Delete all existing process logs
-        var existingLogs = await _processLogRepository.GetAllAsync(cancellationToken);
-        _processLogRepository.RemoveRange(existingLogs);
-        await _processLogRepository.SaveChangesAsync(cancellationToken);
-
-        // 2. Fetch some existing issues to link with logs
-        var issues = (await _issueRepository.GetAllAsync(cancellationToken)).Take(5).ToList();
-        if (!issues.Any())
-        {
-            return ResponseFormatter.Success(message: "No issues found to seed logs for. Please seed stock-ins first.");
-        }
-
-        // 3. Fetch processes with their defined parameters
-        var processes = await _processRepository.GetPagedAsync(1, 100, cancellationToken: cancellationToken);
-        var processList = processes.Items.ToList();
-
-        if (!processList.Any())
-        {
-            return ResponseFormatter.Success(message: "No processes found. Please seed them first.");
-        }
-
-        var random = new Random(42);
-        int createdCount = 0;
-
-        foreach (var issue in issues)
-        {
-            var log = new ProcessLog
-            {
-                IssueNo = issue.Number,
-                IsActive = true,
-                CreatedAt = DateTime.Now.AddHours(-random.Next(1, 24))
-            };
-
-            // Pick 2-3 random processes for this issue to simulate a multi-step production
-            var targetProcesses = processList.OrderBy(x => random.Next()).Take(random.Next(2, 4)).ToList();
-
-            foreach (var targetProcess in targetProcesses)
-            {
-                // For each parameter defined in this process, create 1-3 log details (multiple values)
-                foreach (var procParam in targetProcess.ProcessParameters)
-                {
-                    var parameter = procParam.Parameter;
-                    if (parameter == null) continue;
-
-                    // Create 1-3 values per parameter to test the array grouping
-                    int valueCount = random.Next(1, 4); 
-                    for (int v = 0; v < valueCount; v++)
-                    {
-                        var detail = new ProcessLogDetail
-                        {
-                            ProcessId = targetProcess.Id,
-                            ParameterId = parameter.Id,
-                            CreatedAt = log.CreatedAt.AddMinutes(random.Next(1, 30))
-                        };
-
-                        // Fill values based on DataType
-                        if (parameter.DataType == "boolean")
-                        {
-                            detail.ValueBoolean = random.Next(0, 10) > 1; // 90% OK
-                        }
-                        else if (parameter.DataType == "number")
-                        {
-                            var baseValue = (decimal)(random.NextDouble() * 50 + 20);
-                            detail.ValueNumber = baseValue + (decimal)(random.NextDouble() * 2 - 1); 
-                        }
-                        else
-                        {
-                            detail.ValueText = $"Reading {v + 1} for {parameter.Name}";
-                        }
-
-                        log.Details.Add(detail);
-                    }
-                }
-            }
-
-            await _processLogRepository.AddAsync(log, cancellationToken);
-            createdCount++;
-        }
-
-        // --- SPECIAL SCENARIO: REJECT & REWORK (ISS-00027) ---
-        var specialIssueNo = "ISS-00027";
-        var specialProcess = processList.FirstOrDefault(p => p.Name.Contains("Leak")) ?? processList[0];
-
-        // 1. NG LOG (REPAIR/REJECT)
-        var ngLog = new ProcessLog
-        {
-            IssueNo = specialIssueNo + "-R", // Penanda Repair
-            IsActive = false,
-            CreatedAt = DateTime.Now.AddHours(-5)
-        };
-        foreach (var procParam in specialProcess.ProcessParameters)
-        {
-            var detail = new ProcessLogDetail
-            {
-                ProcessId = specialProcess.Id,
-                ParameterId = procParam.ParameterId,
-                CreatedAt = ngLog.CreatedAt.AddMinutes(1),
-                ValueBoolean = false, // Force NG
-                ValueNumber = 999.99m, // Force Out of range
-                ValueText = "REJECTED: Pressure drop detected"
-            };
-            ngLog.Details.Add(detail);
-        }
-        await _processLogRepository.AddAsync(ngLog, cancellationToken);
-
-        // 2. OK LOG (AFTER REWORK/CHECK)
-        var okLog = new ProcessLog
-        {
-            IssueNo = specialIssueNo,
-            IsActive = true,
-            CreatedAt = DateTime.Now.AddHours(-2)
-        };
-        foreach (var procParam in specialProcess.ProcessParameters)
-        {
-            var detail = new ProcessLogDetail
-            {
-                ProcessId = specialProcess.Id,
-                ParameterId = procParam.ParameterId,
-                CreatedAt = okLog.CreatedAt.AddMinutes(1),
-                ValueBoolean = true, // Force OK
-                ValueNumber = 12.5m, // Normal value
-                ValueText = "RE-CHECKED: OK"
-            };
-            okLog.Details.Add(detail);
-        }
-        await _processLogRepository.AddAsync(okLog, cancellationToken);
-        createdCount += 2;
-
-        await _processLogRepository.SaveChangesAsync(cancellationToken);
-
-        return ResponseFormatter.Success(message: $"Successfully seeded {createdCount} dummy process logs with grouped parameters.");
     }
 
     /// <summary>Clear all data from the database (Dangerous! Resets IDs).</summary>

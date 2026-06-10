@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -53,6 +54,17 @@ public class StockInsController : ControllerBase
         return ResponseFormatter.Success(result, "Stock-in retrieved successfully.");
     }
 
+    [Authorize(Roles = "admin,user")]
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(typeof(ApiResponse<StockInDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateStockIn(int id, [FromBody] UpdateStockInRequestDto request, CancellationToken cancellationToken)
+    {
+        var result = await _stockInService.UpdateStockInAsync(id, request, cancellationToken);
+        return ResponseFormatter.Success(result, "Stock-in updated successfully.");
+    }
+
+    [Authorize(Roles = "admin,user")]
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<StockInDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
@@ -62,6 +74,16 @@ public class StockInsController : ControllerBase
     {
         var result = await _stockInService.CreateStockInAsync(request, cancellationToken);
         return ResponseFormatter.Success(result, "Stock-in created successfully.", StatusCodes.Status201Created);
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "admin,user")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteStockIn(int id, CancellationToken cancellationToken)
+    {
+        await _stockInService.DeleteStockInAsync(id, cancellationToken);
+        return ResponseFormatter.Success(message: "Stock-in and associated issues deleted successfully.");
     }
 
     /// <summary>
@@ -74,8 +96,38 @@ public class StockInsController : ControllerBase
     {
         var stockIn = await _stockInService.GetStockInByIdAsync(id, cancellationToken);
 
-        await _printService.PrintStockInLabelWithSdkAsync(stockIn);
+        await _printService.PrintClinchingLabelWithSdkAsync(stockIn);
 
         return ResponseFormatter.Success(message: "Stock-in label print triggered.");
+    }
+
+    /// <summary>
+    /// Preview stock-in label as PDF (A5 landscape)
+    /// </summary>
+    [HttpGet("{id:int}/preview")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PreviewStockInLabel(int id, CancellationToken cancellationToken)
+    {
+        var stockIn = await _stockInService.GetStockInByIdAsync(id, cancellationToken);
+
+        var pdfBytes = _printService.GeneratePdfForStockIn(stockIn);
+
+        return File(pdfBytes, "application/pdf", $"IssueLabel_{stockIn.Code}.pdf");
+    }
+
+    /// <summary>
+    /// Preview stock-in label as PDF (by issue number)
+    /// </summary>
+    [HttpGet("preview/{issueNumber}")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PreviewStockInLabelByIssueNumber(string issueNumber, CancellationToken cancellationToken)
+    {
+        var stockIn = await _stockInService.GetStockInByIssueNumberAsync(issueNumber, cancellationToken);
+
+        var pdfBytes = _printService.GeneratePdfForStockIn(stockIn);
+
+        return File(pdfBytes, "application/pdf", $"IssueLabel_{stockIn.Code}.pdf");
     }
 }

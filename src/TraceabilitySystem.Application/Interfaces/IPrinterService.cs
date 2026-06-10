@@ -18,6 +18,7 @@ public interface IPrinterService : IBaseService<Printer, PrinterDto>
         CancellationToken cancellationToken = default);
 
     Task<PrinterDto> GetPrinterByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<PrinterDto> GetClinchingPrinterAsync(CancellationToken cancellationToken = default);
     Task<PrinterDto> GetStockInPrinterAsync(CancellationToken cancellationToken = default);
     Task<PrinterDto> GetPrinterByNameAsync(string name, CancellationToken cancellationToken = default);
 

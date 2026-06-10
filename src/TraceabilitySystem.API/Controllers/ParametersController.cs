@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.Parameter;
 using TraceabilitySystem.Application.DTOs.Part;
@@ -9,6 +9,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
+[Authorize(Roles = "admin")]
 [ApiController]
 [Route("api/[controller]")]
 public class ParametersController : ControllerBase

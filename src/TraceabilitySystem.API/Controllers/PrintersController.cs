@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading;
@@ -11,6 +12,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
+[Authorize(Roles = "admin")]
 [ApiController]
 [Route("api/[controller]")]
 public class PrintersController : ControllerBase

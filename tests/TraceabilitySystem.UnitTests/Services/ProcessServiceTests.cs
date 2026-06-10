@@ -80,7 +80,7 @@ public class ProcessServiceTests
         // Arrange
         _processRepositoryMock
             .Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Process)null);
+            .ReturnsAsync((Process?)null);
 
         // Act & Assert
         await Assert.ThrowsAsync<NotFoundException>(() => _processService.GetProcessByIdAsync(99));

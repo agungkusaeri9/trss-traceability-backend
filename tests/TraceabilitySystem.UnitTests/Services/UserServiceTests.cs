@@ -137,7 +137,7 @@ public class UserServiceTests
         // Arrange
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User)null);
+            .ReturnsAsync((User?)null);
 
         // Act & Assert
         await Assert.ThrowsAsync<NotFoundException>(() => _userService.GetUserByIdAsync(99));

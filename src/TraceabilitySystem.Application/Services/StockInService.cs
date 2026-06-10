@@ -74,6 +74,15 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
         return entity.Adapt<StockInDto>();
     }
 
+    public async Task<StockInDto> GetStockInByIssueNumberAsync(string issueNumber, CancellationToken cancellationToken = default)
+    {
+        var entities = await _stockInRepository.FindAsync(s => s.Issues.Any(i => i.Number == issueNumber), cancellationToken);
+        var entity = entities.FirstOrDefault()
+            ?? throw new NotFoundException(nameof(StockIn), issueNumber);
+
+        return entity.Adapt<StockInDto>();
+    }
+
     public async Task<StockInDto> CreateStockInAsync(CreateStockInRequestDto request, CancellationToken cancellationToken = default)
     {
         // 1. Validate Part exists
@@ -129,10 +138,40 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
 
         var dto = saved.Adapt<StockInDto>();
 
-        // 5. Trigger print label - Refactored to PrinterService with background execution
-        // await _printerService.PrintLabelStockIn(dto);
-        await _printService.PrintStockInLabelWithSdkAsync(dto);
+        // 5. Trigger print label
+        // await _printService.PrintStockInLabelWithSdkAsync(dto);
 
         return dto;
+    }
+
+    public async Task<StockInDto> UpdateStockInAsync(int id, UpdateStockInRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var entity = await _stockInRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(StockIn), id);
+
+        entity.PartId = request.PartId;
+        entity.SupplyQty = request.SupplyQty;
+        entity.SupplyDate = request.SupplyDate;
+        entity.ReceiptQty = request.ReceiptQty;
+        entity.ReceiptDate = request.ReceiptDate;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        _stockInRepository.Update(entity);
+        await _stockInRepository.SaveChangesAsync(cancellationToken);
+
+        // Reload with navigation properties
+        var updated = await _stockInRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(StockIn), id);
+
+        return updated.Adapt<StockInDto>();
+    }
+
+    public async Task DeleteStockInAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _stockInRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(StockIn), id);
+
+        _stockInRepository.Remove(entity);
+        await _stockInRepository.SaveChangesAsync(cancellationToken);
     }
 }

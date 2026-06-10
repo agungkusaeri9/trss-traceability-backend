@@ -8,7 +8,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
-// [Authorize]
+[Authorize(Roles = "admin")]
 [ApiController]
 [Route("api/[controller]")]
 
@@ -42,7 +42,7 @@ public class UsersController : ControllerBase
         int id, CancellationToken cancellationToken)
     {
         var result = await _userService.GetUserByIdAsync(id, cancellationToken);
-        return ResponseFormatter.Success(result,"User retrived successfully.");
+        return ResponseFormatter.Success(result, "User retrived successfully.");
     }
 
     /// <summary>Create a new user. (Admin only)</summary>

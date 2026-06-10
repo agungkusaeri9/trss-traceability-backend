@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Issue Label</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+      @page {
+        size: A5 landscape;
+        margin: 5mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background: #fff;
+      }
+
+      .container {
+        width: 200mm;
+        height: 138mm;
+        margin: auto;
+        padding: 5mm;
+      }
+
+      .title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .main-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 2px solid #000;
+      }
+
+      .main-table td {
+        border: 1px solid #000;
+        padding: 10px;
+        vertical-align: middle;
+      }
+
+      .label-col {
+        width: 30%;
+        font-weight: bold;
+        font-size: 15px;
+        background: #f8f8f8;
+      }
+
+      .value-col {
+        width: 50%;
+        font-size: 22px;
+        font-weight: bold;
+      }
+
+      .qr-col {
+        width: 20%;
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      .qr-title {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      #qrcode {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+      }
+
+      .issue-number {
+        font-size: 26px;
+        letter-spacing: 1px;
+      }
+
+      .parts-no {
+        font-size: 24px;
+      }
+
+      .parts-name {
+        font-size: 24px;
+      }
+
+      .qty {
+        font-size: 28px;
+      }
+
+      .date {
+        font-size: 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="title">２．Issue Label / ラベル発行</div>
+
+      <table class="main-table">
+        <tr>
+          <td class="label-col">Issue No / 発行No.</td>
+
+          <td class="value-col issue-number">202504220001</td>
+
+          <td rowspan="6" class="qr-col">
+            <!-- <div class="qr-title">QR CODE</div> -->
+
+            <div id="qrcode"></div>
+
+            <!-- <div>202504220001</div> -->
+          </td>
+        </tr>
+
+        <tr>
+          <td class="label-col">Parts No / 品番</td>
+
+          <td class="value-col parts-no">AB12345678</td>
+        </tr>
+
+        <tr>
+          <td class="label-col">Parts Name / 品名</td>
+
+          <td class="value-col parts-name">UPPER TANK</td>
+        </tr>
+
+        <tr>
+          <td class="label-col">Supply Qty / 供給数</td>
+
+          <td class="value-col qty">50</td>
+        </tr>
+
+        <tr>
+          <td class="label-col">Supply Date / 供給日</td>
+
+          <td class="value-col date">2025.04.20</td>
+        </tr>
+
+        <tr>
+          <td class="label-col">Receipt Date / 入荷日</td>
+
+          <td class="value-col date">2025.04.01</td>
+        </tr>
+      </table>
+    </div>
+
+    <script>
+      const issueNo = "202504220001";
+
+      new QRCode(document.getElementById("qrcode"), {
+        text: issueNo,
+        width: 140,
+        height: 140,
+        correctLevel: QRCode.CorrectLevel.H,
+      });
+    </script>
+  </body>
+</html>

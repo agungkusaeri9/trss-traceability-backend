@@ -155,7 +155,7 @@ public class AuthServiceTests
 
         _userRepositoryMock
             .Setup(r => r.GetByEmailAsync(request.Username, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User)null);
+            .ReturnsAsync((User?)null);
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<UnauthorizedException>(() => _authService.LoginAsync(request));

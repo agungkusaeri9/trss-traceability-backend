@@ -1,6 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using System;
+using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -33,37 +37,37 @@ public class PrintService : IPrintService
         _printerService = printerService;
     }
 
-    public async Task PrintStockInLabelAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
-    {
-        var printer = await _printerService.GetStockInPrinterAsync(cancellationToken);
-        if (printer is null)
-        {
-            _logger.LogWarning("StockIn printer not found. Skipping print job.");
-            return;
-        }
+    // public async Task PrintClinchingLabelAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
+    // {
+    //     var printer = await _printerService.GetClinchingPrinterAsync(cancellationToken);
+    //     if (printer is null)
+    //     {
+    //         _logger.LogWarning("Clinching printer not found. Skipping print job.");
+    //         return;
+    //     }
 
-        var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
-        var partNumber = stockIn.Part?.Number ?? "-";
-        var partName = stockIn.Part?.Name ?? "-";
+    //     var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
+    //     var partNumber = stockIn.Part?.Number ?? "-";
+    //     var partName = stockIn.Part?.Name ?? "-";
 
-        var zpl = BuildZplLabelStockIn(
-            stockIn.Code, issueNumber, partNumber, partName,
-            stockIn.SupplyQty, stockIn.SupplyDate);
+    //     var zpl = BuildZplLabelStockIn(
+    //         stockIn.Code, issueNumber, partNumber, partName,
+    //         stockIn.SupplyQty, stockIn.SupplyDate);
 
-        // Use printer IP and Port from database
-        await SendRawTcpAsync(printer.IpAddress, printer.Port, zpl, cancellationToken);
+    //     // Use printer IP and Port from database
+    //     await SendRawTcpAsync(printer.IpAddress, printer.Port, zpl, cancellationToken);
 
-        _logger.LogInformation(
-            "Print job sent for StockIn [{Code}] to printer {Name} at {Ip}:{Port}.",
-            stockIn.Code, printer.Name, printer.IpAddress, printer.Port);
-    }
+    //     _logger.LogInformation(
+    //         "Print job sent for StockIn [{Code}] to printer {Name} at {Ip}:{Port}.",
+    //         stockIn.Code, printer.Name, printer.IpAddress, printer.Port);
+    // }
 
     /// <summary>
     /// Prints using Zebra SDK (Zebra Link-OS SDK for .NET)
     /// This method uses the official Zebra SDK instead of raw TCP socket.
     /// Requires Zebra.Printer.SDK NuGet package.
     /// </summary>
-    public async Task PrintStockInLabelWithSdkAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
+    public async Task PrintClinchingLabelWithSdkAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
     {
         var printer = await _printerService.GetStockInPrinterAsync(cancellationToken);
         if (printer is null)
@@ -194,5 +198,94 @@ public class PrintService : IPrintService
                 connection.Close();
             }
         });
+    }
+
+    /// <summary>
+    /// Generate PDF for StockIn label using QuestPDF (A5 landscape)
+    /// </summary>
+    public byte[] GeneratePdfForStockIn(StockInDto stockIn)
+    {
+        // Configure QuestPDF license
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
+        var partNumber = stockIn.Part?.Number ?? "-";
+        var partName = stockIn.Part?.Name ?? "-";
+
+        // A5 landscape dimensions in mm: 210mm x 148.5mm
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A5.Landscape());
+                page.Margin(5, Unit.Millimetre);
+                page.DefaultTextStyle(x => x.FontSize(10));
+
+                page.Content().Column(column =>
+                {
+                    column.Spacing(3);
+
+                    // Title
+                    column.Item().Text("２．Issue Label / ラベル発行")
+                        .FontSize(14).Bold();
+
+                    // Row 1: Issue No
+                    column.Item().Row(row =>
+                    {
+                        row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Issue No / 発行No.").Bold());
+                        row.RelativeItem(2).Border(1).Padding(3).Text(issueNumber).FontSize(16).Bold();
+                        row.RelativeItem().Border(1).Padding(3).AlignCenter().Text(td =>
+                        {
+                            td.Line("QR CODE").FontSize(8);
+                            td.Line($"[{issueNumber}]").FontSize(6);
+                        });
+                    });
+
+                    // Row 2: Parts No
+                    column.Item().Row(row =>
+                    {
+                        row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Parts No / 品番").Bold());
+                        row.RelativeItem(2).Border(1).Padding(3).Text(partNumber).FontSize(14).Bold();
+                        row.RelativeItem().Border(1).Padding(3);
+                    });
+
+                    // Row 3: Parts Name
+                    column.Item().Row(row =>
+                    {
+                        row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Parts Name / 品名").Bold());
+                        row.RelativeItem(2).Border(1).Padding(3).Text(partName).FontSize(14).Bold();
+                        row.RelativeItem().Border(1).Padding(3);
+                    });
+
+                    // Row 4: Supply Qty
+                    column.Item().Row(row =>
+                    {
+                        row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Supply Qty / 供給数").Bold());
+                        row.RelativeItem(2).Border(1).Padding(3).Text(stockIn.SupplyQty.ToString()).FontSize(18).Bold();
+                        row.RelativeItem().Border(1).Padding(3);
+                    });
+
+                    // Row 5: Supply Date
+                    column.Item().Row(row =>
+                    {
+                        row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Supply Date / 供給日").Bold());
+                        row.RelativeItem(2).Border(1).Padding(3).Text(stockIn.SupplyDate.ToString("yyyy.MM.dd")).FontSize(14).Bold();
+                        row.RelativeItem().Border(1).Padding(3);
+                    });
+
+                    // Row 6: Receipt Date
+                    column.Item().Row(row =>
+                    {
+                        row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Receipt Date / <minimax:tool_call>日").Bold());
+                        row.RelativeItem(2).Border(1).Padding(3).Text(stockIn.ReceiptDate.ToString("yyyy.MM.dd")).FontSize(14).Bold();
+                        row.RelativeItem().Border(1).Padding(3);
+                    });
+                });
+            });
+        });
+
+        using var stream = new MemoryStream();
+        document.GeneratePdf(stream);
+        return stream.ToArray();
     }
 }

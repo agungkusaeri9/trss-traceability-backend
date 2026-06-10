@@ -128,6 +128,13 @@ public class PrinterService : BaseService<Printer, PrinterDto>, IPrinterService
         await DeleteAsync(id, cancellationToken);
     }
 
+    public async Task<PrinterDto> GetClinchingPrinterAsync(CancellationToken cancellationToken = default)
+    {
+        var clinchingPrinter = await _appConfigRepository.GetByKeyAsync("PRINTER_NAME_CLINCHING", cancellationToken);
+
+        return await GetPrinterByNameAsync(clinchingPrinter!.Value, cancellationToken);
+    }
+
     public async Task<PrinterDto> GetStockInPrinterAsync(CancellationToken cancellationToken = default)
     {
         var stockInPrinter = await _appConfigRepository.GetByKeyAsync("PRINTER_NAME_STOCK_IN", cancellationToken);
@@ -135,25 +142,25 @@ public class PrinterService : BaseService<Printer, PrinterDto>, IPrinterService
         return await GetPrinterByNameAsync(stockInPrinter!.Value, cancellationToken);
     }
 
-    public async Task PrintLabelStockIn(StockInDto stockIn)
-    {
-        // Execute printing in background with proper logging
-        _ = Task.Run(async () =>
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var printService = scope.ServiceProvider.GetRequiredService<IPrintService>();
-            try
-            {
-                _logger.LogInformation("Starting print job for StockIn {Code}",
-                    stockIn.Code);
-                await printService.PrintStockInLabelWithSdkAsync(stockIn);
-                _logger.LogInformation("Print job completed for StockIn {Code}", stockIn.Code);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Background printing failed for StockIn {Code}: {Error}",
-                    stockIn.Code, ex.Message);
-            }
-        });
-    }
+    // public async Task PrintClinchingLabel(StockInDto stockIn)
+    // {
+    //     // Execute printing in background with proper logging
+    //     _ = Task.Run(async () =>
+    //     {
+    //         using var scope = _scopeFactory.CreateScope();
+    //         var printService = scope.ServiceProvider.GetRequiredService<IPrintService>();
+    //         try
+    //         {
+    //             _logger.LogInformation("Starting print job for StockIn {Code}",
+    //                 stockIn.Code);
+    //             await printService.PrintStockInLabelWithSdkAsync(stockIn);
+    //             _logger.LogInformation("Print job completed for StockIn {Code}", stockIn.Code);
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             _logger.LogError(ex, "Background printing failed for StockIn {Code}: {Error}",
+    //                 stockIn.Code, ex.Message);
+    //         }
+    //     });
+    // }
 }

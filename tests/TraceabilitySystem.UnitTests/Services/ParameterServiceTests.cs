@@ -78,7 +78,7 @@ public class ParameterServiceTests
         // Arrange
         _parameterRepositoryMock
             .Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Parameter)null);
+            .ReturnsAsync((Parameter?)null);
 
         // Act & Assert
         await Assert.ThrowsAsync<NotFoundException>(() => _parameterService.GetParameterByIdAsync(99));

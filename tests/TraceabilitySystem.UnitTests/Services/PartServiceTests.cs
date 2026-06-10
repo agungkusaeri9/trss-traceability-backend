@@ -77,8 +77,8 @@ public class PartServiceTests
     {
         // Arrange
         _partRepositoryMock
-            .Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Part)null);
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Part?)null);
 
         // Act & Assert
         await Assert.ThrowsAsync<NotFoundException>(() => _partService.GetPartByIdAsync(99));

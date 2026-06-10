@@ -19,6 +19,7 @@
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
     <PackageReference Include="Zebra.Printer.SDK" Version="5.0.3563" />
+    <PackageReference Include="QuestPDF" Version="2024.10.3" />
   </ItemGroup>
 
   <PropertyGroup>

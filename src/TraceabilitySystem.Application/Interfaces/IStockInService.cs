@@ -19,5 +19,11 @@ public interface IStockInService : IBaseService<StockIn, StockInDto>
 
     Task<StockInDto> GetStockInByIdAsync(int id, CancellationToken cancellationToken = default);
 
+    Task<StockInDto> GetStockInByIssueNumberAsync(string issueNumber, CancellationToken cancellationToken = default);
+
     Task<StockInDto> CreateStockInAsync(CreateStockInRequestDto request, CancellationToken cancellationToken = default);
+
+    Task<StockInDto> UpdateStockInAsync(int id, UpdateStockInRequestDto request, CancellationToken cancellationToken = default);
+
+    Task DeleteStockInAsync(int id, CancellationToken cancellationToken = default);
 }

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.AppConfig;
 using TraceabilitySystem.Application.DTOs.Pagination;
@@ -7,6 +8,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
+[Authorize(Roles = "admin")]
 [ApiController]
 [Route("api/[controller]")]
 public class AppConfigsController : ControllerBase

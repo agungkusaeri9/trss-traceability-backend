@@ -8,18 +8,17 @@ public interface IPrintService
 {
     /// <summary>
     /// Sends a label print job to the configured printer for a stock-in record.
-    /// Uses raw TCP socket connection.
+    /// Uses Zebra SDK.
     /// </summary>
-    Task PrintStockInLabelAsync(StockInDto stockIn, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Sends a label print job using Zebra SDK (Zebra Link-OS SDK for .NET).
-    /// Requires Zebra.Printer.SDK NuGet package.
-    /// </summary>
-    Task PrintStockInLabelWithSdkAsync(StockInDto stockIn, CancellationToken cancellationToken = default);
+    Task PrintClinchingLabelWithSdkAsync(StockInDto stockIn, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get raw ZPL string for a StockIn label
     /// </summary>
     string GetZplForStockIn(StockInDto stockIn);
+
+    /// <summary>
+    /// Generate PDF for StockIn label (A5 landscape)
+    /// </summary>
+    byte[] GeneratePdfForStockIn(StockInDto stockIn);
 }
