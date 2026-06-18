@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<AppConfig> AppConfigs => Set<AppConfig>();
     public DbSet<ProcessLog> ProcessLogs => Set<ProcessLog>();
     public DbSet<ProcessLogDetail> ProcessLogDetails => Set<ProcessLogDetail>();
+    public DbSet<MqttPrintRequest> MqttPrintRequests => Set<MqttPrintRequest>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -115,6 +116,11 @@ public class AppDbContext : DbContext
             {
                 if (entry.State == EntityState.Added) detail.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) detail.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is MqttPrintRequest mqttRequest)
+            {
+                if (entry.State == EntityState.Added) mqttRequest.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) mqttRequest.UpdatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

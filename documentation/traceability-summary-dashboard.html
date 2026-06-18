@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traceability Summary Dashboard - PT TRSS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              trss: {
+                DEFAULT: "#1f4e78",
+                light: "#deeaf6",
+                border: "#b8c7d9",
+              },
+            },
+            fontFamily: {
+              sans: ["Calibri", "Segoe UI", "Arial", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+  </head>
+  <body class="min-h-screen bg-slate-100 p-4 text-slate-900 sm:p-6">
+    <div class="mx-auto max-w-[1600px]">
+      <header
+        class="mb-5 flex flex-col items-start justify-between gap-4 border-b-2 border-trss pb-4 sm:flex-row sm:items-center"
+      >
+        <div>
+          <h1 class="text-2xl font-bold text-trss">Traceability Summary Dashboard</h1>
+          <p class="mt-1 text-sm text-slate-600">
+            PT Tokyo Radiator Selamat Sempurna (TRSS)
+          </p>
+        </div>
+        <div class="flex items-center gap-2.5 text-sm">
+          <span
+            id="connection-dot"
+            class="h-2.5 w-2.5 rounded-full bg-slate-400"
+          ></span>
+          <span id="connection-status">Connecting...</span>
+        </div>
+      </header>
+
+      <section class="mb-6">
+        <div
+          id="top-row-grid"
+          class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5 xl:grid-cols-10"
+        >
+          <div
+            class="col-span-full rounded-md border border-dashed border-trss-border bg-white p-6 text-center text-slate-500"
+          >
+            Connecting to WebSocket...
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-6">
+        <div
+          id="bottom-row-grid"
+          class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-5 xl:grid-cols-10"
+        >
+          <div
+            class="col-span-full rounded-md border border-dashed border-trss-border bg-white p-6 text-center text-slate-500"
+          >
+            Waiting for data...
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div
+      id="value-modal"
+      class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/45 p-5"
+      aria-hidden="true"
+    >
+      <div
+        class="w-full max-w-lg overflow-hidden rounded-lg border border-trss-border bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
+        <div
+          class="flex items-center justify-between gap-3 border-b border-trss-border bg-trss-light px-4 py-3.5"
+        >
+          <h3 id="modal-title" class="text-base font-bold text-trss">
+            Detail Values
+          </h3>
+          <button
+            id="modal-close"
+            type="button"
+            class="cursor-pointer px-1 text-2xl leading-none text-trss"
+            aria-label="Close"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="p-4">
+          <div
+            id="modal-avg"
+            class="mb-3.5 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm"
+          ></div>
+          <div
+            id="modal-values"
+            class="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE_URL =
+        window.location.port === "5039"
+          ? window.location.origin
+          : "http://localhost:5039";
+      const HUB_URL = `${API_BASE_URL}/hubs/traceability-summary`;
+      const TOP_ROW_COUNT = 10;
+
+      const EMPTY_STATE_CLASS =
+        "col-span-full rounded-md border border-dashed border-trss-border bg-white p-6 text-center text-slate-500";
+
+      const topRowGrid = document.getElementById("top-row-grid");
+      const bottomRowGrid = document.getElementById("bottom-row-grid");
+      const connectionDot = document.getElementById("connection-dot");
+      const connectionStatus = document.getElementById("connection-status");
+      const valueModal = document.getElementById("value-modal");
+      const modalTitle = document.getElementById("modal-title");
+      const modalAvg = document.getElementById("modal-avg");
+      const modalValues = document.getElementById("modal-values");
+      const modalClose = document.getElementById("modal-close");
+
+      function calculateAverage(values) {
+        if (!Array.isArray(values) || values.length === 0) return null;
+
+        const numbers = values.map(Number).filter((n) => !Number.isNaN(n));
+        if (numbers.length === 0) return null;
+
+        const avg = numbers.reduce((sum, n) => sum + n, 0) / numbers.length;
+        return avg.toFixed(2);
+      }
+
+      function formatValue(value) {
+        if (Array.isArray(value)) {
+          return calculateAverage(value) ?? "-";
+        }
+
+        if (typeof value === "boolean") {
+          return value ? "OK" : "NG";
+        }
+
+        if (value === null || value === undefined || value === "") {
+          return "-";
+        }
+
+        return String(value);
+      }
+
+      function getValueClasses(value) {
+        if (typeof value === "boolean") {
+          return value ? "text-green-600" : "text-red-600";
+        }
+
+        if (typeof value === "string" && value.toUpperCase() === "OK") {
+          return "text-green-600";
+        }
+
+        if (Array.isArray(value)) {
+          return "cursor-pointer text-trss underline decoration-dotted underline-offset-4 hover:bg-sky-50";
+        }
+
+        return "text-slate-900";
+      }
+
+      function openValueModal(field) {
+        if (!Array.isArray(field.value) || field.value.length === 0) return;
+
+        const avg = calculateAverage(field.value);
+        modalTitle.textContent = field.label;
+        modalAvg.innerHTML = `<strong class="text-trss">Average:</strong> ${avg ?? "-"}`;
+        modalValues.innerHTML = "";
+
+        field.value.forEach((item, index) => {
+          const itemEl = document.createElement("div");
+          itemEl.className =
+            "rounded-md border border-trss-border bg-white p-2.5 text-center text-sm font-bold text-slate-900";
+          itemEl.textContent = String(item);
+          itemEl.title = `Value ${index + 1}`;
+          modalValues.appendChild(itemEl);
+        });
+
+        valueModal.classList.remove("hidden");
+        valueModal.classList.add("flex");
+        valueModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeValueModal() {
+        valueModal.classList.add("hidden");
+        valueModal.classList.remove("flex");
+        valueModal.setAttribute("aria-hidden", "true");
+      }
+
+      function createFieldCard(field) {
+        const card = document.createElement("article");
+        card.className =
+          "flex min-h-24 flex-col overflow-hidden rounded-md border border-trss-border bg-white shadow-sm";
+        card.dataset.name = field.name;
+        card.dataset.order = field.order;
+
+        const label = document.createElement("div");
+        label.className =
+          "flex min-h-[42px] items-center justify-center border-b border-trss-border bg-trss-light px-2 py-2 text-center text-[11px] font-bold leading-tight text-trss";
+        label.textContent = field.label;
+
+        const value = document.createElement("div");
+        value.className = `flex flex-1 items-center justify-center break-words p-2.5 text-center text-sm font-bold ${getValueClasses(field.value)}`;
+        value.textContent = formatValue(field.value);
+
+        if (Array.isArray(field.value)) {
+          value.title = "Click to view all values";
+          value.addEventListener("click", () => openValueModal(field));
+        }
+
+        card.appendChild(label);
+        card.appendChild(value);
+        return card;
+      }
+
+      function renderSummary(summary) {
+        const sorted = [...summary].sort((a, b) => a.order - b.order);
+        const topFields = sorted.slice(0, TOP_ROW_COUNT);
+        const bottomFields = sorted.slice(TOP_ROW_COUNT);
+
+        topRowGrid.innerHTML = "";
+        bottomRowGrid.innerHTML = "";
+
+        if (topFields.length === 0) {
+          topRowGrid.innerHTML = `<div class="${EMPTY_STATE_CLASS}">No traceability data available.</div>`;
+        } else {
+          topFields.forEach((field) => {
+            topRowGrid.appendChild(createFieldCard(field));
+          });
+        }
+
+        if (bottomFields.length === 0) {
+          bottomRowGrid.innerHTML = `<div class="${EMPTY_STATE_CLASS}">No additional fields.</div>`;
+        } else {
+          bottomFields.forEach((field) => {
+            bottomRowGrid.appendChild(createFieldCard(field));
+          });
+        }
+      }
+
+      function setConnectionState(state, message) {
+        connectionDot.className = "h-2.5 w-2.5 rounded-full";
+
+        if (state === "connected") {
+          connectionDot.classList.add("bg-green-600");
+        } else if (state === "error") {
+          connectionDot.classList.add("bg-red-600");
+        } else {
+          connectionDot.classList.add("bg-slate-400");
+        }
+
+        connectionStatus.textContent = message;
+      }
+
+      function showConnectionError(message) {
+        setConnectionState("error", message);
+        topRowGrid.innerHTML = `<div class="${EMPTY_STATE_CLASS}">WebSocket connection failed. Make sure the API is running.</div>`;
+        bottomRowGrid.innerHTML = "";
+      }
+
+      const connection = new signalR.HubConnectionBuilder()
+        .withUrl(HUB_URL)
+        .withAutomaticReconnect()
+        .build();
+
+      connection.on("TraceabilitySummaryUpdated", (summary) => {
+        renderSummary(summary);
+        setConnectionState("connected", "Live via WebSocket");
+      });
+
+      connection.onreconnecting(() => {
+        setConnectionState("error", "Reconnecting...");
+      });
+
+      connection.onreconnected(() => {
+        setConnectionState("connected", "Live via WebSocket");
+      });
+
+      connection.onclose(() => {
+        setConnectionState("error", "WebSocket disconnected");
+      });
+
+      async function startSignalR(retryCount = 0) {
+        const maxRetries = 10;
+
+        try {
+          setConnectionState("error", "Connecting to WebSocket...");
+          await connection.start();
+          setConnectionState("connected", "Live via WebSocket");
+        } catch (error) {
+          console.error("SignalR connection failed:", error);
+
+          if (retryCount < maxRetries) {
+            setConnectionState(
+              "error",
+              `Reconnecting WebSocket (${retryCount + 1}/${maxRetries})...`
+            );
+            setTimeout(() => startSignalR(retryCount + 1), 3000);
+            return;
+          }
+
+          showConnectionError("WebSocket unavailable");
+        }
+      }
+
+      startSignalR();
+
+      modalClose.addEventListener("click", closeValueModal);
+      valueModal.addEventListener("click", (event) => {
+        if (event.target === valueModal) closeValueModal();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeValueModal();
+      });
+    </script>
+  </body>
+</html>

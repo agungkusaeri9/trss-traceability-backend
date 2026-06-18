@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -11,6 +12,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using TraceabilitySystem.Application.DTOs.StockIn;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Domain.Entities;
+using TraceabilitySystem.Domain.Interfaces;
 using Zebra.Sdk.Comm;
 
 namespace TraceabilitySystem.Infrastructure.Services;
@@ -67,8 +70,30 @@ public class PrintService : IPrintService
     /// This method uses the official Zebra SDK instead of raw TCP socket.
     /// Requires Zebra.Printer.SDK NuGet package.
     /// </summary>
-    public async Task PrintClinchingLabelWithSdkAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
+    public async Task PrintClinchingLabelWithSdkAsync(string issueNumber, CancellationToken cancellationToken = default)
     {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var issueRepository = scope.ServiceProvider.GetRequiredService<IIssueRepository>();
+
+        var issue = await issueRepository
+            .FirstOrDefaultAsync(i => i.Number == issueNumber, cancellationToken);
+
+        if (issue == null)
+        {
+            _logger.LogWarning("Issue with number {IssueNumber} not found. Skipping print job.", issueNumber);
+            return;
+        }
+
+        var stockInRepository = scope.ServiceProvider.GetRequiredService<IStockInRepository>();
+        var stockIn = await stockInRepository
+            .GetByIdAsync(issue.StockInId, cancellationToken);
+
+        if (stockIn == null)
+        {
+            _logger.LogWarning("StockIn with id {StockInId} not found. Skipping print job.", issue.StockInId);
+            return;
+        }
+
         var printer = await _printerService.GetStockInPrinterAsync(cancellationToken);
         if (printer is null)
         {
@@ -76,7 +101,6 @@ public class PrintService : IPrintService
             return;
         }
 
-        var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
         var partNumber = stockIn.Part?.Number ?? "-";
         var partName = stockIn.Part?.Name ?? "-";
 
@@ -130,7 +154,7 @@ public class PrintService : IPrintService
         return $"""
             ^XA
             ^POI
-            ^MD28
+            ^MD25
             ^PR2
             ^PW{labelW}
             ^LL{labelH}
@@ -287,5 +311,15 @@ public class PrintService : IPrintService
         using var stream = new MemoryStream();
         document.GeneratePdf(stream);
         return stream.ToArray();
+    }
+
+    public async Task PrintClinchingShortSideAsync(string issueNumber, CancellationToken cancellationToken = default)
+    {
+        await PrintClinchingLabelWithSdkAsync(issueNumber, cancellationToken);
+    }
+
+    public async Task PrintMFanAssyAsync(string issueNumber, CancellationToken cancellationToken = default)
+    {
+        await PrintClinchingLabelWithSdkAsync(issueNumber, cancellationToken);
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.FileProviders;
 using Serilog;
 using System.Text.Json.Serialization;
 using TraceabilitySystem.API.BackgroundServices;
@@ -5,7 +6,9 @@ using TraceabilitySystem.API.Extensions;
 using TraceabilitySystem.API.Filters;
 using TraceabilitySystem.API.Hubs;
 using TraceabilitySystem.API.Middleware;
+// using TraceabilitySystem.API.Services;
 using TraceabilitySystem.Application;
+// using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Infrastructure;
 using TraceabilitySystem.Infrastructure.Persistence;
 
@@ -79,9 +82,15 @@ try
         });
     });
 
+    // ── MQTT Settings ─────────────────────────────────────────────────────
+    builder.Services.Configure<MqttSettings>(builder.Configuration.GetSection("MqttSettings"));
+
     // ── SignalR ────────────────────────────────────────────────────────────
     builder.Services.AddSignalR();
+    // builder.Services.AddSingleton<ITraceabilitySummaryNotifier, TraceabilitySummaryNotifier>();
     builder.Services.AddHostedService<PrinterMonitorService>();
+    builder.Services.AddHostedService<MqttPrintRequestService>();
+    // builder.Services.AddHostedService<TraceabilitySummaryBroadcastService>();
 
     // ── Build ──────────────────────────────────────────────────────────────
     var app = builder.Build();
@@ -104,7 +113,19 @@ try
     }
 
     app.UseHttpsRedirection();
-    app.UseStaticFiles(); // Tambahkan ini jika belum ada
+
+    var documentationPath = Path.GetFullPath(
+        Path.Combine(app.Environment.ContentRootPath, "..", "..", "documentation"));
+    if (Directory.Exists(documentationPath))
+    {
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(documentationPath),
+            RequestPath = "/documentation"
+        });
+    }
+
+    app.UseStaticFiles();
     app.UseCors("AllowAll"); // Aktifkan CORS di sini
     app.UseSerilogRequestLogging();
     app.UseAuthentication();
@@ -113,6 +134,8 @@ try
 
     // ── SignalR Hubs ───────────────────────────────────────────────────────
     app.MapHub<PrinterHub>("/hubs/printer");
+    app.MapHub<MqttStatusHub>("/hubs/mqtt-status");
+    // app.MapHub<TraceabilitySummaryHub>("/hubs/traceability-summary");
 
     await app.RunAsync();
 }

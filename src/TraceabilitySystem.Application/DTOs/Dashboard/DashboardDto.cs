@@ -15,7 +15,15 @@ public class ProductionCountDto
     public int TotalProduction { get; set; }
     public int OkCount { get; set; }
     public int NgCount { get; set; }
-    public double YieldRate { get; set; } // Percentage of OK
+    public double YieldRate { get; set; }
+}
+
+public class DashboardSummaryFieldDto
+{
+    public int Order { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public object? Value { get; set; }
 }
 
 public class DashboardStatsDto

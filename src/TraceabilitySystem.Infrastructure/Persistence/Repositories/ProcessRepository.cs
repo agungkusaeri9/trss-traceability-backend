@@ -14,12 +14,12 @@ public class ProcessRepository : BaseRepository<Process>, IProcessRepository
 {
     public ProcessRepository(AppDbContext context) : base(context) { }
 
-    public override async Task<Process?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public override async Task<Process?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .Include(p => p.ProcessParameters)
                 .ThenInclude(pp => pp.Parameter)
-            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(p => p.Id == (int)id, cancellationToken);
     }
 
     public override async Task<(IEnumerable<Process> Items, int TotalCount)> GetPagedAsync(

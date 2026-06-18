@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IPrinterRepository, PrinterRepository>();
         services.AddScoped<IAppConfigRepository, AppConfigRepository>();
         services.AddScoped<IProcessLogRepository, ProcessLogRepository>();
+        services.AddScoped<IMqttPrintRequestRepository, MqttPrintRequestRepository>();
 
         // Infrastructure Services
         services.AddScoped<IJwtService, JwtService>();

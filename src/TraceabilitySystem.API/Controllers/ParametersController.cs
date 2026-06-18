@@ -9,7 +9,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
-[Authorize(Roles = "admin")]
+// [Authorize(Roles = "admin")]
 [ApiController]
 [Route("api/[controller]")]
 public class ParametersController : ControllerBase

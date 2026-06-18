@@ -95,8 +95,9 @@ public class StockInsController : ControllerBase
     public async Task<IActionResult> PrintStockIn(int id, CancellationToken cancellationToken)
     {
         var stockIn = await _stockInService.GetStockInByIdAsync(id, cancellationToken);
+        var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
 
-        await _printService.PrintClinchingLabelWithSdkAsync(stockIn);
+        await _printService.PrintClinchingLabelWithSdkAsync(issueNumber);
 
         return ResponseFormatter.Success(message: "Stock-in label print triggered.");
     }

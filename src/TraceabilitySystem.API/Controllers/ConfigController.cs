@@ -128,8 +128,8 @@ public class ConfigController : ControllerBase
                 Params = new[]
                 {
                     new { Code = "CAP_TYPE_POSITION_RESULT", Name = "Cap Type & Position", Type = "boolean" },
-                    new { Code = "LEAK_TEST_RESULT", Name = "Leak Test Result", Type = "boolean" },
-                    new { Code = "LEAK_VALUE", Name = "Leak Value", Type = "number" }
+                    new { Code = "LEAK_RESULT", Name = "Leak Result", Type = "boolean" },
+                    new { Code = "LEAK_LAST_LEAKAGE_VALUE", Name = "Leak Last Leakage Value", Type = "number" }
                 }
             },
             new
@@ -139,10 +139,10 @@ public class ConfigController : ControllerBase
                 ProcDesc = "Main fan assembly process.",
                 Params = new[]
                 {
-                    new { Code = "FAN_ASM_RESULT", Name = "Fan Asm Result", Type = "boolean" },
-                    new { Code = "MOTOR_ASM_RESULT", Name = "Motor Asm Result", Type = "boolean" },
-                    new { Code = "FUN_GUIDE_ASM_RESULT", Name = "Fun Guide Asm Result", Type = "boolean" },
-                    new { Code = "BOLT_TIGHTEN_RESULT", Name = "Bolt tighten result", Type = "boolean" },
+                    new { Code = "LOT_FAN_ASM_RESULT", Name = "Lot Fan Asm Result", Type = "string" },
+                    new { Code = "LOT_MOTOR_ASM_RESULT", Name = "Lot Motor Asm Result", Type = "string" },
+                    new { Code = "LOT_GUIDE_ASM_RESULT", Name = "Lot Guide Asm Result", Type = "string" },
+                    new { Code = "BOLT_TIGHTEN_RESULT", Name = "Bolt tighten result", Type = "string" },
                     new { Code = "BOLT_TIGHTEN_VALUE", Name = "Bold Tighten Value", Type = "number" },
                     new { Code = "NUT_TIGHTEN_RESULT", Name = "Nut Tighten Result", Type = "boolean" }
                 }

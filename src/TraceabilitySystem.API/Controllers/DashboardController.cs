@@ -30,6 +30,14 @@ public class DashboardController : ControllerBase
         return ResponseFormatter.Success(result, "Dashboard summary retrieved successfully.");
     }
 
+    [HttpGet("traceability-summary")]
+    [ProducesResponseType(typeof(ApiResponse<List<DashboardSummaryFieldDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTraceabilitySummary(CancellationToken cancellationToken)
+    {
+        var result = await _dashboardService.GetTraceabilitySummaryAsync(cancellationToken);
+        return ResponseFormatter.Success(result, "Dashboard traceability summary retrieved successfully.");
+    }
+
     [HttpGet("stats")]
     [ProducesResponseType(typeof(ApiResponse<DashboardStatsDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStats(CancellationToken cancellationToken)

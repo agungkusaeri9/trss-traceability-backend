@@ -18,17 +18,20 @@ public class DashboardService : IDashboardService
     private readonly IPartRepository _partRepository;
     private readonly IIssueRepository _issueRepository;
     private readonly IProcessLogService _processLogService;
+    private readonly ITraceabilitySummarySimulator _traceabilitySummarySimulator;
 
     public DashboardService(
         IProcessLogRepository processLogRepository,
         IPartRepository partRepository,
         IIssueRepository issueRepository,
-        IProcessLogService processLogService)
+        IProcessLogService processLogService,
+        ITraceabilitySummarySimulator traceabilitySummarySimulator)
     {
         _processLogRepository = processLogRepository;
         _partRepository = partRepository;
         _issueRepository = issueRepository;
         _processLogService = processLogService;
+        _traceabilitySummarySimulator = traceabilitySummarySimulator;
     }
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
@@ -39,25 +42,27 @@ public class DashboardService : IDashboardService
 
         var summary = new DashboardSummaryDto();
 
-        // 1. Today Stats
         summary.Today.TotalProduction = await _processLogRepository.CountAsync(x => x.CreatedAt >= todayStart, cancellationToken);
         summary.Today.OkCount = await _processLogRepository.CountAsync(x => x.CreatedAt >= todayStart && x.IsActive, cancellationToken);
         summary.Today.NgCount = summary.Today.TotalProduction - summary.Today.OkCount;
         summary.Today.YieldRate = CalculateYield(summary.Today.TotalProduction, summary.Today.OkCount);
 
-        // 2. This Month Stats
         summary.ThisMonth.TotalProduction = await _processLogRepository.CountAsync(x => x.CreatedAt >= monthStart, cancellationToken);
         summary.ThisMonth.OkCount = await _processLogRepository.CountAsync(x => x.CreatedAt >= monthStart && x.IsActive, cancellationToken);
         summary.ThisMonth.NgCount = summary.ThisMonth.TotalProduction - summary.ThisMonth.OkCount;
         summary.ThisMonth.YieldRate = CalculateYield(summary.ThisMonth.TotalProduction, summary.ThisMonth.OkCount);
 
-        // 3. Total Stats
         summary.Total.TotalProduction = await _processLogRepository.CountAsync(null, cancellationToken);
         summary.Total.OkCount = await _processLogRepository.CountAsync(x => x.IsActive, cancellationToken);
         summary.Total.NgCount = summary.Total.TotalProduction - summary.Total.OkCount;
         summary.Total.YieldRate = CalculateYield(summary.Total.TotalProduction, summary.Total.OkCount);
 
         return summary;
+    }
+
+    public Task<List<DashboardSummaryFieldDto>> GetTraceabilitySummaryAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(_traceabilitySummarySimulator.GetSnapshot());
     }
 
     public async Task<DashboardStatsDto> GetStatsAsync(CancellationToken cancellationToken = default)

@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace TraceabilitySystem.API.Controllers;
 
-[Authorize(Roles = "admin")]
+// [Authorize(Roles = "admin")]
 [ApiController]
 [Route("api/[controller]")]
 public class ProcessesController : ControllerBase

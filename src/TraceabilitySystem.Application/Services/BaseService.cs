@@ -29,7 +29,7 @@ public abstract class BaseService<TEntity, TDto> : IBaseService<TEntity, TDto> w
         };
     }
 
-    public virtual async Task<TDto> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public virtual async Task<TDto> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken)
             ?? throw new NotFoundException(typeof(TEntity).Name, id);
@@ -37,7 +37,7 @@ public abstract class BaseService<TEntity, TDto> : IBaseService<TEntity, TDto> w
         return entity.Adapt<TDto>();
     }
 
-    public virtual async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public virtual async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken)
             ?? throw new NotFoundException(typeof(TEntity).Name, id);

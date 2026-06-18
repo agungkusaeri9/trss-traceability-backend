@@ -14,12 +14,12 @@ public class StockInRepository : BaseRepository<StockIn>, IStockInRepository
 {
     public StockInRepository(AppDbContext context) : base(context) { }
 
-    public override async Task<StockIn?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public override async Task<StockIn?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .Include(s => s.Part)
             .Include(s => s.Issues)
-            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == (int)id, cancellationToken);
     }
 
     public override async Task<(IEnumerable<StockIn> Items, int TotalCount)> GetPagedAsync(
