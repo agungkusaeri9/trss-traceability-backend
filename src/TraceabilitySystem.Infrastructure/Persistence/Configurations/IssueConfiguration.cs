@@ -23,5 +23,15 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
             .WithMany(s => s.Issues)
             .HasForeignKey(i => i.StockInId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(i => i.SerialNumberIssues)
+            .WithOne(s => s.Issue)
+            .HasForeignKey(s => s.IssueId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(i => i.Transactions)
+            .WithOne(t => t.Issue)
+            .HasForeignKey(t => t.IssueId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

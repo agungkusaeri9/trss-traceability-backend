@@ -33,6 +33,8 @@ public static class DependencyInjection
         services.AddScoped<IProcessLogService, ProcessLogService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IMqttPrintRequestService, MqttPrintRequestService>();
+        services.AddScoped<IIssueService, IssueService>();
+        services.AddScoped<ISerialNumberService, SerialNumberService>();
         services.AddSingleton<ITraceabilitySummarySimulator, TraceabilitySummarySimulator>();
 
         return services;

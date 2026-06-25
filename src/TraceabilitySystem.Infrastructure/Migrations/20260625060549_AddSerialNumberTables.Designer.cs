@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TraceabilitySystem.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TraceabilitySystem.Infrastructure.Persistence;
 namespace TraceabilitySystem.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625060549_AddSerialNumberTables")]
+    partial class AddSerialNumberTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -97,57 +100,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasDatabaseName("ix_issues_stock_in_id");
 
                     b.ToTable("issues", (string)null);
-                });
-
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.IssueTransaction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("created_at");
-
-                    b.Property<int>("IssueId")
-                        .HasColumnType("int")
-                        .HasColumnName("issue_id");
-
-                    b.Property<decimal>("QtyAfter")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("qty_after");
-
-                    b.Property<decimal>("QtyBefore")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("qty_before");
-
-                    b.Property<decimal>("QtyChange")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("qty_change");
-
-                    b.Property<string>("Remark")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)")
-                        .HasColumnName("remark");
-
-                    b.Property<string>("Type")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("type");
-
-                    b.HasKey("Id")
-                        .HasName("pk_issue_transactions");
-
-                    b.HasIndex("IssueId")
-                        .HasDatabaseName("ix_issue_transactions_issue_id");
-
-                    b.ToTable("issue_transactions", (string)null);
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.MqttPrintRequest", b =>
@@ -581,17 +533,15 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasColumnType("varchar(100)")
                         .HasColumnName("created_by");
 
+                    b.Property<int>("ProcessId")
+                        .HasColumnType("int")
+                        .HasColumnName("process_id");
+
                     b.Property<string>("SerialNumberCode")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)")
                         .HasColumnName("serial_number_code");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("type");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)")
@@ -604,6 +554,9 @@ namespace TraceabilitySystem.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_serial_numbers");
+
+                    b.HasIndex("ProcessId")
+                        .HasDatabaseName("ix_serial_numbers_process_id");
 
                     b.HasIndex("SerialNumberCode")
                         .IsUnique()
@@ -812,18 +765,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.Navigation("StockIn");
                 });
 
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.IssueTransaction", b =>
-                {
-                    b.HasOne("TraceabilitySystem.Domain.Entities.Issue", "Issue")
-                        .WithMany("Transactions")
-                        .HasForeignKey("IssueId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_issue_transactions_issues_issue_id");
-
-                    b.Navigation("Issue");
-                });
-
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessLogDetail", b =>
                 {
                     b.HasOne("TraceabilitySystem.Domain.Entities.Parameter", "Parameter")
@@ -887,6 +828,18 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.SerialNumber", b =>
+                {
+                    b.HasOne("TraceabilitySystem.Domain.Entities.Process", "Process")
+                        .WithMany("SerialNumbers")
+                        .HasForeignKey("ProcessId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_serial_numbers_processes_process_id");
+
+                    b.Navigation("Process");
+                });
+
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.SerialNumberIssue", b =>
                 {
                     b.HasOne("TraceabilitySystem.Domain.Entities.Issue", "Issue")
@@ -944,8 +897,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.Issue", b =>
                 {
                     b.Navigation("SerialNumberIssues");
-
-                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.Parameter", b =>
@@ -956,6 +907,8 @@ namespace TraceabilitySystem.Infrastructure.Migrations
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.Process", b =>
                 {
                     b.Navigation("ProcessParameters");
+
+                    b.Navigation("SerialNumbers");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessLog", b =>

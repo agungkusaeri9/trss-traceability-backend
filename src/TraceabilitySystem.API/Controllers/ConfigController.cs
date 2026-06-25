@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.Auth;
+using TraceabilitySystem.Application.DTOs.SerialNumber;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
@@ -28,6 +29,7 @@ public class ConfigController : ControllerBase
     private readonly IIssueRepository _issueRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly AppDbContext _context;
+    private readonly ISerialNumberService _serialNumberService;
 
     public ConfigController(
         IAuthService authService,
@@ -42,7 +44,8 @@ public class ConfigController : ControllerBase
         IProcessLogRepository processLogRepository,
         IIssueRepository issueRepository,
         IRefreshTokenRepository refreshTokenRepository,
-        AppDbContext context)
+        AppDbContext context,
+        ISerialNumberService serialNumberService)
     {
         _authService = authService;
         _userRepository = userRepository;
@@ -57,6 +60,7 @@ public class ConfigController : ControllerBase
         _issueRepository = issueRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _context = context;
+        _serialNumberService = serialNumberService;
     }
 
     /// <summary>Reset all master data (Process, Parameter, Process Log) and their relations.</summary>
@@ -926,5 +930,18 @@ public class ConfigController : ControllerBase
         await SeedProcessLogs(cancellationToken);
 
         return ResponseFormatter.Success(message: "All dummy data seeded successfully after full reset.");
+    }
+
+    /// <summary>Buat serial numbers sekaligus dari daftar issue_number.</summary>
+    [HttpPost("serial-numbers/create")]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<SerialNumberDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateSerialNumbers(
+        [FromBody] CreateSerialNumbersFromIssuesRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _serialNumberService.CreateFromIssuesAsync(request, cancellationToken);
+        return ResponseFormatter.Success(data: result, message: "Serial numbers berhasil dibuat.");
     }
 }

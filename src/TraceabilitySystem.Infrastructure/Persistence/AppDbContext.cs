@@ -20,6 +20,12 @@ public class AppDbContext : DbContext
     public DbSet<ProcessLog> ProcessLogs => Set<ProcessLog>();
     public DbSet<ProcessLogDetail> ProcessLogDetails => Set<ProcessLogDetail>();
     public DbSet<MqttPrintRequest> MqttPrintRequests => Set<MqttPrintRequest>();
+    public DbSet<SerialNumber> SerialNumbers => Set<SerialNumber>();
+
+    public DbSet<SerialNumberIssue> SerialNumberIssues => Set<SerialNumberIssue>();
+
+    public DbSet<SerialNumberRelation> SerialNumberRelations => Set<SerialNumberRelation>();
+    public DbSet<IssueTransaction> IssueTransactions => Set<IssueTransaction>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -121,6 +127,15 @@ public class AppDbContext : DbContext
             {
                 if (entry.State == EntityState.Added) mqttRequest.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) mqttRequest.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is SerialNumber serialNumber)
+            {
+                if (entry.State == EntityState.Added) serialNumber.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) serialNumber.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is IssueTransaction issueTransaction)
+            {
+                if (entry.State == EntityState.Added) issueTransaction.CreatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

@@ -11,4 +11,11 @@ public class Issue
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+
+    // Navigation
+    public virtual ICollection<SerialNumberIssue> SerialNumberIssues { get; set; }
+    = new List<SerialNumberIssue>();
+
+    public virtual ICollection<IssueTransaction> Transactions { get; set; }
+        = new List<IssueTransaction>();
 }
