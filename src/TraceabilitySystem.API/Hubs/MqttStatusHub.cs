@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
-using TraceabilitySystem.API.BackgroundServices;
+using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Hubs;
 
@@ -11,6 +11,9 @@ namespace TraceabilitySystem.API.Hubs;
 public class MqttStatusHub : Hub
 {
     private readonly MqttSettings _mqttSettings;
+    private static bool _isConnected;
+
+    public static bool IsConnected => _isConnected;
 
     public MqttStatusHub(IOptions<MqttSettings> mqttSettings)
     {
@@ -22,13 +25,25 @@ public class MqttStatusHub : Hub
         // Kirim status saat ini ke klien yang baru terhubung
         await Clients.Caller.SendAsync("MqttStatusUpdated", new
         {
-            IsConnected = MqttPrintRequestService.IsConnected,
+            IsConnected = _isConnected,
             Broker = _mqttSettings.Broker,
             Port = _mqttSettings.Port,
-            Status = MqttPrintRequestService.IsConnected ? "Online" : "Offline"
+            Status = _isConnected ? "Online" : "Offline"
         });
 
         await base.OnConnectedAsync();
+    }
+
+    public async Task UpdateStatus(bool isConnected)
+    {
+        _isConnected = isConnected;
+        await Clients.All.SendAsync("MqttStatusUpdated", new
+        {
+            IsConnected = _isConnected,
+            Broker = _mqttSettings.Broker,
+            Port = _mqttSettings.Port,
+            Status = _isConnected ? "Online" : "Offline"
+        });
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)

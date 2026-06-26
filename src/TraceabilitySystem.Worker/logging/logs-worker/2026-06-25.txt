@@ -1,0 +1,64 @@
+2026-06-25 16:04:05.631 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-25 16:04:05.692 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-25 16:04:10.547 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-25 16:04:10.599 +07:00 [INF] Connected to MQTT broker.
+2026-06-25 16:04:10.638 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-25 16:04:10.660 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-25 16:04:19.481 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:04:19.482 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {
+  "serial_number": "SN-CSS-10023",
+  "issue_number": "ISS-CSS-2026",
+  "qty_after": 1,
+  "result": "OK",
+  "timestamp": "2026-06-25T08:57:12.802Z"
+}
+2026-06-25 16:04:39.262 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-25 16:04:39.262 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {
+  "serial_number": "SN-CLS-10023",
+  "issue_number": "ISS-CLS-2026",
+  "qty_after": 1,
+  "result": "OK",
+  "timestamp": "2026-06-25T08:57:12.802Z"
+}
+2026-06-25 16:04:47.237 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-25 16:04:47.238 +07:00 [INF] [MQTT][MFanAssy] Payload: {
+  "serial_number": "SN-MFA-10023",
+  "issue_number": "ISS-MFA-2026",
+  "qty_after": 1,
+  "result": "OK",
+  "timestamp": "2026-06-25T08:57:12.802Z"
+}
+2026-06-25 16:23:29.674 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-25 16:23:29.696 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-25 16:23:33.989 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-25 16:23:34.054 +07:00 [INF] Connected to MQTT broker.
+2026-06-25 16:23:34.095 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-25 16:23:34.115 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-25 16:24:33.106 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:24:33.108 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027"],"result":"OK","timestamp":"2026-06-25T09:24:33.076Z"}
+2026-06-25 16:24:34.718 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027
+2026-06-25 16:24:35.771 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260625004 (Type: CLINCHING)
+2026-06-25 16:25:01.258 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:25:01.259 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027","ISS-00024"],"result":"OK","timestamp":"2026-06-25T09:25:01.253Z"}
+2026-06-25 16:25:01.319 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027, ISS-00024
+2026-06-25 16:25:01.358 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260625005 (Type: CLINCHING)
+2026-06-25 16:25:07.790 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:25:07.790 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027","ISS-00024","ISS-00014"],"result":"OK","timestamp":"2026-06-25T09:25:07.785Z"}
+2026-06-25 16:25:07.818 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027, ISS-00024, ISS-00014
+2026-06-25 16:25:07.887 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260625006 (Type: CLINCHING)
+2026-06-25 16:25:10.473 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:25:10.473 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027","ISS-00024","ISS-00017","ISS-00014"],"result":"OK","timestamp":"2026-06-25T09:25:10.468Z"}
+2026-06-25 16:25:10.474 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027, ISS-00024, ISS-00017, ISS-00014
+2026-06-25 16:25:10.517 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260625007 (Type: CLINCHING)
+2026-06-25 16:25:12.867 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:25:12.867 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027","ISS-00024","ISS-00020","ISS-00017","ISS-00014"],"result":"OK","timestamp":"2026-06-25T09:25:12.862Z"}
+2026-06-25 16:25:12.868 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027, ISS-00024, ISS-00020, ISS-00017, ISS-00014
+2026-06-25 16:25:12.914 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260625008 (Type: CLINCHING)
+2026-06-25 16:29:27.096 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:29:27.097 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["20260605001"],"result":"OK","timestamp":"2026-06-25T09:29:27.092Z"}
+2026-06-25 16:29:27.098 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: 20260605001
+2026-06-25 16:29:27.129 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260625009 (Type: CLINCHING)
+2026-06-25 16:29:53.439 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-25 16:29:53.439 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["20260605001"],"result":"OK","timestamp":"2026-06-25T09:29:53.433Z"}
+2026-06-25 16:29:53.441 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: 20260605001
+2026-06-25 16:29:53.464 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260625010 (Type: CLINCHING)

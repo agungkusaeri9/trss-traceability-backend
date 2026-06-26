@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRSS Traceability - MQTT Publisher Testing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
+  <div class="container mx-auto px-4 py-8 max-w-6xl">
+
+    <!-- Title -->
+    <div class="mb-8 border-b border-slate-700 pb-6">
+      <h1 class="text-3xl font-bold text-white mb-2">MQTT Publisher Testing Interface</h1>
+      <p class="text-slate-400">Publish payload testing ke MQTT Broker untuk ditangkap Worker Background Service.</p>
+      <div class="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded text-sm">
+        <strong>Catatan:</strong> Browser hanya mendukung koneksi MQTT via WebSocket. Pastikan MQTT broker mengaktifkan port WebSocket (contoh: <code class="bg-slate-800 px-1 rounded">ws://localhost:9001</code>).
+      </div>
+    </div>
+
+    <!-- Connection Config -->
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-8">
+      <h2 class="text-lg font-semibold text-white mb-4">Broker Connection</h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-slate-400 mb-1">Host / IP</label>
+          <input type="text" id="mqtt-host" value="localhost"
+            class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-400 mb-1">Port (WebSocket)</label>
+          <input type="number" id="mqtt-port" value="9001"
+            class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono text-sm focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-400 mb-1">Status</label>
+          <div class="flex items-center h-10">
+            <span id="conn-status"
+              class="inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-red-500/20 text-red-300 border border-red-500/30">
+              <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span> Disconnected
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button id="btn-connect" onclick="connectMqtt()"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded transition text-sm">Connect</button>
+        <button id="btn-disconnect" onclick="disconnectMqtt()" disabled
+          class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium px-4 py-2 rounded transition text-sm opacity-50 cursor-not-allowed">Disconnect</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+      <!-- Topic Cards -->
+      <div class="xl:col-span-2 space-y-4">
+        <h2 class="text-lg font-semibold text-white">Process Result Topics</h2>
+        <div id="topic-cards" class="space-y-3"></div>
+
+        <h2 class="text-lg font-semibold text-white mt-6 pt-2">Print Request Topics</h2>
+        <div id="print-cards" class="space-y-3"></div>
+      </div>
+
+      <!-- Log Panel -->
+      <div class="xl:col-span-1">
+        <div class="sticky top-6">
+          <div class="flex justify-between items-center mb-2">
+            <h2 class="text-lg font-semibold text-white">Console</h2>
+            <button onclick="clearLogs()"
+              class="text-xs bg-slate-800 border border-slate-700 text-slate-400 px-3 py-1 rounded hover:bg-slate-700">Clear</button>
+          </div>
+          <div id="log-panel"
+            class="bg-slate-950 border border-slate-800 rounded-lg p-4 h-[620px] overflow-y-auto font-mono text-xs space-y-1">
+            <div class="text-slate-500">[System] Hubungkan ke broker MQTT untuk mulai publish payload...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ─── Issue Numbers (for Clinching Short Side only) ────────────────────────
+
+    const allIssueNumbers = [
+      "ISS-00030","ISS-00029","ISS-00028","ISS-00027","ISS-00026",
+      "ISS-00025","ISS-00024","ISS-00023","ISS-00022","ISS-00021",
+      "ISS-00020","ISS-00019","ISS-00018","ISS-00017","ISS-00016",
+      "ISS-00015","ISS-00014","ISS-00013","ISS-00012","ISS-00011",
+      "ISS-00010","ISS-00009","ISS-00008","ISS-00007","ISS-00006",
+      "ISS-00005","ISS-00004","ISS-00003","ISS-00002","ISS-00001",
+      "20260602001","20260603001","20260605001"
+    ];
+
+    // ─── Topic Definitions ────────────────────────────────────────────────────
+
+    const processTopics = [
+      {
+        id: 'clinching-short-side',
+        label: 'Clinching Short Side',
+        topic: 'data/process/clinching-short-side/result',
+        color: 'blue',
+        hasIssuePicker: true,   // ← only this topic has the issue picker
+        payload: {
+          issue_numbers: ["ISS-00001"],
+          result: "OK",
+          timestamp: new Date().toISOString()
+        }
+      },
+      {
+        id: 'clinching-long-side',
+        label: 'Clinching Long Side',
+        topic: 'data/process/clinching-long-side/result',
+        color: 'indigo',
+        payload: {}
+      },
+      {
+        id: 'he-leak',
+        label: 'He Leak Test',
+        topic: 'data/process/he-leak/result',
+        color: 'cyan',
+        payload: {}
+      },
+      {
+        id: 'm-fan-assy',
+        label: 'M-Fan Assembly',
+        topic: 'data/process/m-fan-assy/result',
+        color: 'violet',
+        payload: {}
+      },
+      {
+        id: 'm-fan-inspection',
+        label: 'M-Fan Inspection',
+        topic: 'data/process/m-fan-inspection/result',
+        color: 'purple',
+        payload: {}
+      },
+      {
+        id: 'ecm-assy',
+        label: 'ECM Assembly',
+        topic: 'data/process/ecm-assy/result',
+        color: 'amber',
+        payload: {}
+      },
+      {
+        id: 'final-inspection',
+        label: 'Final Inspection',
+        topic: 'data/process/final-inspection/result',
+        color: 'emerald',
+        payload: {}
+      }
+    ];
+
+    const printTopics = [
+      {
+        id: 'print-clinching-short-side',
+        label: 'Print — Clinching Short Side',
+        topic: 'traceability/print/request/clinching-short-side',
+        color: 'rose',
+        payload: { issue_number: "ISS-00001" }
+      },
+      {
+        id: 'print-m-fan-assy',
+        label: 'Print — M-Fan Assembly',
+        topic: 'traceability/print/request/m-fan-assy',
+        color: 'orange',
+        payload: { issue_number: "ISS-00001" }
+      }
+    ];
+
+    // ─── Color Map ────────────────────────────────────────────────────────────
+
+    const colorMap = {
+      blue:    { badge: 'text-blue-300 bg-blue-500/10 border-blue-500/20',       btn: 'bg-blue-600 hover:bg-blue-700',       dot: 'bg-blue-400' },
+      indigo:  { badge: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/20', btn: 'bg-indigo-600 hover:bg-indigo-700',   dot: 'bg-indigo-400' },
+      cyan:    { badge: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20',       btn: 'bg-cyan-600 hover:bg-cyan-700',       dot: 'bg-cyan-400' },
+      violet:  { badge: 'text-violet-300 bg-violet-500/10 border-violet-500/20', btn: 'bg-violet-600 hover:bg-violet-700',   dot: 'bg-violet-400' },
+      purple:  { badge: 'text-purple-300 bg-purple-500/10 border-purple-500/20', btn: 'bg-purple-600 hover:bg-purple-700',   dot: 'bg-purple-400' },
+      amber:   { badge: 'text-amber-300 bg-amber-500/10 border-amber-500/20',    btn: 'bg-amber-600 hover:bg-amber-700',     dot: 'bg-amber-400' },
+      emerald: { badge: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20', btn: 'bg-emerald-600 hover:bg-emerald-700', dot: 'bg-emerald-400' },
+      rose:    { badge: 'text-rose-300 bg-rose-500/10 border-rose-500/20',       btn: 'bg-rose-600 hover:bg-rose-700',       dot: 'bg-rose-400' },
+      orange:  { badge: 'text-orange-300 bg-orange-500/10 border-orange-500/20', btn: 'bg-orange-600 hover:bg-orange-700',   dot: 'bg-orange-400' },
+    };
+
+    // ─── Render Cards ─────────────────────────────────────────────────────────
+
+    function renderCards(topics, containerId) {
+      const container = document.getElementById(containerId);
+
+      container.innerHTML = topics.map(t => {
+        const c = colorMap[t.color];
+        const payloadStr = JSON.stringify(t.payload, null, 2);
+
+        // Issue picker — only for clinching-short-side
+        const issuePickerHtml = t.hasIssuePicker ? `
+          <div class="px-4 pt-3">
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-medium text-slate-400">Pilih Issue Numbers</label>
+              <div class="flex gap-2 text-xs">
+                <button onclick="selectAll('${t.id}')" class="text-blue-400 hover:text-blue-300">Pilih Semua</button>
+                <span class="text-slate-600">|</span>
+                <button onclick="clearAll('${t.id}')" class="text-slate-400 hover:text-white">Reset</button>
+              </div>
+            </div>
+            <div id="checkboxes-${t.id}"
+              class="grid grid-cols-3 gap-x-3 gap-y-1 bg-slate-900 rounded p-3 max-h-40 overflow-y-auto mb-3 border border-slate-700">
+              ${allIssueNumbers.map(num => `
+                <label class="flex items-center gap-1 cursor-pointer hover:text-white text-slate-300 text-xs whitespace-nowrap">
+                  <input type="checkbox" class="issue-checkbox accent-blue-500" value="${num}"> ${num}
+                </label>`).join('')}
+            </div>
+          </div>` : '';
+
+        return `
+          <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${c.dot}"></span>
+                <span class="font-semibold text-sm text-white">${t.label}</span>
+              </div>
+              <span class="font-mono text-xs px-2 py-0.5 rounded border ${c.badge}">${t.topic}</span>
+            </div>
+
+            ${issuePickerHtml}
+
+            <div class="px-4 ${t.hasIssuePicker ? '' : 'pt-3'} pb-4">
+              <label class="block text-xs font-medium text-slate-400 mb-1">
+                Payload${t.hasIssuePicker ? ' <span class="text-slate-600">(auto-update dari pilihan di atas)</span>' : ''}
+              </label>
+              <textarea id="payload-${t.id}" rows="${t.hasIssuePicker ? 5 : 3}"
+                class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs font-mono text-emerald-400 focus:outline-none focus:border-blue-500"
+              >${payloadStr}</textarea>
+
+              <div class="flex items-center gap-2 mt-2">
+                <button onclick="publishMessage('${t.id}', '${t.topic}')" id="btn-${t.id}"
+                  class="publish-btn text-white text-xs font-semibold px-4 py-1.5 rounded transition ${c.btn} opacity-50 cursor-not-allowed flex items-center gap-1"
+                  disabled>
+                  ➤ Publish
+                </button>
+                <span id="feedback-${t.id}" class="text-xs text-slate-500"></span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Attach checkbox listeners (only for topics with picker)
+      topics.filter(t => t.hasIssuePicker).forEach(t => {
+        const box = document.getElementById(`checkboxes-${t.id}`);
+        box.querySelectorAll('.issue-checkbox').forEach(cb => {
+          cb.addEventListener('change', () => updatePayload(t.id, t.payload));
+        });
+        // Default: first item checked
+        const first = box.querySelector('.issue-checkbox');
+        if (first) { first.checked = true; updatePayload(t.id, t.payload); }
+      });
+    }
+
+    function getSelectedIssues(id) {
+      return [...document.querySelectorAll(`#checkboxes-${id} .issue-checkbox:checked`)]
+        .map(cb => cb.value);
+    }
+
+    function updatePayload(id, basePayload) {
+      const selected = getSelectedIssues(id);
+      const updated = { ...basePayload, issue_numbers: selected, timestamp: new Date().toISOString() };
+      document.getElementById(`payload-${id}`).value = JSON.stringify(updated, null, 2);
+    }
+
+    function selectAll(id) {
+      document.querySelectorAll(`#checkboxes-${id} .issue-checkbox`).forEach(cb => cb.checked = true);
+      const t = [...processTopics, ...printTopics].find(t => t.id === id);
+      if (t) updatePayload(id, t.payload);
+    }
+
+    function clearAll(id) {
+      document.querySelectorAll(`#checkboxes-${id} .issue-checkbox`).forEach(cb => cb.checked = false);
+      const t = [...processTopics, ...printTopics].find(t => t.id === id);
+      if (t) updatePayload(id, t.payload);
+    }
+
+    renderCards(processTopics, 'topic-cards');
+    renderCards(printTopics, 'print-cards');
+
+    // ─── MQTT ─────────────────────────────────────────────────────────────────
+
+    let mqttClient = null;
+
+    function connectMqtt() {
+      const host = document.getElementById('mqtt-host').value;
+      const port = document.getElementById('mqtt-port').value;
+      const url  = `ws://${host}:${port}/mqtt`;
+
+      addLog(`Connecting to ${url}...`, 'info');
+
+      mqttClient = mqtt.connect(url, {
+        clientId: 'trss_doc_' + Math.random().toString(16).slice(2, 8),
+        clean: true, connectTimeout: 4000
+      });
+
+      mqttClient.on('connect', () => { addLog('Connected.', 'success'); setStatusUI(true); });
+      mqttClient.on('error',   err => { addLog(`Error: ${err.message}`, 'error'); setStatusUI(false); });
+      mqttClient.on('close',   ()  => { addLog('Disconnected.', 'warn');  setStatusUI(false); });
+    }
+
+    function disconnectMqtt() {
+      if (mqttClient) { mqttClient.end(); mqttClient = null; }
+    }
+
+    function publishMessage(id, topic) {
+      if (!mqttClient || !mqttClient.connected) {
+        addLog('Belum terhubung ke broker!', 'error'); return;
+      }
+
+      const textarea  = document.getElementById(`payload-${id}`);
+      const feedback  = document.getElementById(`feedback-${id}`);
+      let parsed;
+
+      try { parsed = JSON.parse(textarea.value); }
+      catch {
+        feedback.textContent = '✗ JSON tidak valid';
+        feedback.className   = 'text-xs text-red-400';
+        setTimeout(() => { feedback.textContent = ''; }, 2500);
+        return;
+      }
+
+      parsed.timestamp = new Date().toISOString();
+      textarea.value   = JSON.stringify(parsed, null, 2);
+
+      mqttClient.publish(topic, JSON.stringify(parsed), { qos: 0 }, err => {
+        if (err) {
+          addLog(`FAILED → ${topic}: ${err.message}`, 'error');
+          feedback.textContent = '✗ Gagal'; feedback.className = 'text-xs text-red-400';
+        } else {
+          addLog(`Published → ${topic}`, 'publish');
+          if (parsed.issue_numbers?.length) {
+            addLog(`  issue_numbers: [${parsed.issue_numbers.join(', ')}]`, 'data');
+          }
+          feedback.textContent = '✓ Published'; feedback.className = 'text-xs text-emerald-400';
+        }
+        setTimeout(() => { feedback.textContent = ''; }, 2500);
+      });
+    }
+
+    // ─── UI Helpers ───────────────────────────────────────────────────────────
+
+    function setStatusUI(connected) {
+      const badge  = document.getElementById('conn-status');
+      const btnCon = document.getElementById('btn-connect');
+      const btnDis = document.getElementById('btn-disconnect');
+
+      if (connected) {
+        badge.className = 'inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        badge.innerHTML = '<span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Connected';
+        btnCon.disabled = true;  btnCon.classList.add('opacity-50','cursor-not-allowed');
+        btnDis.disabled = false; btnDis.classList.remove('opacity-50','cursor-not-allowed');
+        document.querySelectorAll('.publish-btn').forEach(b => {
+          b.disabled = false; b.classList.remove('opacity-50','cursor-not-allowed');
+        });
+      } else {
+        badge.className = 'inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-red-500/20 text-red-300 border border-red-500/30';
+        badge.innerHTML = '<span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span> Disconnected';
+        btnCon.disabled = false; btnCon.classList.remove('opacity-50','cursor-not-allowed');
+        btnDis.disabled = true;  btnDis.classList.add('opacity-50','cursor-not-allowed');
+        document.querySelectorAll('.publish-btn').forEach(b => {
+          b.disabled = true; b.classList.add('opacity-50','cursor-not-allowed');
+        });
+      }
+    }
+
+    const logColors = {
+      info: 'text-blue-400', success: 'text-emerald-400', warn: 'text-yellow-400',
+      error: 'text-red-400', publish: 'text-violet-300', data: 'text-slate-400'
+    };
+
+    function addLog(msg, type = 'info') {
+      const panel   = document.getElementById('log-panel');
+      const initial = panel.querySelector('.text-slate-500');
+      if (initial) initial.remove();
+
+      const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+      const div  = document.createElement('div');
+      div.className   = logColors[type] || 'text-slate-300';
+      div.textContent = `[${time}] ${msg}`;
+      panel.appendChild(div);
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('log-panel').innerHTML =
+        '<div class="text-slate-500">[System] Logs cleared.</div>';
+    }
+  </script>
+</body>
+</html>

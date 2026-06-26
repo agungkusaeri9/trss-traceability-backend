@@ -6,6 +6,7 @@ using TraceabilitySystem.API.Extensions;
 using TraceabilitySystem.API.Filters;
 using TraceabilitySystem.API.Hubs;
 using TraceabilitySystem.API.Middleware;
+using TraceabilitySystem.Shared.Models;
 // using TraceabilitySystem.API.Services;
 using TraceabilitySystem.Application;
 // using TraceabilitySystem.Application.Interfaces;
@@ -89,7 +90,6 @@ try
     builder.Services.AddSignalR();
     // builder.Services.AddSingleton<ITraceabilitySummaryNotifier, TraceabilitySummaryNotifier>();
     builder.Services.AddHostedService<PrinterMonitorService>();
-    builder.Services.AddHostedService<MqttPrintRequestService>();
     // builder.Services.AddHostedService<TraceabilitySummaryBroadcastService>();
 
     // ── Build ──────────────────────────────────────────────────────────────
