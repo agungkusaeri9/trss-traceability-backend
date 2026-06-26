@@ -19,19 +19,22 @@ public class DashboardService : IDashboardService
     private readonly IIssueRepository _issueRepository;
     private readonly IProcessLogService _processLogService;
     private readonly ITraceabilitySummarySimulator _traceabilitySummarySimulator;
+    private readonly ISerialNumberRepository _serialNumberRepository;
 
     public DashboardService(
         IProcessLogRepository processLogRepository,
         IPartRepository partRepository,
         IIssueRepository issueRepository,
         IProcessLogService processLogService,
-        ITraceabilitySummarySimulator traceabilitySummarySimulator)
+        ITraceabilitySummarySimulator traceabilitySummarySimulator,
+        ISerialNumberRepository serialNumberRepository)
     {
         _processLogRepository = processLogRepository;
         _partRepository = partRepository;
         _issueRepository = issueRepository;
         _processLogService = processLogService;
         _traceabilitySummarySimulator = traceabilitySummarySimulator;
+        _serialNumberRepository = serialNumberRepository;
     }
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
@@ -84,12 +87,32 @@ public class DashboardService : IDashboardService
         
         // This is a bit heavy, but for seed data it's fine. 
         // In production, you'd want a specific repository method for this.
-        var topParts = allLogs
-            .GroupBy(x => x.IssueNo) // Usually one log per issue, but let's assume
-            .Take(100) // Limit for performance
-            .Select(g => g.First())
-            .GroupBy(x => x.IssueNo.Split('-')[0]) // Simplified part detection if naming follows PN-XXXX
-            .Select(g => new ChartDataDto { Label = g.Key, Value = g.Count() })
+        var topParts = new List<ChartDataDto>();
+        var partCount = new Dictionary<string, int>();
+
+        foreach (var log in allLogs.Take(100))
+        {
+            var serialNumber = await _serialNumberRepository.GetWithRelatedAsync(log.SerialNumberId, cancellationToken);
+            if (serialNumber != null && serialNumber.Issues.Any())
+            {
+                var firstIssue = serialNumber.Issues.FirstOrDefault();
+                if (firstIssue?.Issue?.StockIn?.Part != null)
+                {
+                    string partNumber = firstIssue.Issue.StockIn.Part.Number;
+                    if (partCount.ContainsKey(partNumber))
+                    {
+                        partCount[partNumber]++;
+                    }
+                    else
+                    {
+                        partCount[partNumber] = 1;
+                    }
+                }
+            }
+        }
+
+        topParts = partCount
+            .Select(kvp => new ChartDataDto { Label = kvp.Key, Value = kvp.Value })
             .OrderByDescending(x => x.Value)
             .Take(5)
             .ToList();

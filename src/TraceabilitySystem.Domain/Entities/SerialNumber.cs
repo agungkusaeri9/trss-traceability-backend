@@ -24,4 +24,6 @@ public class SerialNumber
     public virtual ICollection<SerialNumberRelation> ParentRelations { get; set; } = new List<SerialNumberRelation>();
 
     public virtual ICollection<SerialNumberRelation> ChildRelations { get; set; } = new List<SerialNumberRelation>();
+     public virtual ICollection<ProcessLog> ProcessLogs { get; set; }
+        = new List<ProcessLog>();
 }

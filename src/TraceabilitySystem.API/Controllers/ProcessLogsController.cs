@@ -23,20 +23,20 @@ public class ProcessLogsController : ControllerBase
     [ProducesResponseType(typeof(PagedApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetProcessLogs(
         [FromQuery] PaginationDto pagination,
-        [FromQuery] string? issueNo = null,
+        [FromQuery] string? serialNumberCode = null,
         [FromQuery] string? partNumber = null,
         [FromQuery] bool? isActive = null,
         CancellationToken cancellationToken = default)
     {
         var result = await _processLogService.GetProcessLogsAsync(
-            pagination.Page, pagination.Limit, issueNo, partNumber, isActive, cancellationToken);
+            pagination.Page, pagination.Limit, serialNumberCode, partNumber, isActive, cancellationToken);
         return ResponseFormatter.PagedSuccess(result);
     }
 
-    [HttpGet("{id:int}")]
+    [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProcessLog(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetProcessLog(long id, CancellationToken cancellationToken)
     {
         var result = await _processLogService.GetProcessLogByIdAsync(id, cancellationToken);
         return ResponseFormatter.Success(result, "Process log retrieved successfully.");

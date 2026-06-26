@@ -6,7 +6,7 @@ namespace TraceabilitySystem.Application.DTOs.ProcessLog;
 public class ProcessLogDto
 {
     public long Id { get; set; }
-    public string IssueNo { get; set; } = string.Empty;
+    public string SerialNumberCode { get; set; } = string.Empty;
     public string? PartNumber { get; set; }
     public string? PartName { get; set; }
     public bool IsActive { get; set; }

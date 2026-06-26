@@ -10,11 +10,6 @@ public class ProcessLogDetailConfiguration : IEntityTypeConfiguration<ProcessLog
     {
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.ValueNumber).HasPrecision(18, 4);
-
-        builder.HasIndex(x => new { x.ProcessLogId, x.ProcessId, x.ParameterId })
-            .HasDatabaseName("idx_process_parameter");
-
         builder.HasOne(x => x.ProcessLog)
             .WithMany(x => x.Details)
             .HasForeignKey(x => x.ProcessLogId)

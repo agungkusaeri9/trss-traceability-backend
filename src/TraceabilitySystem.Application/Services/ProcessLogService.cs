@@ -13,27 +13,30 @@ public class ProcessLogService : IProcessLogService
     private readonly IProcessLogRepository _processLogRepository;
     private readonly IIssueRepository _issueRepository;
     private readonly IStockInRepository _stockInRepository;
+    private readonly ISerialNumberRepository _serialNumberRepository;
 
     public ProcessLogService(
         IProcessLogRepository processLogRepository,
         IIssueRepository issueRepository,
-        IStockInRepository stockInRepository)
+        IStockInRepository stockInRepository,
+        ISerialNumberRepository serialNumberRepository)
     {
         _processLogRepository = processLogRepository;
         _issueRepository = issueRepository;
         _stockInRepository = stockInRepository;
+        _serialNumberRepository = serialNumberRepository;
     }
 
     public async Task<PagedResult<ProcessLogDto>> GetProcessLogsAsync(
         int page,
         int pageSize,
-        string? issueNo = null,
+        string? serialNumberCode = null,
         string? partNumber = null,
         bool? isActive = null,
         CancellationToken cancellationToken = default)
     {
         var (logs, totalCount) = await _processLogRepository.GetPagedLogsAsync(
-            page, pageSize, issueNo, partNumber, isActive, cancellationToken);
+            page, pageSize, serialNumberCode, partNumber, isActive, cancellationToken);
 
         var dtos = new List<ProcessLogDto>();
 
@@ -41,15 +44,17 @@ public class ProcessLogService : IProcessLogService
         {
             var dto = log.Adapt<ProcessLogDto>();
             
-            // Fetch extra info (Part Number/Name) based on IssueNo
-            var issue = await _issueRepository.FirstOrDefaultAsync(i => i.Number == log.IssueNo, cancellationToken);
-            if (issue != null)
+            // Fetch extra info (Part Number/Name) based on SerialNumber
+            var serialNumber = await _serialNumberRepository.GetWithRelatedAsync(log.SerialNumberId, cancellationToken);
+            
+            if (serialNumber != null && serialNumber.Issues.Any())
             {
-                var stockIn = await _stockInRepository.GetByIdAsync(issue.StockInId, cancellationToken);
-                if (stockIn?.Part != null)
+                // Take the first issue's stock in part
+                var firstIssue = serialNumber.Issues.FirstOrDefault();
+                if (firstIssue?.Issue?.StockIn?.Part != null)
                 {
-                    dto.PartNumber = stockIn.Part.Number;
-                    dto.PartName = stockIn.Part.Name;
+                    dto.PartNumber = firstIssue.Issue.StockIn.Part.Number;
+                    dto.PartName = firstIssue.Issue.StockIn.Part.Name;
                 }
             }
 
@@ -68,7 +73,7 @@ public class ProcessLogService : IProcessLogService
     public async Task<ProcessLogDto> GetProcessLogByIdAsync(long id, CancellationToken cancellationToken = default)
     {
         var log = await _processLogRepository.GetLogWithDetailsAsync(id, cancellationToken)
-            ?? throw new NotFoundException(nameof(ProcessLog), (int)id);
+            ?? throw new NotFoundException(nameof(ProcessLog), id);
 
         var dto = log.Adapt<ProcessLogDto>();
 
@@ -117,14 +122,17 @@ public class ProcessLogService : IProcessLogService
                         }).ToList()
                     }).ToList()
             }).ToList();
-        var issue = await _issueRepository.FirstOrDefaultAsync(i => i.Number == log.IssueNo, cancellationToken);
-        if (issue != null)
+        
+        // Fetch Part info from SerialNumber
+        var serialNumber = await _serialNumberRepository.GetWithRelatedAsync(log.SerialNumberId, cancellationToken);
+        
+        if (serialNumber != null && serialNumber.Issues.Any())
         {
-            var stockIn = await _stockInRepository.GetByIdAsync(issue.StockInId, cancellationToken);
-            if (stockIn?.Part != null)
+            var firstIssue = serialNumber.Issues.FirstOrDefault();
+            if (firstIssue?.Issue?.StockIn?.Part != null)
             {
-                dto.PartNumber = stockIn.Part.Number;
-                dto.PartName = stockIn.Part.Name;
+                dto.PartNumber = firstIssue.Issue.StockIn.Part.Number;
+                dto.PartName = firstIssue.Issue.StockIn.Part.Name;
             }
         }
 

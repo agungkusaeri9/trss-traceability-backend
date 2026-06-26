@@ -8,7 +8,7 @@ public interface IProcessLogService
     Task<PagedResult<ProcessLogDto>> GetProcessLogsAsync(
         int page, 
         int pageSize, 
-        string? issueNo = null, 
+        string? serialNumberCode = null, 
         string? partNumber = null,
         bool? isActive = null,
         CancellationToken cancellationToken = default);

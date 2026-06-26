@@ -7,7 +7,8 @@ public class ProcessLog
 {
     public long Id { get; set; }
 
-    public string IssueNo { get; set; } = string.Empty;
+     public int SerialNumberId { get; set; }
+    public SerialNumber SerialNumber { get; set; } = null!;
 
     public bool IsActive { get; set; }
 

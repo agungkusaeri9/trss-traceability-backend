@@ -10,7 +10,7 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
     Task<(IEnumerable<ProcessLog> Items, int TotalCount)> GetPagedLogsAsync(
         int page,
         int pageSize,
-        string? issueNo = null,
+        string? serialNumberCode = null,
         string? partNumber = null,
         bool? isActive = null,
         CancellationToken cancellationToken = default);

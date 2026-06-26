@@ -15,16 +15,17 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
     public async Task<(IEnumerable<ProcessLog> Items, int TotalCount)> GetPagedLogsAsync(
         int page,
         int pageSize,
-        string? issueNo = null,
+        string? serialNumberCode = null,
         string? partNumber = null,
         bool? isActive = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.ProcessLogs.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(issueNo))
+        if (!string.IsNullOrWhiteSpace(serialNumberCode))
         {
-            query = query.Where(x => x.IssueNo.Contains(issueNo));
+            query = query.Include(x => x.SerialNumber)
+                .Where(x => x.SerialNumber.SerialNumberCode.Contains(serialNumberCode));
         }
 
         if (isActive.HasValue)
@@ -34,9 +35,11 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
 
         if (!string.IsNullOrWhiteSpace(partNumber))
         {
-            // Join with Issues, StockIn, and Parts to filter by PartNumber
+            // Join with SerialNumber, SerialNumberIssue, Issue, StockIn, and Parts to filter by PartNumber
             query = from log in query
-                    join issue in _context.Issues on log.IssueNo equals issue.Number
+                    join serialNumber in _context.SerialNumbers on log.SerialNumberId equals serialNumber.Id
+                    join snIssue in _context.SerialNumberIssues on serialNumber.Id equals snIssue.SerialNumberId
+                    join issue in _context.Issues on snIssue.IssueId equals issue.Id
                     join stockIn in _context.StockIns on issue.StockInId equals stockIn.Id
                     join part in _context.Parts on stockIn.PartId equals part.Id
                     where part.Number.Contains(partNumber)
@@ -45,6 +48,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
+            .Include(x => x.SerialNumber) // Include SerialNumber for easier access later
             .OrderByDescending(x => x.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -56,6 +60,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
     public async Task<ProcessLog?> GetLogWithDetailsAsync(long id, CancellationToken cancellationToken = default)
     {
         return await _context.ProcessLogs
+            .Include(x => x.SerialNumber)
             .Include(x => x.Details)
                 .ThenInclude(d => d.Process)
             .Include(x => x.Details)

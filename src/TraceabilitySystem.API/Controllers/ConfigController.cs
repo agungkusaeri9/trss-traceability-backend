@@ -255,14 +255,26 @@ public class ConfigController : ControllerBase
             return ResponseFormatter.Error("No processes found. Please run seed-trss-master-data first.");
         }
 
+        // 3. Get or create a serial number
+        var serialNumber = await _context.SerialNumbers.FirstOrDefaultAsync(cancellationToken);
+        if (serialNumber == null)
+        {
+            serialNumber = new SerialNumber
+            {
+                SerialNumberCode = $"SN-{DateTime.UtcNow:yyyyMMdd}-0001",
+                Type = "CLINCHING",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _context.SerialNumbers.AddAsync(serialNumber, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         var random = new Random();
 
-        // 3. Create exactly ONE comprehensive process log
-        var issueNo = $"ISS-{DateTime.UtcNow:yyyyMMdd}-0001";
-
+        // 4. Create exactly ONE comprehensive process log
         var processLog = new ProcessLog
         {
-            IssueNo = issueNo,
+            SerialNumberId = serialNumber.Id,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -314,7 +326,7 @@ public class ConfigController : ControllerBase
 
         await _processLogRepository.SaveChangesAsync(cancellationToken);
 
-        return ResponseFormatter.Success(message: $"Single comprehensive process log [{issueNo}] with all 7 processes and 10-15 values per parameter seeded successfully.");
+        return ResponseFormatter.Success(message: $"Single comprehensive process log for serial number [{serialNumber.SerialNumberCode}] with all 7 processes and 10-15 values per parameter seeded successfully.");
     }
 
     /// <summary>Seed a dummy admin user.</summary>
@@ -927,7 +939,7 @@ public class ConfigController : ControllerBase
         await SeedAppConfigs(cancellationToken);
         await SeedProcessParameters(cancellationToken);
         await SeedStockIns(cancellationToken);
-        await SeedProcessLogs(cancellationToken);
+        // await SeedProcessLogs(cancellationToken);
 
         return ResponseFormatter.Success(message: "All dummy data seeded successfully after full reset.");
     }
