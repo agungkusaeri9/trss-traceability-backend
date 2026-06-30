@@ -143,7 +143,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         string serialNumberCode,
         string processCode,
         bool isOk,
-        List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean)> parameters,
+        List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean, bool status)> parameters,
         CancellationToken cancellationToken = default)
     {
         // 1. Get Serial Number by Code
@@ -171,6 +171,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
             {
                 SerialNumberId = serialNumber.Id,
                 IsActive = true,
+                Status = isOk,
                 CreatedAt = DateTime.Now
             };
             await AddAsync(processLog, cancellationToken);
@@ -179,6 +180,10 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         else
         {
             processLog.UpdatedAt = DateTime.Now;
+            if (!isOk)
+            {
+                processLog.Status = false;
+            }
             Update(processLog);
             await SaveChangesAsync(cancellationToken);
         }
@@ -204,6 +209,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                 ValueNumber = param.valueNumber,
                 ValueText = param.valueText,
                 ValueBoolean = param.valueBoolean,
+                Status = param.status,
                 CreatedAt = DateTime.Now
             };
             await _context.ProcessLogDetails.AddAsync(detail, cancellationToken);

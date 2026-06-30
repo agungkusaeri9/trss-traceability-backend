@@ -11,6 +11,7 @@ public class ProcessLog
     public SerialNumber SerialNumber { get; set; } = null!;
 
     public bool IsActive { get; set; }
+    public bool Status { get; set; } = true;
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? UpdatedAt { get; set; }

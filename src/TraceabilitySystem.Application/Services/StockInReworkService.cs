@@ -10,10 +10,14 @@ namespace TraceabilitySystem.Application.Services;
 public class StockInReworkService : IStockInReworkService
 {
     private readonly IStockInReworkRepository _repository;
+    private readonly ISerialNumberRepository _serialNumberRepository;
 
-    public StockInReworkService(IStockInReworkRepository repository)
+    public StockInReworkService(
+        IStockInReworkRepository repository,
+        ISerialNumberRepository serialNumberRepository)
     {
         _repository = repository;
+        _serialNumberRepository = serialNumberRepository;
     }
 
     public async Task<PagedResult<StockInReworkDto>> GetPagedAsync(
@@ -47,27 +51,52 @@ public class StockInReworkService : IStockInReworkService
 
     public async Task<IEnumerable<StockInReworkDto>> CreateAsync(CreateStockInReworkDto dto, CancellationToken cancellationToken = default)
     {
-        var entities = new List<StockInRework>();
+        var serialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
+            x => x.SerialNumberCode == dto.SerialNumberCode, cancellationToken);
+            
+        if (serialNumber == null)
+            throw new AppException($"Serial number '{dto.SerialNumberCode}' not found.", 404);
+
+        var resultEntities = new List<StockInRework>();
 
         foreach (var issue in dto.IssueNumbers)
         {
-            var entity = new StockInRework
+            // Cek apakah sudah ada record dengan serialNumberId + issueNumberBefore yang sama
+            var existing = await _repository.FirstOrDefaultAsync(
+                x => x.SerialNumberId == serialNumber.Id && x.IssueNumberBefore == issue.IssueNumber,
+                cancellationToken);
+
+            if (existing != null)
             {
-                SerialNumberId    = dto.SerialNumberId,
-                IssueNumberBefore = issue.IssueNumber,
-                IssueNumberAfter  = $"{issue.IssueNumber}-R",
-                Qty               = issue.Qty,
-                Note              = issue.Note,
-                Status            = issue.Status,
-                CreatedAt         = DateTime.UtcNow
-            };
-            entities.Add(entity);
-            await _repository.AddAsync(entity, cancellationToken);
+                // Jika sudah ada, tambah qty
+                existing.Qty += 1;
+                existing.Note = issue.Note ?? existing.Note;
+                existing.Status = issue.Status;
+                existing.UpdatedAt = DateTime.UtcNow;
+                _repository.Update(existing);
+                resultEntities.Add(existing);
+            }
+            else
+            {
+                // Jika belum ada, insert baru dengan qty = 1
+                var entity = new StockInRework
+                {
+                    SerialNumberId    = serialNumber.Id,
+                    IssueNumberBefore = issue.IssueNumber,
+                    IssueNumberAfter  = $"{issue.IssueNumber}-R",
+                    Qty               = 1,
+                    Note              = issue.Note,
+                    Status            = issue.Status,
+                    CreatedAt         = DateTime.UtcNow
+                };
+                await _repository.AddAsync(entity, cancellationToken);
+                resultEntities.Add(entity);
+            }
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
 
-        return entities.Select(MapToDto).ToList();
+        return resultEntities.Select(MapToDto).ToList();
     }
 
     public async Task<StockInReworkDto> UpdateAsync(long id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default)

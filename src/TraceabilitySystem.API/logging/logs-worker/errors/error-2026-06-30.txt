@@ -1,6 +1,4 @@
-2026-06-26 08:15:04.963 +07:00 [INF] MqttPrintRequestService in Worker started.
-2026-06-26 08:15:04.989 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
-2026-06-26 08:15:09.493 +07:00 [ERR] Failed to connect to API SignalR Hub on startup. Automatic reconnect will handle subsequent attempts.
+2026-06-30 16:12:33.474 +07:00 [ERR] Failed to connect to API SignalR Hub on startup. Automatic reconnect will handle subsequent attempts.
 System.Net.Http.HttpRequestException: No connection could be made because the target machine actively refused it. (localhost:5039)
  ---> System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
    at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
@@ -28,31 +26,4 @@ System.Net.Http.HttpRequestException: No connection could be made because the ta
    at Microsoft.AspNetCore.SignalR.Client.HubConnection.StartAsyncCore(CancellationToken cancellationToken)
    at Microsoft.AspNetCore.SignalR.Client.HubConnection.StartAsyncInner(CancellationToken cancellationToken)
    at Microsoft.AspNetCore.SignalR.Client.HubConnection.StartAsync(CancellationToken cancellationToken)
-   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ExecuteAsync(CancellationToken stoppingToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 64
-2026-06-26 08:15:09.540 +07:00 [INF] Connected to MQTT broker.
-2026-06-26 08:15:09.542 +07:00 [WRN] Cannot send status to API Hub. Hub connection state: "Disconnected"
-2026-06-26 08:15:09.559 +07:00 [INF] Subscribed to print request and process result topics.
-2026-06-26 08:16:07.291 +07:00 [INF] MqttPrintRequestService in Worker started.
-2026-06-26 08:16:07.321 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
-2026-06-26 08:16:15.253 +07:00 [INF] Successfully connected to API SignalR Hub.
-2026-06-26 08:16:15.294 +07:00 [INF] Connected to MQTT broker.
-2026-06-26 08:16:15.322 +07:00 [INF] Sent connection status to API Hub: Online
-2026-06-26 08:16:15.334 +07:00 [INF] Subscribed to print request and process result topics.
-2026-06-26 08:19:38.027 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
-2026-06-26 08:19:38.028 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030"],"result":"OK","timestamp":"2026-06-26T01:19:38.004Z"}
-2026-06-26 08:19:39.807 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030
-2026-06-26 08:19:40.719 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260626001 (Type: CLINCHING)
-2026-06-26 08:19:58.986 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
-2026-06-26 08:19:58.986 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027"],"result":"OK","timestamp":"2026-06-26T01:19:58.982Z"}
-2026-06-26 08:19:59.044 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027
-2026-06-26 08:19:59.077 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260626002 (Type: CLINCHING)
-2026-06-26 09:52:00.107 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
-2026-06-26 09:52:00.110 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027"],"result":"OK","timestamp":"2026-06-26T02:52:00.089Z"}
-2026-06-26 09:52:00.174 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027
-2026-06-26 09:52:00.273 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260626001 (Type: CLINCHING)
-2026-06-26 10:14:41.434 +07:00 [INF] [MQTT] Received message on topic [traceability/print/request/clinching-short-side]
-2026-06-26 10:14:41.543 +07:00 [INF] MQTT message saved to DB with ID: 1
-2026-06-26 10:14:41.556 +07:00 [INF] MQTT print request ID 1 marked as Processed
-2026-06-26 10:14:42.795 +07:00 [INF] [MQTT] Received message on topic [traceability/print/request/clinching-short-side]
-2026-06-26 10:14:42.822 +07:00 [INF] MQTT message saved to DB with ID: 2
-2026-06-26 10:14:42.827 +07:00 [INF] MQTT print request ID 2 marked as Processed
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ExecuteAsync(CancellationToken stoppingToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 69

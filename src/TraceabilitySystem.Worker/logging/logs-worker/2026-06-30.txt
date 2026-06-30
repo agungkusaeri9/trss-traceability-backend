@@ -349,3 +349,114 @@ TraceabilitySystem.Shared.Exceptions.AppException: Serial number is required.
 2026-06-30 13:54:27.588 +07:00 [INF] [MQTT][FinalInspection] Successfully created process log details with ID: 23 for SN: CC20260630001
 2026-06-30 14:16:49.276 +07:00 [INF] SignalR connection reconnected. Resending MQTT status: true
 2026-06-30 14:16:49.315 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-30 14:55:22.859 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 14:55:22.860 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T07:55:22.826Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 14:55:22.902 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 14:55:23.122 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=25, SN=CC20260630001
+2026-06-30 14:55:24.364 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 14:55:24.364 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T07:55:24.347Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 14:55:24.387 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 25 for SN: CC20260630001
+2026-06-30 14:55:25.797 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 14:55:25.797 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T07:55:25.792Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 14:55:25.814 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 25 for SN: CC20260630001
+2026-06-30 14:55:27.290 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 14:55:27.290 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T07:55:27.285Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 14:55:27.390 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 26 for SN: MF20260630001
+2026-06-30 14:55:29.259 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 14:55:29.259 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T07:55:29.252Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 14:55:29.290 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 26 for SN: MF20260630001
+2026-06-30 14:55:35.610 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 14:55:35.610 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T07:55:35.602Z","isOk":true,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":60,"M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE":100,"M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE":40,"M_FAN_INSPECTION_AMPERE_VALUE":89,"M_FAN_INSPECTION_AMPERE_MAX_VALUE":120,"M_FAN_INSPECTION_AMPERE_MIN_VALUE":60,"M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 14:55:35.643 +07:00 [INF] [MQTT][MFanInspection] Successfully created process log details with ID: 26 for SN: MF20260630001
+2026-06-30 14:55:37.502 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 14:55:37.502 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T07:55:37.497Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 14:55:37.627 +07:00 [INF] [MQTT][EcmAssy] Successfully created process log details with ID: 25 for SN: CC20260630001
+2026-06-30 14:55:38.863 +07:00 [INF] [MQTT] Received message on topic [data/process/final-inspection/result]
+2026-06-30 14:55:38.863 +07:00 [INF] [MQTT][FinalInspection] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T07:55:38.858Z","isOk":true,"data":{"FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT":true,"ALL_CHECK_POINT_RESULT":true}}
+2026-06-30 14:55:39.016 +07:00 [INF] [MQTT][FinalInspection] Successfully created process log details with ID: 25 for SN: CC20260630001
+2026-06-30 15:10:22.473 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 15:10:22.479 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T08:10:22.443Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 15:10:22.530 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 15:10:22.716 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=27, SN=CC20260630001
+2026-06-30 15:10:28.603 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 15:10:28.603 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T08:10:28.597Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 15:10:28.628 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 27 for SN: CC20260630001
+2026-06-30 15:10:30.341 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 15:10:30.342 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T08:10:30.332Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 15:10:30.371 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 27 for SN: CC20260630001
+2026-06-30 15:10:32.498 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 15:10:32.498 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T08:10:32.493Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 15:10:32.593 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 28 for SN: MF20260630001
+2026-06-30 15:10:34.632 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 15:10:34.632 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T08:10:34.624Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 15:10:34.660 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 28 for SN: MF20260630001
+2026-06-30 15:10:36.113 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 15:10:36.113 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T08:10:36.107Z","isOk":true,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":60,"M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE":100,"M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE":40,"M_FAN_INSPECTION_AMPERE_VALUE":89,"M_FAN_INSPECTION_AMPERE_MAX_VALUE":120,"M_FAN_INSPECTION_AMPERE_MIN_VALUE":60,"M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 15:10:36.131 +07:00 [INF] [MQTT][MFanInspection] Successfully created process log details with ID: 28 for SN: MF20260630001
+2026-06-30 15:10:37.331 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 15:10:37.332 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T08:10:37.327Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 15:10:37.460 +07:00 [INF] [MQTT][EcmAssy] Successfully created process log details with ID: 27 for SN: CC20260630001
+2026-06-30 15:10:39.469 +07:00 [INF] [MQTT] Received message on topic [data/process/final-inspection/result]
+2026-06-30 15:10:39.469 +07:00 [INF] [MQTT][FinalInspection] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T08:10:39.465Z","isOk":true,"data":{"FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT":true,"ALL_CHECK_POINT_RESULT":true}}
+2026-06-30 15:10:39.607 +07:00 [INF] [MQTT][FinalInspection] Successfully created process log details with ID: 27 for SN: CC20260630001
+2026-06-30 15:38:54.528 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 15:38:54.530 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T08:38:54.497Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 15:38:54.538 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 15:38:54.684 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=29, SN=CC20260630002
+2026-06-30 15:38:59.622 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 15:38:59.622 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630002","operator_username":"OP001","timestamp":"2026-06-30T08:38:59.612Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 15:38:59.646 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 29 for SN: CC20260630002
+2026-06-30 15:39:02.581 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 15:39:02.582 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630002","operator_username":"OP001","timestamp":"2026-06-30T08:39:02.574Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 15:39:02.612 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 29 for SN: CC20260630002
+2026-06-30 15:39:05.838 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 15:39:05.838 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630002","operator_username":"OP001","timestamp":"2026-06-30T08:39:05.830Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 15:39:05.975 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 30 for SN: MF20260630002
+2026-06-30 15:39:11.769 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 15:39:11.769 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630002","operator_username":"OP001","timestamp":"2026-06-30T08:39:11.762Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 15:39:11.788 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 30 for SN: MF20260630002
+2026-06-30 15:39:16.458 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 15:39:16.458 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630002","operator_username":"OP001","timestamp":"2026-06-30T08:39:16.450Z","isOk":true,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":60,"M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE":100,"M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE":40,"M_FAN_INSPECTION_AMPERE_VALUE":89,"M_FAN_INSPECTION_AMPERE_MAX_VALUE":120,"M_FAN_INSPECTION_AMPERE_MIN_VALUE":60,"M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 15:39:16.484 +07:00 [INF] [MQTT][MFanInspection] Successfully created process log details with ID: 30 for SN: MF20260630002
+2026-06-30 15:39:24.891 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 15:39:24.891 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number":"CC20260630002","operator_username":"OP001","timestamp":"2026-06-30T08:39:24.885Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 15:39:25.036 +07:00 [INF] [MQTT][EcmAssy] Successfully created process log details with ID: 29 for SN: CC20260630002
+2026-06-30 15:39:28.627 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 15:39:28.627 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number":"CC20260630002","operator_username":"OP001","timestamp":"2026-06-30T08:39:28.618Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 15:39:28.804 +07:00 [INF] [MQTT][EcmAssy] Successfully created process log details with ID: 29 for SN: CC20260630002
+2026-06-30 15:39:48.403 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 15:39:48.403 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T08:39:48.384Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 15:39:48.404 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 15:39:48.527 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=31, SN=CC20260630003
+2026-06-30 15:39:54.716 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 15:39:54.716 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630003","operator_username":"OP001","timestamp":"2026-06-30T08:39:54.711Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 15:39:54.732 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 31 for SN: CC20260630003
+2026-06-30 15:39:58.062 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 15:39:58.062 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630003","operator_username":"OP001","timestamp":"2026-06-30T08:39:58.054Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 15:39:58.088 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 31 for SN: CC20260630003
+2026-06-30 15:40:02.720 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 15:40:02.720 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630003","operator_username":"OP001","timestamp":"2026-06-30T08:40:02.712Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 15:40:02.819 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 32 for SN: MF20260630003
+2026-06-30 15:40:10.580 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 15:40:10.580 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630003","operator_username":"OP001","timestamp":"2026-06-30T08:40:10.572Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 15:40:10.606 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 32 for SN: MF20260630003
+2026-06-30 15:40:17.489 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 15:40:17.489 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630003","operator_username":"OP001","timestamp":"2026-06-30T08:40:17.484Z","isOk":false,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":60,"M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE":100,"M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE":40,"M_FAN_INSPECTION_AMPERE_VALUE":89,"M_FAN_INSPECTION_AMPERE_MAX_VALUE":120,"M_FAN_INSPECTION_AMPERE_MIN_VALUE":60,"M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 15:40:17.517 +07:00 [INF] [MQTT][MFanInspection] Successfully created process log details with ID: 32 for SN: MF20260630003
+2026-06-30 15:42:36.798 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 15:42:36.798 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T08:42:36.780Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 15:42:36.800 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 15:42:36.927 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=33, SN=CC20260630004
+2026-06-30 15:42:53.852 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 15:42:53.852 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630004","operator_username":"OP001","timestamp":"2026-06-30T08:42:53.844Z","isOk":false,"data":{"CLINCHING_HEIGHT_RESULT":false,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 15:42:53.878 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 33 for SN: CC20260630004
+2026-06-30 16:07:47.208 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 16:07:47.216 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T09:07:47.168Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 16:07:47.254 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 16:07:47.458 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=34, SN=CC20260630005
+2026-06-30 16:07:53.764 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 16:07:53.764 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630005","operator_username":"OP001","timestamp":"2026-06-30T09:07:53.757Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 16:07:53.784 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 34 for SN: CC20260630005
+2026-06-30 16:08:09.632 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 16:08:09.633 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630005","operator_username":"OP001","timestamp":"2026-06-30T09:08:09.628Z","isOk":false,"data":{"CAP_TYPE_POSITION_RESULT":false,"LEAK_TEST_RESULT":false,"LEAK_VALUE":45.67}}
+2026-06-30 16:08:09.650 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 34 for SN: CC20260630005

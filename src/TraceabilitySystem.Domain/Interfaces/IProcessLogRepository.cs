@@ -21,6 +21,6 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
         string serialNumberCode,
         string processCode,
         bool isOk,
-        List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean)> parameters,
+        List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean, bool status)> parameters,
         CancellationToken cancellationToken = default);
 }

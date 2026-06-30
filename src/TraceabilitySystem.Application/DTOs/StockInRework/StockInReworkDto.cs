@@ -20,14 +20,13 @@ public class StockInReworkDto
 }
 public class CreateStockInReworkDto
 {
-    public int SerialNumberId { get; set; }
+    public string SerialNumberCode { get; set; } = string.Empty;
     public List<IssueNumberRequestDto> IssueNumbers { get; set; } = new();
 }
 
 public class IssueNumberRequestDto
 {
     public string IssueNumber { get; set; } = string.Empty;
-    public int Qty { get; set; }
     public string? Note { get; set; }
     public bool Status { get; set; }
 }

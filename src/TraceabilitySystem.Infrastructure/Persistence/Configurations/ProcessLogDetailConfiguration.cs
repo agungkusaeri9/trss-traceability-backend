@@ -10,6 +10,9 @@ public class ProcessLogDetailConfiguration : IEntityTypeConfiguration<ProcessLog
     {
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.Status)
+            .HasDefaultValue(true);
+
         builder.HasOne(x => x.ProcessLog)
             .WithMany(x => x.Details)
             .HasForeignKey(x => x.ProcessLogId)

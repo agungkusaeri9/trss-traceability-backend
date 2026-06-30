@@ -952,3 +952,93 @@ Linked Serial Number ID: 81 with Issue ID: 29
 Linked Serial Number ID: 81 with Issue ID: 28
 Transaction committed.
 Connection closed.
+--- Executing CreateWithIssuesAsync at 30/06/2026 16:07:47 ---
+Input Serial Numbers: CC20260630005
+Input Issue Numbers: ISS-00001, ISS-00002, ISS-00003
+Inserted Serial Number: CC20260630005 with generated ID: 82
+Issue count to search: 3
+Added issue param: @issueNo0 = 'ISS-00001'
+Added issue param: @issueNo1 = 'ISS-00002'
+Added issue param: @issueNo2 = 'ISS-00003'
+Executing query: SELECT id FROM issues WHERE number IN (@issueNo0, @issueNo1, @issueNo2)
+Found Issue ID in DB: 30
+Found Issue ID in DB: 29
+Found Issue ID in DB: 28
+Resolved Issue IDs count: 3
+Linked Serial Number ID: 82 with Issue ID: 30
+Linked Serial Number ID: 82 with Issue ID: 29
+Linked Serial Number ID: 82 with Issue ID: 28
+Transaction committed.
+Connection closed.
+--- Executing CreateWithIssuesAsync at 30/06/2026 16:12:41 ---
+Input Serial Numbers: CC20260630006
+Input Issue Numbers: ISS-00001, ISS-00002, ISS-00003
+Inserted Serial Number: CC20260630006 with generated ID: 83
+Issue count to search: 3
+Added issue param: @issueNo0 = 'ISS-00001'
+Added issue param: @issueNo1 = 'ISS-00002'
+Added issue param: @issueNo2 = 'ISS-00003'
+Executing query: SELECT id FROM issues WHERE number IN (@issueNo0, @issueNo1, @issueNo2)
+Found Issue ID in DB: 30
+Found Issue ID in DB: 29
+Found Issue ID in DB: 28
+Resolved Issue IDs count: 3
+Linked Serial Number ID: 83 with Issue ID: 30
+Linked Serial Number ID: 83 with Issue ID: 29
+Linked Serial Number ID: 83 with Issue ID: 28
+Transaction committed.
+Connection closed.
+--- Executing CreateWithIssuesAsync at 30/06/2026 16:12:46 ---
+Input Serial Numbers: CC20260630007
+Input Issue Numbers: ISS-00001, ISS-00002, ISS-00003
+Inserted Serial Number: CC20260630007 with generated ID: 84
+Issue count to search: 3
+Added issue param: @issueNo0 = 'ISS-00001'
+Added issue param: @issueNo1 = 'ISS-00002'
+Added issue param: @issueNo2 = 'ISS-00003'
+Executing query: SELECT id FROM issues WHERE number IN (@issueNo0, @issueNo1, @issueNo2)
+Found Issue ID in DB: 30
+Found Issue ID in DB: 29
+Found Issue ID in DB: 28
+Resolved Issue IDs count: 3
+Linked Serial Number ID: 84 with Issue ID: 30
+Linked Serial Number ID: 84 with Issue ID: 29
+Linked Serial Number ID: 84 with Issue ID: 28
+Transaction committed.
+Connection closed.
+--- Executing CreateWithIssuesAsync at 30/06/2026 16:22:58 ---
+Input Serial Numbers: CC20260630001
+Input Issue Numbers: ISS-00001, ISS-00002, ISS-00003
+Inserted Serial Number: CC20260630001 with generated ID: 85
+Issue count to search: 3
+Added issue param: @issueNo0 = 'ISS-00001'
+Added issue param: @issueNo1 = 'ISS-00002'
+Added issue param: @issueNo2 = 'ISS-00003'
+Executing query: SELECT id FROM issues WHERE number IN (@issueNo0, @issueNo1, @issueNo2)
+Found Issue ID in DB: 30
+Found Issue ID in DB: 29
+Found Issue ID in DB: 28
+Resolved Issue IDs count: 3
+Linked Serial Number ID: 85 with Issue ID: 30
+Linked Serial Number ID: 85 with Issue ID: 29
+Linked Serial Number ID: 85 with Issue ID: 28
+Transaction committed.
+Connection closed.
+--- Executing CreateWithIssuesAsync at 30/06/2026 16:23:50 ---
+Input Serial Numbers: CC20260630002
+Input Issue Numbers: ISS-00001, ISS-00002, ISS-00003
+Inserted Serial Number: CC20260630002 with generated ID: 87
+Issue count to search: 3
+Added issue param: @issueNo0 = 'ISS-00001'
+Added issue param: @issueNo1 = 'ISS-00002'
+Added issue param: @issueNo2 = 'ISS-00003'
+Executing query: SELECT id FROM issues WHERE number IN (@issueNo0, @issueNo1, @issueNo2)
+Found Issue ID in DB: 30
+Found Issue ID in DB: 29
+Found Issue ID in DB: 28
+Resolved Issue IDs count: 3
+Linked Serial Number ID: 87 with Issue ID: 30
+Linked Serial Number ID: 87 with Issue ID: 29
+Linked Serial Number ID: 87 with Issue ID: 28
+Transaction committed.
+Connection closed.

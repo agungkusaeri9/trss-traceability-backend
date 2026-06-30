@@ -108,6 +108,7 @@ public class ProcessLogService : IProcessLogService
         {
             Id               = log.Id,
             IsParent         = isParent,
+            Status           = log.Status,
             SerialNumberCode = sn.SerialNumberCode,
             Type             = sn.Type,
             CreatedAt        = log.CreatedAt,
@@ -146,6 +147,7 @@ public class ProcessLogService : IProcessLogService
         {
             Id               = log.Id,
             IsActive         = log.IsActive,
+            Status           = log.Status,
             IsParent         = isParent,
             SerialNumberCode = sn.SerialNumberCode,
             Type             = sn.Type,
@@ -189,7 +191,8 @@ public class ProcessLogService : IProcessLogService
                         "boolean" => d.ValueBoolean,
                         "number"  => d.ValueNumber,
                         _         => d.ValueText
-                    }
+                    },
+                    Status = d.Status
                 }).ToList()
             }).ToList();
     }
@@ -298,7 +301,7 @@ public class ProcessLogService : IProcessLogService
         var existingParams = await _parameterRepository.FindAsync(
             p => parameterCodes.Contains(p.Code), cancellationToken);
 
-        var paramValues = new List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean)>();
+        var paramValues = new List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean, bool status)>();
 
         if (request.Data != null)
         {
@@ -324,7 +327,8 @@ public class ProcessLogService : IProcessLogService
                     valText = ParseText(kvp.Value);
                 }
 
-                paramValues.Add((kvp.Key, valNum, valText, valBool));
+                bool status = request.IsOk ?? true;
+                paramValues.Add((kvp.Key, valNum, valText, valBool, status));
             }
         }
 
@@ -380,6 +384,7 @@ public class ProcessLogService : IProcessLogService
             {
                 SerialNumberId = serialNumber.Id,
                 IsActive = true,
+                Status = request.IsOk ?? true,
                 CreatedAt = DateTime.Now
             };
             await _processLogRepository.AddAsync(processLog, cancellationToken);
@@ -388,6 +393,10 @@ public class ProcessLogService : IProcessLogService
         else
         {
             processLog.UpdatedAt = DateTime.Now;
+            if (request.IsOk == false)
+            {
+                processLog.Status = false;
+            }
             _processLogRepository.Update(processLog);
             await _processLogRepository.SaveChangesAsync(cancellationToken);
         }
@@ -397,7 +406,7 @@ public class ProcessLogService : IProcessLogService
         var existingParams = await _parameterRepository.FindAsync(
             p => parameterCodes.Contains(p.Code), cancellationToken);
 
-        var paramValues = new List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean)>();
+        var paramValues = new List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean, bool status)>();
 
         if (request.Data != null)
         {
@@ -423,7 +432,8 @@ public class ProcessLogService : IProcessLogService
                     valText = ParseText(kvp.Value);
                 }
 
-                paramValues.Add((kvp.Key, valNum, valText, valBool));
+                bool status = request.IsOk ?? true;
+                paramValues.Add((kvp.Key, valNum, valText, valBool, status));
             }
         }
 
@@ -441,6 +451,7 @@ public class ProcessLogService : IProcessLogService
                 ValueNumber = param.valueNumber,
                 ValueText = param.valueText,
                 ValueBoolean = param.valueBoolean,
+                Status = param.status,
                 CreatedAt = DateTime.Now
             };
             processLog.Details.Add(detail);

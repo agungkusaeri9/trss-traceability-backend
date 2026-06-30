@@ -8,6 +8,7 @@ public class ProcessLogDto
 {
     public long Id { get; set; }
     public bool IsActive { get; set; }
+    public bool Status { get; set; }
     public bool IsParent { get; set; }
     public string SerialNumberCode { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
@@ -23,6 +24,7 @@ public class ProcessLogListDto
 {
     public long Id { get; set; }
     public bool IsParent { get; set; }
+    public bool Status { get; set; }
     public string SerialNumberCode { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
@@ -54,6 +56,7 @@ public class ProcessParameterValueDto
     public string? ParameterCode { get; set; }
     public string? ParameterName { get; set; }
     public object? Value { get; set; }
+    public bool Status { get; set; }
 }
 
 public class ProcessLogDetailDto
@@ -70,4 +73,5 @@ public class ProcessLogDetailDto
     public bool? ValueBoolean { get; set; }
 
     public string? DisplayValue { get; set; }
+    public bool Status { get; set; }
 }
