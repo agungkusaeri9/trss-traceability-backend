@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/TraceabilitySystem.API/TraceabilitySystem.API.csproj" />
     <Project Path="src/TraceabilitySystem.Application/TraceabilitySystem.Application.csproj" />
+    <Project Path="src/TraceabilitySystem.Backup/TraceabilitySystem.Backup.csproj" />
     <Project Path="src/TraceabilitySystem.Domain/TraceabilitySystem.Domain.csproj" />
     <Project Path="src/TraceabilitySystem.Infrastructure/TraceabilitySystem.Infrastructure.csproj" />
     <Project Path="src/TraceabilitySystem.Shared/TraceabilitySystem.Shared.csproj" />
