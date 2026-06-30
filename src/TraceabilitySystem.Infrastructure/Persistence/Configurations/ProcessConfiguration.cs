@@ -23,6 +23,9 @@ public class ProcessConfiguration : IEntityTypeConfiguration<Process>
             .HasMaxLength(255)
             .IsRequired(false);
 
+        builder.Property(p => p.Order)
+            .IsRequired(false);
+
         builder.Property(p => p.IsActive)
             .HasDefaultValue(true);
 

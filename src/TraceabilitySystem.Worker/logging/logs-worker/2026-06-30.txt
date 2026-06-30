@@ -1,0 +1,351 @@
+2026-06-30 08:15:40.112 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-30 08:15:40.134 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-30 08:15:49.518 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-30 08:16:12.641 +07:00 [ERR] Failed to connect to MQTT broker at localhost:1883
+MQTTnet.Adapter.MqttConnectingFailedException: Error while authenticating. Connection closed.
+ ---> MQTTnet.Exceptions.MqttCommunicationException: Connection closed.
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectInternal(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ConnectMqttAsync(CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 423
+2026-06-30 08:16:12.646 +07:00 [WRN] Disconnected from MQTT broker. Reconnecting...
+2026-06-30 08:16:12.707 +07:00 [INF] Sent connection status to API Hub: Offline
+2026-06-30 08:16:40.786 +07:00 [WRN] Disconnected from MQTT broker. Reconnecting...
+2026-06-30 08:16:40.786 +07:00 [ERR] Failed to connect to MQTT broker at localhost:1883
+MQTTnet.Adapter.MqttConnectingFailedException: Error while authenticating. Connection closed.
+ ---> MQTTnet.Exceptions.MqttCommunicationException: Connection closed.
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectInternal(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ConnectMqttAsync(CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 423
+2026-06-30 08:16:40.790 +07:00 [INF] Sent connection status to API Hub: Offline
+2026-06-30 08:17:08.864 +07:00 [WRN] Disconnected from MQTT broker. Reconnecting...
+2026-06-30 08:17:08.864 +07:00 [ERR] Failed to connect to MQTT broker at localhost:1883
+MQTTnet.Adapter.MqttConnectingFailedException: Error while authenticating. Connection closed.
+ ---> MQTTnet.Exceptions.MqttCommunicationException: Connection closed.
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectInternal(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ConnectMqttAsync(CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 423
+2026-06-30 08:17:08.865 +07:00 [INF] Sent connection status to API Hub: Offline
+2026-06-30 08:17:36.938 +07:00 [ERR] Failed to connect to MQTT broker at localhost:1883
+MQTTnet.Adapter.MqttConnectingFailedException: Error while authenticating. Connection closed.
+ ---> MQTTnet.Exceptions.MqttCommunicationException: Connection closed.
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectInternal(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ConnectMqttAsync(CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 423
+2026-06-30 08:17:36.938 +07:00 [WRN] Disconnected from MQTT broker. Reconnecting...
+2026-06-30 08:17:36.940 +07:00 [INF] Sent connection status to API Hub: Offline
+2026-06-30 08:18:05.026 +07:00 [WRN] Disconnected from MQTT broker. Reconnecting...
+2026-06-30 08:18:05.026 +07:00 [ERR] Failed to connect to MQTT broker at localhost:1883
+MQTTnet.Adapter.MqttConnectingFailedException: Error while authenticating. Connection closed.
+ ---> MQTTnet.Exceptions.MqttCommunicationException: Connection closed.
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectInternal(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ConnectMqttAsync(CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 423
+2026-06-30 08:18:05.027 +07:00 [INF] Sent connection status to API Hub: Offline
+2026-06-30 08:18:33.100 +07:00 [ERR] Failed to connect to MQTT broker at localhost:1883
+MQTTnet.Adapter.MqttConnectingFailedException: Error while authenticating. Connection closed.
+ ---> MQTTnet.Exceptions.MqttCommunicationException: Connection closed.
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at MQTTnet.Client.MqttClient.Authenticate(IMqttChannelAdapter channelAdapter, MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectInternal(IMqttChannelAdapter channelAdapter, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at MQTTnet.Client.MqttClient.ConnectAsync(MqttClientOptions options, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ConnectMqttAsync(CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 423
+2026-06-30 08:18:33.100 +07:00 [WRN] Disconnected from MQTT broker. Reconnecting...
+2026-06-30 08:18:33.104 +07:00 [INF] Sent connection status to API Hub: Offline
+2026-06-30 08:18:38.117 +07:00 [INF] Connected to MQTT broker.
+2026-06-30 08:18:38.120 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-30 08:18:38.131 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-30 09:03:48.823 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 09:03:48.827 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T02:03:48.784Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 09:03:48.835 +07:00 [INF] [MQTT][ClinchingShortSide] Parsed details: Operator=OP001, Timestamp=2026-06-30T02:03:48.784Z, IsOk=true
+2026-06-30 09:03:49.925 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00001, ISS-00002, ISS-00003
+2026-06-30 09:03:50.996 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260630001 (Type: CLINCHING)
+2026-06-30 10:05:56.949 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 10:05:56.951 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T03:05:56.927Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 10:05:56.954 +07:00 [INF] [MQTT][ClinchingShortSide] Parsed details: Operator=OP001, Timestamp=2026-06-30T03:05:56.927Z, IsOk=true
+2026-06-30 10:05:57.088 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00001, ISS-00002, ISS-00003
+2026-06-30 10:05:57.282 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260630001 (Type: CLINCHING)
+2026-06-30 10:06:11.211 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 10:06:11.213 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T03:06:11.203Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 10:06:11.514 +07:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2026-06-30 10:06:11.592 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 8 for SN: CC20260630001
+2026-06-30 10:06:44.701 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 10:06:44.702 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T03:06:44.695Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 10:06:44.742 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 8 for SN: CC20260630001
+2026-06-30 10:43:21.989 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-30 10:43:22.015 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-30 10:43:29.392 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-30 10:43:29.455 +07:00 [INF] Connected to MQTT broker.
+2026-06-30 10:43:29.484 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-30 10:43:29.494 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-30 10:43:43.004 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 10:43:43.005 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T03:43:42.982Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 10:43:44.465 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 10:43:45.923 +07:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2026-06-30 10:43:46.003 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=9, SN=CC20260630001
+2026-06-30 10:49:49.922 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 10:49:49.923 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T03:49:49.903Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 10:49:50.007 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 10:49:50.295 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=10, SN=CC20260630002
+2026-06-30 10:50:38.284 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 10:50:38.285 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T03:50:38.277Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 10:50:38.311 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 10:50:38.460 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=11, SN=CC20260630001
+2026-06-30 10:51:13.949 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 10:51:13.950 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T03:51:13.943Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 10:51:13.981 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 11 for SN: CC20260630001
+2026-06-30 10:52:36.895 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 10:52:36.897 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T03:52:36.889Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 10:52:36.927 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 11 for SN: CC20260630001
+2026-06-30 11:19:23.957 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-30 11:19:23.982 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-30 11:19:28.286 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-30 11:19:28.365 +07:00 [INF] Connected to MQTT broker.
+2026-06-30 11:19:28.405 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-30 11:19:28.420 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-30 11:22:00.552 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-30 11:22:00.572 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-30 11:22:04.796 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-30 11:22:04.830 +07:00 [INF] Connected to MQTT broker.
+2026-06-30 11:22:04.851 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-30 11:22:04.862 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-30 11:22:18.105 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 11:22:18.106 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:22:18.071Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 11:22:20.041 +07:00 [ERR] [MQTT][MFanAssy] Error handling process result: Serial number is required.
+TraceabilitySystem.Shared.Exceptions.AppException: Serial number is required.
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogDetailOnlyAsync(CreateProcessLogRequestDto request, CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Application\Services\ProcessLogService.cs:line 323
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogMFanAssyAsync(CreateProcessLogRequestDto request, CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Application\Services\ProcessLogService.cs:line 576
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.HandleMFanAssyResultScanAsync(String payload) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 309
+2026-06-30 11:23:55.056 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 11:23:55.056 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:23:55.051Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 11:23:55.219 +07:00 [ERR] [MQTT][MFanAssy] Error handling process result: Serial number is required.
+TraceabilitySystem.Shared.Exceptions.AppException: Serial number is required.
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogDetailOnlyAsync(CreateProcessLogRequestDto request, CancellationToken cancellationToken)
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogMFanAssyAsync(CreateProcessLogRequestDto request, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.HandleMFanAssyResultScanAsync(String payload) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 309
+2026-06-30 11:28:08.696 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 11:28:08.697 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:28:08.681Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 11:28:09.404 +07:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2026-06-30 11:28:09.635 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 11 for SN: CC20260630001
+2026-06-30 11:29:57.497 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 11:29:57.498 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T04:29:57.479Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 11:29:57.501 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 11:29:57.657 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=12, SN=CC20260630002
+2026-06-30 11:30:36.894 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 11:30:36.894 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T04:30:36.873Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 11:30:36.896 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 11:30:36.995 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=13, SN=CC20260630001
+2026-06-30 11:30:49.475 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 11:30:49.476 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:30:49.467Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 11:30:49.501 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 13 for SN: CC20260630001
+2026-06-30 11:30:52.116 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 11:30:52.118 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:30:52.109Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 11:30:52.139 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 13 for SN: CC20260630001
+2026-06-30 11:31:04.560 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 11:31:04.560 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:31:04.555Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 11:31:04.651 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 13 for SN: CC20260630001
+2026-06-30 11:32:56.593 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 11:32:56.593 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T04:32:56.587Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 11:32:56.598 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 11:32:56.701 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=14, SN=CC20260630001
+2026-06-30 11:32:58.438 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 11:32:58.438 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:32:58.423Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 11:32:58.453 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 14 for SN: CC20260630001
+2026-06-30 11:32:59.904 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 11:32:59.904 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:32:59.899Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 11:32:59.920 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 14 for SN: CC20260630001
+2026-06-30 11:33:13.099 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 11:33:13.099 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T04:33:13.093Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 11:33:13.202 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 14 for SN: CC20260630001
+2026-06-30 11:46:13.294 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 11:46:13.295 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260626001","operator_username":"OP001","timestamp":"2026-06-30T04:46:13.287Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 11:46:13.297 +07:00 [ERR] [MQTT][MFanAssy] Error handling process result: Serial number (CC) is required.
+TraceabilitySystem.Shared.Exceptions.AppException: Serial number (CC) is required.
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogMFanAssyAsync(CreateProcessLogRequestDto request, CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.HandleMFanAssyResultAsync(String payload) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 336
+2026-06-30 11:48:25.442 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 11:48:25.443 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260626001","operator_username":"OP001","timestamp":"2026-06-30T04:48:25.431Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 11:48:25.453 +07:00 [ERR] [MQTT][MFanAssy] Error handling process result: Bad binary signature. (0x80131192)
+System.BadImageFormatException: Bad binary signature. (0x80131192)
+   at TraceabilitySystem.Application.Services.ProcessLogService.ocessLogMFanAssyAsync
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.HandleMFanAssyResultAsync(String payload)
+2026-06-30 11:50:36.872 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 12:57:04.334 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-30 12:57:04.378 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-30 12:57:08.925 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-30 12:57:08.962 +07:00 [INF] Connected to MQTT broker.
+2026-06-30 12:57:08.987 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-30 12:57:08.997 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-30 12:57:09.327 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 12:57:09.328 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260626001","operator_username":"OP001","timestamp":"2026-06-30T05:57:09.282Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 12:57:10.479 +07:00 [ERR] [MQTT][MFanAssy] Error handling process result: Serial number 'MF20260626001' not found.
+TraceabilitySystem.Shared.Exceptions.AppException: Serial number 'MF20260626001' not found.
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogMFanAssyWithIssueNumberAsync(CreateProcessLogRequestDto request, CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Application\Services\ProcessLogService.cs:line 448
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogMFanAssyAsync(CreateProcessLogRequestDto request, String type, CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Application\Services\ProcessLogService.cs:line 430
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.HandleMFanAssyResultAsync(String payload) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 338
+2026-06-30 12:59:12.340 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 12:59:12.340 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T05:59:12.323Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 12:59:13.349 +07:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2026-06-30 12:59:13.492 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 15 for SN: MF20260630001
+2026-06-30 13:07:50.640 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-30 13:07:50.681 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-30 13:07:53.637 +07:00 [ERR] Failed to connect to API SignalR Hub on startup. Automatic reconnect will handle subsequent attempts.
+System.Net.Http.HttpRequestException: Response status code does not indicate success: 500 (Internal Server Error).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at Microsoft.AspNetCore.Http.Connections.Client.HttpConnection.NegotiateAsync(Uri url, HttpClient httpClient, ILogger logger, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Http.Connections.Client.HttpConnection.GetNegotiationResponseAsync(Uri uri, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Http.Connections.Client.HttpConnection.SelectAndStartTransport(TransferFormat transferFormat, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Http.Connections.Client.HttpConnection.StartAsyncCore(TransferFormat transferFormat, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Http.Connections.Client.HttpConnection.StartAsync(TransferFormat transferFormat, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Http.Connections.Client.HttpConnectionFactory.ConnectAsync(EndPoint endPoint, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Http.Connections.Client.HttpConnectionFactory.ConnectAsync(EndPoint endPoint, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.SignalR.Client.HubConnection.StartAsyncCore(CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.SignalR.Client.HubConnection.StartAsyncInner(CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.SignalR.Client.HubConnection.StartAsync(CancellationToken cancellationToken)
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.ExecuteAsync(CancellationToken stoppingToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Worker\BackgroundServices\MqttPrintRequestService.cs:line 69
+2026-06-30 13:07:53.766 +07:00 [INF] Connected to MQTT broker.
+2026-06-30 13:07:53.770 +07:00 [WRN] Cannot send status to API Hub. Hub connection state: "Disconnected"
+2026-06-30 13:07:53.814 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-30 13:08:05.744 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 13:08:05.745 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T06:08:05.711Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 13:08:06.521 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 13:08:07.716 +07:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2026-06-30 13:08:07.785 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=16, SN=CC20260630001
+2026-06-30 13:08:10.899 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 13:08:10.902 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:08:10.888Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 13:08:11.066 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 16 for SN: CC20260630001
+2026-06-30 13:08:13.981 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 13:08:13.982 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:08:13.975Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 13:08:14.034 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 16 for SN: CC20260630001
+2026-06-30 13:08:17.161 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 13:08:17.164 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:08:17.155Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 13:08:17.347 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 16 for SN: CC20260630001
+2026-06-30 13:08:21.717 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 13:08:21.719 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:08:21.713Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 13:08:21.767 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 17 for SN: MF20260630001
+2026-06-30 13:15:13.091 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 13:15:13.092 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T06:15:13.066Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 13:15:13.104 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 13:15:13.238 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=18, SN=CC20260630001
+2026-06-30 13:15:15.058 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 13:15:15.059 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:15:15.053Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 13:15:15.075 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 18 for SN: CC20260630001
+2026-06-30 13:15:17.593 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 13:15:17.594 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:15:17.587Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 13:15:17.616 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 18 for SN: CC20260630001
+2026-06-30 13:15:58.757 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 13:15:58.757 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:15:58.751Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 13:15:58.860 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 18 for SN: CC20260630001
+2026-06-30 13:28:42.303 +07:00 [INF] MqttPrintRequestService in Worker started.
+2026-06-30 13:28:42.341 +07:00 [INF] Connecting to API SignalR Hub at http://localhost:5039/hubs/mqtt-status...
+2026-06-30 13:28:46.979 +07:00 [INF] Successfully connected to API SignalR Hub.
+2026-06-30 13:28:47.072 +07:00 [INF] Connected to MQTT broker.
+2026-06-30 13:28:47.133 +07:00 [INF] Sent connection status to API Hub: Online
+2026-06-30 13:28:47.156 +07:00 [INF] Subscribed to print request and process result topics.
+2026-06-30 13:28:48.240 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 13:28:48.242 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T06:28:48.198Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 13:28:49.383 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 13:28:51.028 +07:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2026-06-30 13:28:51.107 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=19, SN=CC20260630001
+2026-06-30 13:28:52.900 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 13:28:52.903 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:28:52.892Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 13:28:53.105 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 19 for SN: CC20260630001
+2026-06-30 13:28:54.697 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 13:28:54.702 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:28:54.688Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 13:28:54.746 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 19 for SN: CC20260630001
+2026-06-30 13:28:58.766 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 13:28:58.767 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:28:58.761Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 13:28:58.942 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 20 for SN: MF20260630001
+2026-06-30 13:29:03.271 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 13:29:03.273 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:29:03.263Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 13:29:03.308 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 20 for SN: MF20260630001
+2026-06-30 13:30:29.047 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 13:30:29.047 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:30:29.040Z","isOk":true,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":45.67,"M_FAN_INSPECTION_AMPERE_VALUE":"89;80;100","M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 13:33:09.330 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 13:33:09.333 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:33:09.325Z","isOk":true,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":45.67,"M_FAN_INSPECTION_AMPERE_VALUE":"89;80;100","M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 13:33:09.392 +07:00 [INF] [MQTT][MFanInspection] Successfully created process log details with ID: 20 for SN: MF20260630001
+2026-06-30 13:40:43.963 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 13:40:43.965 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number_clinching":"CC20260630001","serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:40:43.956Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 13:40:44.096 +07:00 [INF] [MQTT][EcmAssy] Successfully created process log details with ID: 19 for SN: CC20260630001
+2026-06-30 13:44:48.735 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 13:44:48.736 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T06:44:48.716Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 13:44:48.737 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 13:44:48.844 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=21, SN=CC20260630001
+2026-06-30 13:44:50.770 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 13:44:50.771 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:44:50.752Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 13:44:50.795 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 21 for SN: CC20260630001
+2026-06-30 13:44:52.133 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 13:44:52.133 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:44:52.127Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 13:44:52.155 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 21 for SN: CC20260630001
+2026-06-30 13:44:54.892 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 13:44:54.892 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:44:54.887Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 13:44:54.997 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 22 for SN: MF20260630001
+2026-06-30 13:44:57.523 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 13:44:57.523 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:44:57.516Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 13:44:57.546 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 22 for SN: MF20260630001
+2026-06-30 13:45:00.273 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 13:45:00.273 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:45:00.266Z","isOk":true,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":45.67,"M_FAN_INSPECTION_AMPERE_VALUE":"89;80;100","M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 13:45:00.293 +07:00 [INF] [MQTT][MFanInspection] Successfully created process log details with ID: 22 for SN: MF20260630001
+2026-06-30 13:45:07.799 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 13:45:07.799 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number":"CC20260630001","serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:45:07.791Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 13:45:07.801 +07:00 [ERR] [MQTT][EcmAssy] Error handling process result: Serial number is required.
+TraceabilitySystem.Shared.Exceptions.AppException: Serial number is required.
+   at TraceabilitySystem.Application.Services.ProcessLogService.CreateProcessLogDetailOnlyAsync(CreateProcessLogRequestDto request, CancellationToken cancellationToken) in D:\Kerjaan\project-toho\PT Tokyo Radiator Selamat Sempurna (TRSS)\Traceability System\program\trss-traceability-backend\src\TraceabilitySystem.Application\Services\ProcessLogService.cs:line 330
+   at TraceabilitySystem.Worker.BackgroundServices.MqttPrintRequestService.HandleEcmAssyResultAsync(String payload)
+2026-06-30 13:46:05.641 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 13:46:05.641 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:46:05.634Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 13:46:05.664 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 22 for SN: MF20260630001
+2026-06-30 13:47:42.974 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 13:47:42.974 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:47:42.959Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 13:47:43.159 +07:00 [INF] [MQTT][EcmAssy] Successfully created process log details with ID: 21 for SN: CC20260630001
+2026-06-30 13:51:01.266 +07:00 [INF] [MQTT] Received message on topic [data/process/final-inspection/result]
+2026-06-30 13:51:01.270 +07:00 [INF] [MQTT][FinalInspection] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:51:01.256Z","isOk":true,"data":{"FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT":true,"ALL_CHECK_POINT_RESULT":true}}
+2026-06-30 13:51:01.627 +07:00 [INF] [MQTT][FinalInspection] Successfully created process log details with ID: 21 for SN: CC20260630001
+2026-06-30 13:54:11.168 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-30 13:54:11.168 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"operator_username":"OP001","timestamp":"2026-06-30T06:54:11.153Z","isOk":true,"data":{"issue_numbers":["ISS-00001","ISS-00002","ISS-00003"]}}
+2026-06-30 13:54:11.175 +07:00 [INF] [MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...
+2026-06-30 13:54:11.303 +07:00 [INF] [MQTT][ClinchingShortSide] Process log created. Id=23, SN=CC20260630001
+2026-06-30 13:54:13.904 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-long-side/result]
+2026-06-30 13:54:13.904 +07:00 [INF] [MQTT][ClinchingLongSide] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:54:13.897Z","isOk":true,"data":{"CLINCHING_HEIGHT_RESULT":true,"CLINCHING_HEIGHT_VALUE":1.23,"END_PLATE_WIDTH_VALUE":45.67}}
+2026-06-30 13:54:13.928 +07:00 [INF] [MQTT][ClinchingLongSide] Successfully created process log details with ID: 23 for SN: CC20260630001
+2026-06-30 13:54:15.457 +07:00 [INF] [MQTT] Received message on topic [data/process/he-leak/result]
+2026-06-30 13:54:15.457 +07:00 [INF] [MQTT][HeLeak] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:54:15.451Z","isOk":true,"data":{"CAP_TYPE_POSITION_RESULT":true,"LEAK_TEST_RESULT":true,"LEAK_VALUE":45.67}}
+2026-06-30 13:54:15.472 +07:00 [INF] [MQTT][HeLeak] Successfully created process log details with ID: 23 for SN: CC20260630001
+2026-06-30 13:54:17.371 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result-scan]
+2026-06-30 13:54:17.371 +07:00 [INF] [MQTT][MFanAssyScan] Payload: {"serial_number_clinching":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:54:17.364Z","isOk":true,"data":{"issue_numbers":["ISS-00027","ISS-00028","ISS-00029"]}}
+2026-06-30 13:54:17.487 +07:00 [INF] [MQTT][MFanAssyScan] Successfully created process log details with ID: 24 for SN: MF20260630001
+2026-06-30 13:54:21.855 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-assy/result]
+2026-06-30 13:54:21.855 +07:00 [INF] [MQTT][MFanAssy] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:54:21.848Z","isOk":true,"data":{"BOLT_TIGHTEN_RESULT":true,"BOLT_TIGHTEN_VALUE":45.67,"NUT_TIGHTEN_RESULT":true}}
+2026-06-30 13:54:21.880 +07:00 [INF] [MQTT][MFanAssy] Successfully created process log details with ID: 24 for SN: MF20260630001
+2026-06-30 13:54:23.899 +07:00 [INF] [MQTT] Received message on topic [data/process/m-fan-inspection/result]
+2026-06-30 13:54:23.899 +07:00 [INF] [MQTT][MFanInspection] Payload: {"serial_number_m_fan_assy":"MF20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:54:23.892Z","isOk":true,"data":{"M_FAN_TEST_RESULT":true,"M_FAN_INSPECTION_ROTATION_SPEED_VALUE":"60;80;40","M_FAN_INSPECTION_AMPERE_VALUE":"89;100;80","M_FAN_INSPECTION_WIND_DIRECTION_VALUE":45}}
+2026-06-30 13:54:23.930 +07:00 [INF] [MQTT][MFanInspection] Successfully created process log details with ID: 24 for SN: MF20260630001
+2026-06-30 13:54:26.045 +07:00 [INF] [MQTT] Received message on topic [data/process/ecm-assy/result]
+2026-06-30 13:54:26.047 +07:00 [INF] [MQTT][EcmAssy] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:54:26.038Z","isOk":true,"data":{"RAD_CORE_ASM_NAME_LABEL_RESULT":true,"MOTOR_FAN_ASSY_LABEL_RESULT":true,"ECM_ASSY_BOLT_TIGHTEN_VALUE":45.67,"ECM_ASSY_BOLT_TIGHTEN_RESULT":true}}
+2026-06-30 13:54:26.146 +07:00 [INF] [MQTT][EcmAssy] Successfully created process log details with ID: 23 for SN: CC20260630001
+2026-06-30 13:54:27.479 +07:00 [INF] [MQTT] Received message on topic [data/process/final-inspection/result]
+2026-06-30 13:54:27.479 +07:00 [INF] [MQTT][FinalInspection] Payload: {"serial_number":"CC20260630001","operator_username":"OP001","timestamp":"2026-06-30T06:54:27.475Z","isOk":true,"data":{"FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT":true,"ALL_CHECK_POINT_RESULT":true}}
+2026-06-30 13:54:27.588 +07:00 [INF] [MQTT][FinalInspection] Successfully created process log details with ID: 23 for SN: CC20260630001
+2026-06-30 14:16:49.276 +07:00 [INF] SignalR connection reconnected. Resending MQTT status: true
+2026-06-30 14:16:49.315 +07:00 [INF] Sent connection status to API Hub: Online

@@ -20,16 +20,16 @@ public class ProcessLogsController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(PagedApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedApiResponse<ProcessLogListDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetProcessLogs(
         [FromQuery] PaginationDto pagination,
         [FromQuery] string? serialNumberCode = null,
-        [FromQuery] string? partNumber = null,
+
         [FromQuery] bool? isActive = null,
         CancellationToken cancellationToken = default)
     {
         var result = await _processLogService.GetProcessLogsAsync(
-            pagination.Page, pagination.Limit, serialNumberCode, partNumber, isActive, cancellationToken);
+            pagination.Page, pagination.Limit, serialNumberCode, isActive, cancellationToken);
         return ResponseFormatter.PagedSuccess(result);
     }
 
@@ -39,6 +39,15 @@ public class ProcessLogsController : ControllerBase
     public async Task<IActionResult> GetProcessLog(long id, CancellationToken cancellationToken)
     {
         var result = await _processLogService.GetProcessLogByIdAsync(id, cancellationToken);
+        return ResponseFormatter.Success(result, "Process log retrieved successfully.");
+    }
+
+    [HttpGet("by-serial-number/{serialNumber}")]
+    [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProcessLogBySerialNumber(string serialNumber, CancellationToken cancellationToken)
+    {
+        var result = await _processLogService.GetProcessLogBySerialNumberAsync(serialNumber, cancellationToken);
         return ResponseFormatter.Success(result, "Process log retrieved successfully.");
     }
 }

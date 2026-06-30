@@ -12,8 +12,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using TraceabilitySystem.Application.DTOs.MqttPrintRequest;
 using TraceabilitySystem.Application.DTOs.SerialNumber;
+using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Models;
+using TraceabilitySystem.Worker.Services;
 
 namespace TraceabilitySystem.Worker.BackgroundServices;
 
@@ -23,6 +25,7 @@ public class MqttPrintRequestService : BackgroundService
     private readonly MqttSettings _mqttSettings;
     private readonly WorkerSettings _workerSettings;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly MqttClientAccessor _mqttClientAccessor;
     
     private IMqttClient? _mqttClient;
     private HubConnection? _hubConnection;
@@ -32,12 +35,14 @@ public class MqttPrintRequestService : BackgroundService
         ILogger<MqttPrintRequestService> logger,
         IOptions<MqttSettings> mqttSettings,
         IOptions<WorkerSettings> workerSettings,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        MqttClientAccessor mqttClientAccessor)
     {
         _logger = logger;
         _mqttSettings = mqttSettings.Value;
         _workerSettings = workerSettings.Value;
         _scopeFactory = scopeFactory;
+        _mqttClientAccessor = mqttClientAccessor;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -72,6 +77,7 @@ public class MqttPrintRequestService : BackgroundService
         // Set up MQTT Client Connection
         var factory = new MqttFactory();
         _mqttClient = factory.CreateMqttClient();
+        _mqttClientAccessor.Client = _mqttClient;
 
         _mqttClient.ApplicationMessageReceivedAsync += OnMessageReceivedAsync;
         _mqttClient.ConnectedAsync += OnConnectedAsync;
@@ -122,13 +128,14 @@ public class MqttPrintRequestService : BackgroundService
         var processResultTask = topic switch
         {
             "data/process/clinching-short-side/result" => HandleClinchingShortSideResultAsync(payload),
-            "data/process/clinching-long-side/result"  => HandleClinchingLongSideResultAsync(payload),
-            "data/process/he-leak/result"              => HandleHeLeakResultAsync(payload),
-            "data/process/m-fan-assy/result"           => HandleMFanAssyResultAsync(payload),
-            "data/process/m-fan-inspection/result"     => HandleMFanInspectionResultAsync(payload),
-            "data/process/ecm-assy/result"             => HandleEcmAssyResultAsync(payload),
-            "data/process/final-inspection/result"     => HandleFinalInspectionResultAsync(payload),
-            _                                          => null
+            "data/process/clinching-long-side/result" => HandleClinchingLongSideResultAsync(payload),
+            "data/process/he-leak/result" => HandleHeLeakResultAsync(payload),
+            "data/process/m-fan-assy/result-scan" => HandleMFanAssyResultScanAsync(payload),
+             "data/process/m-fan-assy/result"           => HandleMFanAssyResultAsync(payload),
+            "data/process/m-fan-inspection/result" => HandleMFanInspectionResultAsync(payload),
+            "data/process/ecm-assy/result" => HandleEcmAssyResultAsync(payload),
+            "data/process/final-inspection/result" => HandleFinalInspectionResultAsync(payload),
+            _ => null
         };
 
         if (processResultTask is not null)
@@ -201,85 +208,222 @@ public class MqttPrintRequestService : BackgroundService
     {
         _logger.LogInformation("[MQTT][ClinchingShortSide] Payload: {Payload}", payload);
 
+        using var scope = _scopeFactory.CreateScope();
+        var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+
         try
         {
-            var payloadData = JsonSerializer.Deserialize<JsonElement>(payload);
-
-            List<string>? issueNumbers = null;
-            if (payloadData.TryGetProperty("issue_numbers", out var issueNumbersEl) && issueNumbersEl.ValueKind == JsonValueKind.Array)
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
             {
-                issueNumbers = issueNumbersEl.EnumerateArray()
-                    .Select(e => e.GetString())
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Select(s => s!)
-                    .ToList();
+                _logger.LogWarning("[MQTT][ClinchingShortSide] Failed to deserialize payload");
+                return;
             }
 
-            using var scope = _scopeFactory.CreateScope();
-            var serialNumberService = scope.ServiceProvider.GetRequiredService<ISerialNumberService>();
+            request.ProcessCode = "CLINCHING_SHORT_SIDE";
 
-            var request = new GenerateSerialNumberRequestDto
-            {
-                Type = "CLINCHING",
-                Qty = 1,
-                CreatedBy = "MQTT_CLINCHING_SHORT_SIDE",
-                IssueNumbers = issueNumbers
-            };
+            _logger.LogInformation("[MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...");
+            var result = await processLogService.CreateProcessLogByClinchingAsync(request, cancellationToken: default);
 
-            _logger.LogInformation("[MQTT][ClinchingShortSide] Generating clinching SN for Issues: {IssueNumbers}", string.Join(", ", issueNumbers ?? new List<string>()));
-            var results = await serialNumberService.CreateByClinchingAsync(request);
-
-            foreach (var sn in results)
-            {
-                _logger.LogInformation("[MQTT][ClinchingShortSide] Generated Clinching SN: {SerialNumber} (Type: {Type})", sn.SerialNumberCode, sn.Type);
-            }
+            _logger.LogInformation("[MQTT][ClinchingShortSide] Process log created. Id={ProcessLogId}, SN={SerialNumber}", result.Id, result?.SerialNumberCode);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[MQTT][ClinchingShortSide] Error generating serial number: {Message}", ex.Message);
+            _logger.LogError(ex, "[MQTT][ClinchingShortSide] Error: {Message}", ex.Message);
         }
     }
 
-    private Task HandleClinchingLongSideResultAsync(string payload)
+    private async Task HandleClinchingLongSideResultAsync(string payload)
     {
         _logger.LogInformation("[MQTT][ClinchingLongSide] Payload: {Payload}", payload);
-        // TODO: implement business logic
-        return Task.CompletedTask;
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT][ClinchingLongSide] Failed to deserialize payload");
+                return;
+            }
+
+            request.ProcessCode = "CLINCHING_LONG_SIDE";
+
+            using var scope = _scopeFactory.CreateScope();
+            var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+            
+            var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
+            _logger.LogInformation("[MQTT][ClinchingLongSide] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT][ClinchingLongSide] Error handling process result: {Message}", ex.Message);
+        }
     }
 
-    private Task HandleHeLeakResultAsync(string payload)
+    private async Task HandleHeLeakResultAsync(string payload)
     {
         _logger.LogInformation("[MQTT][HeLeak] Payload: {Payload}", payload);
-        // TODO: implement business logic
-        return Task.CompletedTask;
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT][HeLeak] Failed to deserialize payload");
+                return;
+            }
+
+            request.ProcessCode = "HE_LEAK";
+
+            using var scope = _scopeFactory.CreateScope();
+            var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+            
+            var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
+            _logger.LogInformation("[MQTT][HeLeak] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT][HeLeak] Error handling process result: {Message}", ex.Message);
+        }
     }
 
-    private Task HandleMFanAssyResultAsync(string payload)
+    private async Task HandleMFanAssyResultScanAsync(string payload)
+    {
+        _logger.LogInformation("[MQTT][MFanAssyScan] Payload: {Payload}", payload);
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT][MFanAssyScan] Failed to deserialize payload");
+                return;
+            }
+
+            request.ProcessCode = "M_FAN_ASSY"; 
+            request.SerialNumber = request.SerialNumberClinching;
+
+            using var scope = _scopeFactory.CreateScope();
+            var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+
+            var result = await processLogService.CreateProcessLogMFanAssyAsync(request,"create_with_issue_number");
+            _logger.LogInformation("[MQTT][MFanAssyScan] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT][MFanAssy] Error handling process result: {Message}", ex.Message);
+        }
+    }
+    
+     private async Task HandleMFanAssyResultAsync(string payload)
     {
         _logger.LogInformation("[MQTT][MFanAssy] Payload: {Payload}", payload);
-        // TODO: implement business logic
-        return Task.CompletedTask;
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT][MFanAssy] Failed to deserialize payload");
+                return;
+            }
+
+            request.ProcessCode = "M_FAN_ASSY";
+            request.SerialNumber = request.SerialNumberMFanAssy;
+
+            using var scope = _scopeFactory.CreateScope();
+            var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+            
+            var result = await processLogService.CreateProcessLogMFanAssyAsync(request, "create_without_issue_number");
+            _logger.LogInformation("[MQTT][MFanAssy] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT][MFanAssy] Error handling process result: {Message}", ex.Message);
+        }
     }
 
-    private Task HandleMFanInspectionResultAsync(string payload)
+    private async Task HandleMFanInspectionResultAsync(string payload)
     {
         _logger.LogInformation("[MQTT][MFanInspection] Payload: {Payload}", payload);
-        // TODO: implement business logic
-        return Task.CompletedTask;
+         try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT][MFanInspection] Failed to deserialize payload");
+                return;
+            }
+
+            request.ProcessCode = "M_FAN_INSPECTION";
+            request.SerialNumber = request.SerialNumberMFanAssy;
+
+            using var scope = _scopeFactory.CreateScope();
+            var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+            
+            var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
+            _logger.LogInformation("[MQTT][MFanInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT][MFanInspection] Error handling process result: {Message}", ex.Message);
+        }
     }
 
-    private Task HandleEcmAssyResultAsync(string payload)
+    private async Task HandleEcmAssyResultAsync(string payload)
     {
         _logger.LogInformation("[MQTT][EcmAssy] Payload: {Payload}", payload);
-        // TODO: implement business logic
-        return Task.CompletedTask;
+         try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT][EcmAssy] Failed to deserialize payload");
+                return;
+            }
+
+            request.ProcessCode = "ECM_ASSY";
+
+            using var scope = _scopeFactory.CreateScope();
+            var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+            
+            var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
+            _logger.LogInformation("[MQTT][EcmAssy] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT][EcmAssy] Error handling process result: {Message}", ex.Message);
+        }
     }
 
-    private Task HandleFinalInspectionResultAsync(string payload)
+    private async Task HandleFinalInspectionResultAsync(string payload)
     {
         _logger.LogInformation("[MQTT][FinalInspection] Payload: {Payload}", payload);
-        // TODO: implement business logic
-        return Task.CompletedTask;
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT][FinalInspection] Failed to deserialize payload");
+                return;
+            }
+
+            request.ProcessCode = "FINAL_INSPECTION";
+
+            using var scope = _scopeFactory.CreateScope();
+            var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+            
+            var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
+            _logger.LogInformation("[MQTT][FinalInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT][FinalInspection] Error handling process result: {Message}", ex.Message);
+        }
     }
 
     private async Task OnConnectedAsync(MqttClientConnectedEventArgs arg)
@@ -296,6 +440,7 @@ public class MqttPrintRequestService : BackgroundService
             .WithTopicFilter("data/process/clinching-short-side/result")
             .WithTopicFilter("data/process/clinching-long-side/result")
             .WithTopicFilter("data/process/he-leak/result")
+            .WithTopicFilter("data/process/m-fan-assy/result-scan")
             .WithTopicFilter("data/process/m-fan-assy/result")
             .WithTopicFilter("data/process/m-fan-inspection/result")
             .WithTopicFilter("data/process/ecm-assy/result")

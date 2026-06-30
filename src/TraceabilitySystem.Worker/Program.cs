@@ -5,9 +5,11 @@ using Serilog;
 using System;
 using System.IO;
 using TraceabilitySystem.Application;
+using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Infrastructure;
 using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Worker.BackgroundServices;
+using TraceabilitySystem.Worker.Services;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -58,6 +60,11 @@ try
 
             // HttpClient for SignalR Client
             services.AddHttpClient();
+
+            // MQTT shared state (singleton so MqttPrintRequestService can set the client
+            // and MqttPublisher can use it later from any scope)
+            services.AddSingleton<MqttClientAccessor>();
+            services.AddSingleton<IMqttPublisher, MqttPublisher>();
 
             // Background worker
             services.AddHostedService<MqttPrintRequestService>();

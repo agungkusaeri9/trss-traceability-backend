@@ -11,9 +11,16 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
         int page,
         int pageSize,
         string? serialNumberCode = null,
-        string? partNumber = null,
         bool? isActive = null,
         CancellationToken cancellationToken = default);
 
     Task<ProcessLog?> GetLogWithDetailsAsync(long id, CancellationToken cancellationToken = default);
+    Task<ProcessLog?> GetLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default);
+
+    Task<ProcessLog> AddProcessLogPerProcessAsync(
+        string serialNumberCode,
+        string processCode,
+        bool isOk,
+        List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean)> parameters,
+        CancellationToken cancellationToken = default);
 }

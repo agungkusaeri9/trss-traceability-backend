@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   </head>
   <body class="bg-gray-50 text-gray-800 min-h-screen font-sans">
-    <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
       <!-- Title -->
       <div class="mb-8 border-b border-gray-200 pb-6">
         <h1 class="text-3xl font-bold text-gray-900 mb-2">
@@ -29,7 +29,7 @@
 
       <!-- Connection Config -->
       <div
-        class="bg-white border border-gray-200 rounded-lg p-6 mb-8 shadow-sm"
+        class="bg-white border border-gray-200 rounded-lg p-6 mb-6 shadow-sm"
       >
         <h2 class="text-lg font-semibold text-gray-900 mb-4">
           Broker Connection
@@ -91,42 +91,191 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <!-- Topic Cards -->
-        <div class="xl:col-span-2 space-y-4">
-          <h2 class="text-lg font-semibold text-gray-900">
-            Process Result Topics
-          </h2>
-          <div id="topic-cards" class="space-y-3"></div>
-
-          <h2 class="text-lg font-semibold text-gray-900 mt-6 pt-2">
-            Print Request Topics
-          </h2>
-          <div id="print-cards" class="space-y-3"></div>
+      <!-- Console (full-width, di atas cards) -->
+      <div class="mb-6">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="text-lg font-semibold text-gray-900">Console</h2>
+          <button
+            onclick="clearLogs()"
+            class="text-xs bg-white border border-gray-300 text-gray-600 px-3 py-1 rounded hover:bg-gray-50"
+          >
+            Clear
+          </button>
         </div>
+        <div
+          id="log-panel"
+          class="bg-gray-900 border border-gray-700 rounded-lg p-4 h-40 overflow-y-auto font-mono text-xs space-y-1"
+        >
+          <div class="text-gray-500">
+            [System] Hubungkan ke broker MQTT untuk mulai publish payload...
+          </div>
+        </div>
+      </div>
 
-        <!-- Log Panel -->
-        <div class="xl:col-span-1">
-          <div class="sticky top-6">
-            <div class="flex justify-between items-center mb-2">
-              <h2 class="text-lg font-semibold text-gray-900">Console</h2>
+      <!-- Cards Grid - Side by Side Layout -->
+      <div class="space-y-6 mb-8">
+        <!-- All topics will be rendered via JS into individual rows -->
+
+        <!-- Row 1: Clinching Short Side Result + Process -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-clinching-short-side"></div>
+          <div
+            class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+          >
+            <div
+              class="px-4 py-3 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2"
+            >
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+                <span class="font-semibold text-sm text-gray-900"
+                  >Clinching Short Side — Process</span
+                >
+              </div>
+              <span
+                class="font-mono text-xs px-2 py-0.5 rounded border text-teal-700 bg-teal-50 border-teal-200"
+                >data/process/clinching-short-side/process</span
+              >
+            </div>
+            <div class="px-4 pt-3 pb-2 flex items-center gap-2">
               <button
-                onclick="clearLogs()"
-                class="text-xs bg-white border border-gray-300 text-gray-600 px-3 py-1 rounded hover:bg-gray-50"
+                id="btn-subscribe-clinching"
+                onclick="
+                  toggleSubscribe(
+                    'clinching-short-side-process',
+                    'data/process/clinching-short-side/process',
+                  )
+                "
+                class="subscribe-btn text-white text-xs font-semibold px-4 py-1.5 rounded transition bg-teal-600 hover:bg-teal-700 opacity-50 cursor-not-allowed flex items-center gap-1"
+                disabled
+              >
+                <span id="sub-icon-clinching">⬤</span>
+                <span id="sub-label-clinching">Subscribe</span>
+              </button>
+              <button
+                onclick="clearSubscribeLog('clinching-short-side-process')"
+                class="text-xs bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50"
               >
                 Clear
               </button>
+              <span
+                id="sub-count-clinching"
+                class="text-xs text-gray-400 ml-auto"
+              ></span>
             </div>
-            <div
-              id="log-panel"
-              class="bg-gray-50 border border-gray-200 rounded-lg p-4 h-[620px] overflow-y-auto font-mono text-xs space-y-1"
-            >
-              <div class="text-gray-500">
-                [System] Hubungkan ke broker MQTT untuk mulai publish payload...
-              </div>
+            <div class="px-4 pb-4">
+              <label class="block text-xs font-medium text-gray-500 mb-1"
+                >Payload Yang Diterima</label
+              >
+              <pre
+                id="sub-log-clinching-short-side-process"
+                class="bg-gray-50 border border-gray-200 rounded p-2 text-xs font-mono text-emerald-600 overflow-x-auto overflow-y-auto h-48 whitespace-pre-wrap"
+              ></pre>
             </div>
           </div>
         </div>
+
+        <!-- Row 2: Clinching Long Side (Result only) -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-clinching-long-side"></div>
+          <div></div>
+        </div>
+
+        <!-- Row 3: He Leak (Result only) -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-he-leak"></div>
+          <div></div>
+        </div>
+
+        <!-- Row 4: M-Fan Assy Scan Result + Process -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-m-fan-assy-scan"></div>
+          <div
+            class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+          >
+            <div
+              class="px-4 py-3 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2"
+            >
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                <span class="font-semibold text-sm text-gray-900"
+                  >M-Fan Assy Scan — Process</span
+                >
+              </div>
+              <span
+                class="font-mono text-xs px-2 py-0.5 rounded border text-purple-700 bg-purple-50 border-purple-200"
+                >data/process/m-fan-assy/process-scan</span
+              >
+            </div>
+            <div class="px-4 pt-3 pb-2 flex items-center gap-2">
+              <button
+                id="btn-subscribe-mfan"
+                onclick="
+                  toggleSubscribe(
+                    'm-fan-assy-scan-process',
+                    'data/process/m-fan-assy/process-scan',
+                  )
+                "
+                class="subscribe-btn text-white text-xs font-semibold px-4 py-1.5 rounded transition bg-purple-600 hover:bg-purple-700 opacity-50 cursor-not-allowed flex items-center gap-1"
+                disabled
+              >
+                <span id="sub-icon-mfan">⬤</span>
+                <span id="sub-label-mfan">Subscribe</span>
+              </button>
+              <button
+                onclick="clearSubscribeLog('m-fan-assy-scan-process')"
+                class="text-xs bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50"
+              >
+                Clear
+              </button>
+              <span
+                id="sub-count-mfan"
+                class="text-xs text-gray-400 ml-auto"
+              ></span>
+            </div>
+            <div class="px-4 pb-4">
+              <label class="block text-xs font-medium text-gray-500 mb-1"
+                >Payload Yang Diterima</label
+              >
+              <pre
+                id="sub-log-m-fan-assy-scan-process"
+                class="bg-gray-50 border border-gray-200 rounded p-2 text-xs font-mono text-emerald-600 overflow-x-auto overflow-y-auto h-48 whitespace-pre-wrap"
+              ></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 5: M-Fan Assembly Result (only) -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-m-fan-assy"></div>
+          <div></div>
+        </div>
+
+        <!-- Row 6: M-Fan Inspection (Result only) -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-m-fan-inspection"></div>
+          <div></div>
+        </div>
+
+        <!-- Row 6: ECM Assy (Result only) -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-ecm-assy"></div>
+          <div></div>
+        </div>
+
+        <!-- Row 7: Final Inspection (Result only) -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div id="card-final-inspection"></div>
+          <div></div>
+        </div>
+
+        <!-- Print Request Topics -->
+        <h2 class="text-lg font-semibold text-gray-900 mt-6">
+          Print Request Topics
+        </h2>
+        <div
+          id="print-cards"
+          class="grid grid-cols-1 xl:grid-cols-2 gap-6"
+        ></div>
       </div>
     </div>
 
@@ -134,39 +283,13 @@
       // ─── Issue Numbers (for Clinching Short Side only) ────────────────────────
 
       const allIssueNumbers = [
-        "ISS-00030",
-        "ISS-00029",
-        "ISS-00028",
-        "ISS-00027",
-        "ISS-00026",
-        "ISS-00025",
-        "ISS-00024",
-        "ISS-00023",
-        "ISS-00022",
-        "ISS-00021",
-        "ISS-00020",
-        "ISS-00019",
-        "ISS-00018",
-        "ISS-00017",
-        "ISS-00016",
-        "ISS-00015",
-        "ISS-00014",
-        "ISS-00013",
-        "ISS-00012",
-        "ISS-00011",
-        "ISS-00010",
-        "ISS-00009",
-        "ISS-00008",
-        "ISS-00007",
-        "ISS-00006",
-        "ISS-00005",
-        "ISS-00004",
-        "ISS-00003",
-        "ISS-00002",
         "ISS-00001",
-        "20260602001",
-        "20260603001",
-        "20260605001",
+        "ISS-00002",
+        "ISS-00003",
+        "ISS-00027",
+        "ISS-00028",
+        "ISS-00029",
+        "ISS-00030",
       ];
 
       // ─── Topic Definitions ────────────────────────────────────────────────────
@@ -181,6 +304,7 @@
           payload: {
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
+            isOk: true,
             data: {
               issue_numbers: ["ISS-00001"],
             },
@@ -192,11 +316,12 @@
           topic: "data/process/clinching-long-side/result",
           color: "indigo",
           payload: {
-            serial_number: "CC20260626001",
+            serial_number: "CC20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
+            isOk: true,
             data: {
-              CLINCHING_HEIGHT_RESULT: "OK",
+              CLINCHING_HEIGHT_RESULT: true,
               CLINCHING_HEIGHT_VALUE: 1.23,
               END_PLATE_WIDTH_VALUE: 45.67,
             },
@@ -208,13 +333,30 @@
           topic: "data/process/he-leak/result",
           color: "cyan",
           payload: {
-            serial_number: "CC20260626001",
+            serial_number: "CC20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
+            isOk: true,
             data: {
-              CAP_TYPE_POSITION_RESULT: "OK",
-              LEAK_TEST_RESULT: "OK",
+              CAP_TYPE_POSITION_RESULT: true,
+              LEAK_TEST_RESULT: true,
               LEAK_VALUE: 45.67,
+            },
+          },
+        },
+        {
+          id: "m-fan-assy-scan",
+          label: "M-Fan Assembly Scan",
+          topic: "data/process/m-fan-assy/result-scan",
+          color: "violet",
+          hasIssuePicker: true,
+          payload: {
+            serial_number_clinching: "CC20260630001",
+            operator_username: "OP001",
+            timestamp: new Date().toISOString(),
+            isOk: true,
+            data: {
+              issue_numbers: ["ISS-00027"],
             },
           },
         },
@@ -222,19 +364,16 @@
           id: "m-fan-assy",
           label: "M-Fan Assembly",
           topic: "data/process/m-fan-assy/result",
-          color: "violet",
+          color: "purple",
           payload: {
-            serial_number: "CC20260626001",
+            serial_number_m_fan_assy: "MF20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
+            isOk: true,
             data: {
-              issue_numbers: ["ISS-00001"],
-              FAN_ASM_RESULT: "OK",
-              MOTOR_ASM_RESULT: "OK",
-              FUN_GUIDE_ASM_RESULT: "OK",
-              BOLT_TIGHTEN_RESULT: "OK",
+              BOLT_TIGHTEN_RESULT: true,
               BOLT_TIGHTEN_VALUE: 45.67,
-              NUT_TIGHTEN_RESULT: "OK",
+              NUT_TIGHTEN_RESULT: true,
             },
           },
         },
@@ -243,14 +382,20 @@
           label: "M-Fan Inspection",
           topic: "data/process/m-fan-inspection/result",
           color: "purple",
+
           payload: {
-            serial_number_m_fan_assy: "MF20260626001",
+            serial_number_m_fan_assy: "MF20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
+            isOk: true,
             data: {
-              M_FAN_TEST_RESULT: "OK",
-              M_FAN_INSPECTION_ROTATION_SPEED_VALUE: 45.67,
-              M_FAN_INSPECTION_AMPERE_VALUE: "89;80;100",
+              M_FAN_TEST_RESULT: true,
+              M_FAN_INSPECTION_ROTATION_SPEED_VALUE: 60,
+              M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE: 100,
+              M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE: 40,
+              M_FAN_INSPECTION_AMPERE_VALUE: 89,
+              M_FAN_INSPECTION_AMPERE_MAX_VALUE: 120,
+              M_FAN_INSPECTION_AMPERE_MIN_VALUE: 60,
               M_FAN_INSPECTION_WIND_DIRECTION_VALUE: 45,
             },
           },
@@ -261,15 +406,15 @@
           topic: "data/process/ecm-assy/result",
           color: "amber",
           payload: {
-            serial_number: "CC20260626001",
-            serial_number_m_fan_assy: "MF20260626001",
+            serial_number: "CC20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
+            isOk: true,
             data: {
-              RAD_CORE_ASM_NAME_LABEL_RESULT: "OK",
-              MOTOR_FAN_ASSY_LABEL_RESULT: "OK",
+              RAD_CORE_ASM_NAME_LABEL_RESULT: true,
+              MOTOR_FAN_ASSY_LABEL_RESULT: true,
               ECM_ASSY_BOLT_TIGHTEN_VALUE: 45.67,
-              ECM_ASSY_BOLT_TIGHTEN_RESULT: "OK",
+              ECM_ASSY_BOLT_TIGHTEN_RESULT: true,
             },
           },
         },
@@ -279,12 +424,13 @@
           topic: "data/process/final-inspection/result",
           color: "emerald",
           payload: {
-            serial_number: "CC20260626001",
+            serial_number: "CC20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
+            isOk: true,
             data: {
-              FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT: "OK",
-              ALL_CHECK_POINT_RESULT: "OK",
+              FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT: true,
+              ALL_CHECK_POINT_RESULT: true,
             },
           },
         },
@@ -436,12 +582,17 @@
                 updatePayload(t.id, t.payload),
               );
             });
-            // Default: first item checked
-            const first = box.querySelector(".issue-checkbox");
-            if (first) {
-              first.checked = true;
-              updatePayload(t.id, t.payload);
+            // Default selection based on topic
+            let defaultSelected = ["ISS-00001", "ISS-00002", "ISS-00003"];
+            if (t.id === "m-fan-assy-scan") {
+              defaultSelected = ["ISS-00027", "ISS-00028", "ISS-00029"];
             }
+            box.querySelectorAll(".issue-checkbox").forEach((cb) => {
+              if (defaultSelected.includes(cb.value)) {
+                cb.checked = true;
+              }
+            });
+            updatePayload(t.id, t.payload);
           });
       }
 
@@ -486,8 +637,159 @@
         if (t) updatePayload(id, t.payload);
       }
 
-      renderCards(processTopics, "topic-cards");
+      // Render each process topic to its dedicated container (order matters!)
+      renderCards(
+        [processTopics.find((t) => t.id === "clinching-short-side")],
+        "card-clinching-short-side",
+      );
+      renderCards(
+        [processTopics.find((t) => t.id === "clinching-long-side")],
+        "card-clinching-long-side",
+      );
+      renderCards(
+        [processTopics.find((t) => t.id === "he-leak")],
+        "card-he-leak",
+      );
+      renderCards(
+        [processTopics.find((t) => t.id === "m-fan-assy-scan")],
+        "card-m-fan-assy-scan",
+      );
+      renderCards(
+        [processTopics.find((t) => t.id === "m-fan-assy")],
+        "card-m-fan-assy",
+      );
+      renderCards(
+        [processTopics.find((t) => t.id === "m-fan-inspection")],
+        "card-m-fan-inspection",
+      );
+      renderCards(
+        [processTopics.find((t) => t.id === "ecm-assy")],
+        "card-ecm-assy",
+      );
+      renderCards(
+        [processTopics.find((t) => t.id === "final-inspection")],
+        "card-final-inspection",
+      );
+
+      // Render print topics
       renderCards(printTopics, "print-cards");
+
+      // ─── Subscribe State ──────────────────────────────────────────────────────
+
+      const subscriptions = {}; // key = id, value = { topic, active, count }
+
+      function toggleSubscribe(id, topic) {
+        if (!mqttClient || !mqttClient.connected) {
+          addLog("Belum terhubung ke broker!", "error");
+          return;
+        }
+
+        if (!subscriptions[id] || !subscriptions[id].active) {
+          // Subscribe
+          mqttClient.subscribe(topic, { qos: 1 }, (err) => {
+            if (err) {
+              addLog(`Subscribe FAILED → ${topic}: ${err.message}`, "error");
+              return;
+            }
+            subscriptions[id] = { topic, active: true, count: 0 };
+            addLog(`Subscribed → ${topic}`, "success");
+            updateSubUI(id, true);
+          });
+        } else {
+          // Unsubscribe
+          mqttClient.unsubscribe(topic, () => {
+            subscriptions[id].active = false;
+            addLog(`Unsubscribed → ${topic}`, "warn");
+            updateSubUI(id, false);
+          });
+        }
+      }
+
+      function updateSubUI(id, active) {
+        // derive the short key for the icon/label elements
+        let shortKey = id;
+        if (id === "clinching-short-side-process") shortKey = "clinching";
+        if (id === "m-fan-assy-scan-process") shortKey = "mfan";
+
+        const iconEl = document.getElementById(`sub-icon-${shortKey}`);
+        const labelEl = document.getElementById(`sub-label-${shortKey}`);
+        const btnEl = document.getElementById(`btn-subscribe-${shortKey}`);
+
+        if (!iconEl || !labelEl || !btnEl) return;
+
+        // Determine colors based on topic
+        const isTeal = shortKey === "clinching";
+        const baseColor = isTeal ? "teal" : "purple";
+        const activeColor = "red";
+
+        if (active) {
+          iconEl.textContent = "◼";
+          labelEl.textContent = "Unsubscribe";
+          btnEl.classList.remove(
+            `bg-${baseColor}-600`,
+            `hover:bg-${baseColor}-700`,
+          );
+          btnEl.classList.add(
+            `bg-${activeColor}-600`,
+            `hover:bg-${activeColor}-700`,
+          );
+        } else {
+          iconEl.textContent = "⬤";
+          labelEl.textContent = "Subscribe";
+          btnEl.classList.remove(
+            `bg-${activeColor}-600`,
+            `hover:bg-${activeColor}-700`,
+          );
+          btnEl.classList.add(
+            `bg-${baseColor}-600`,
+            `hover:bg-${baseColor}-700`,
+          );
+        }
+      }
+
+      function clearSubscribeLog(id) {
+        const el = document.getElementById(`sub-log-${id}`);
+        if (el)
+          el.innerHTML =
+            '<div class="text-gray-500">[System] Log cleared.</div>';
+        if (subscriptions[id]) subscriptions[id].count = 0;
+        let shortKey = id;
+        if (id === "clinching-short-side-process") shortKey = "clinching";
+        if (id === "m-fan-assy-scan-process") shortKey = "mfan";
+        const countEl = document.getElementById(`sub-count-${shortKey}`);
+        if (countEl) countEl.textContent = "";
+      }
+
+      function handleSubscribedMessage(topic, payload) {
+        // Route ke log card yang sesuai
+        const matchId = Object.keys(subscriptions).find(
+          (id) => subscriptions[id].topic === topic && subscriptions[id].active,
+        );
+        if (!matchId) return;
+
+        const preEl = document.getElementById(`sub-log-${matchId}`);
+        if (!preEl) return;
+
+        subscriptions[matchId].count = (subscriptions[matchId].count || 0) + 1;
+
+        // Pretty-print JSON ke dalam pre
+        let formatted = payload;
+        try {
+          formatted = JSON.stringify(JSON.parse(payload), null, 2);
+        } catch {
+          /* biarkan raw */
+        }
+
+        preEl.textContent = formatted;
+
+        // Update count badge
+        let shortKey = matchId;
+        if (matchId === "clinching-short-side-process") shortKey = "clinching";
+        if (matchId === "m-fan-assy-scan-process") shortKey = "mfan";
+        const countEl = document.getElementById(`sub-count-${shortKey}`);
+        if (countEl)
+          countEl.textContent = `pesan terakhir diterima: ${new Date().toLocaleTimeString("en-US", { hour12: false })}`;
+      }
 
       // ─── MQTT ─────────────────────────────────────────────────────────────────
 
@@ -509,6 +811,20 @@
         mqttClient.on("connect", () => {
           addLog("Connected.", "success");
           setStatusUI(true);
+          // Auto subscribe to both process topics
+          toggleSubscribe(
+            "clinching-short-side-process",
+            "data/process/clinching-short-side/process",
+          );
+          toggleSubscribe(
+            "m-fan-assy-scan-process",
+            "data/process/m-fan-assy/process-scan",
+          );
+        });
+        mqttClient.on("message", (topic, message) => {
+          const payload = message.toString();
+          addLog(`↓ ${topic}`, "subscribe");
+          handleSubscribedMessage(topic, payload);
         });
         mqttClient.on("error", (err) => {
           addLog(`Error: ${err.message}`, "error");
@@ -517,6 +833,11 @@
         mqttClient.on("close", () => {
           addLog("Disconnected.", "warn");
           setStatusUI(false);
+          // Reset all subscriptions
+          Object.keys(subscriptions).forEach((id) => {
+            subscriptions[id].active = false;
+            updateSubUI(id, false);
+          });
         });
       }
 
@@ -582,7 +903,7 @@
 
         if (connected) {
           badge.className =
-            "inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            "inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-emerald-100 text-emerald-700 border border-emerald-200";
           badge.innerHTML =
             '<span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Connected';
           btnCon.disabled = true;
@@ -593,9 +914,13 @@
             b.disabled = false;
             b.classList.remove("opacity-50", "cursor-not-allowed");
           });
+          document.querySelectorAll(".subscribe-btn").forEach((b) => {
+            b.disabled = false;
+            b.classList.remove("opacity-50", "cursor-not-allowed");
+          });
         } else {
           badge.className =
-            "inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-red-500/20 text-red-300 border border-red-500/30";
+            "inline-flex items-center px-3 py-1 rounded text-sm font-medium bg-red-100 text-red-700 border border-red-200";
           badge.innerHTML =
             '<span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span> Disconnected';
           btnCon.disabled = false;
@@ -606,26 +931,31 @@
             b.disabled = true;
             b.classList.add("opacity-50", "cursor-not-allowed");
           });
+          document.querySelectorAll(".subscribe-btn").forEach((b) => {
+            b.disabled = true;
+            b.classList.add("opacity-50", "cursor-not-allowed");
+          });
         }
       }
 
       const logColors = {
-        info: "text-blue-600",
-        success: "text-emerald-600",
-        warn: "text-yellow-600",
-        error: "text-red-600",
-        publish: "text-violet-600",
-        data: "text-gray-500",
+        info: "text-blue-400",
+        success: "text-emerald-400",
+        warn: "text-yellow-400",
+        error: "text-red-400",
+        publish: "text-violet-400",
+        subscribe: "text-teal-400",
+        data: "text-gray-400",
       };
 
       function addLog(msg, type = "info") {
         const panel = document.getElementById("log-panel");
-        const initial = panel.querySelector(".text-slate-500");
+        const initial = panel.querySelector(".text-gray-500");
         if (initial) initial.remove();
 
         const time = new Date().toLocaleTimeString("en-US", { hour12: false });
         const div = document.createElement("div");
-        div.className = logColors[type] || "text-gray-700";
+        div.className = logColors[type] || "text-gray-300";
         div.textContent = `[${time}] ${msg}`;
         panel.appendChild(div);
         panel.scrollTop = panel.scrollHeight;
@@ -633,8 +963,14 @@
 
       function clearLogs() {
         document.getElementById("log-panel").innerHTML =
-          '<div class="text-slate-500">[System] Logs cleared.</div>';
+          '<div class="text-gray-500">[System] Logs cleared.</div>';
       }
+
+      // Auto connect on page load/refresh
+      window.addEventListener("DOMContentLoaded", () => {
+        // Berikan delay sedikit agar UI siap
+        setTimeout(connectMqtt, 300);
+      });
     </script>
   </body>
 </html>

@@ -44,6 +44,7 @@ public class StockInRepository : BaseRepository<StockIn>, IStockInRepository
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .OrderByDescending(s => s.CreatedAt)
             .ToListAsync(cancellationToken);
 
         return (items, totalCount);

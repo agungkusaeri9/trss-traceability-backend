@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.Auth;
 using TraceabilitySystem.Application.DTOs.SerialNumber;
+using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
@@ -9,6 +10,7 @@ using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+
 
 namespace TraceabilitySystem.API.Controllers;
 
@@ -956,4 +958,232 @@ public class ConfigController : ControllerBase
         var result = await _serialNumberService.CreateFromIssuesAsync(request, cancellationToken);
         return ResponseFormatter.Success(data: result, message: "Serial numbers berhasil dibuat.");
     }
+
+    /// <summary>Seed process logs dengan alur: buat serial numbers dari issues, kemudian buat process logs dari proses pertama sampai selesai.</summary>
+    // [HttpPost("process-log-seeder")]
+    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    // public async Task<IActionResult> ProcessLogSeeder(CancellationToken cancellationToken)
+    // {
+
+    //     // ============================================================================
+    //     // STEP 1: Buat Serial Numbers dari Issue Numbers (ISS-00001 sampai ISS-00005)
+    //     // ============================================================================
+    //     var issueNumbers = new[] { "ISS-00001", "ISS-00002", "ISS-00003"}.ToList();
+
+    //     var serialNumber = await _serialNumberService.CreateFromIssuesAsync(new CreateSerialNumbersFromIssuesRequestDto { IssueNumbers = issueNumbers }, cancellationToken);
+
+    //     // ============================================================================
+    //     // STEP 2: Buat Process Logs untuk Setiap Proses (dari proses pertama sampai selesai)
+    //     // ============================================================================
+
+    //     //1 process clinching sort side
+
+    //     var newProcessLogDto = new AddProcessLogPerProcessRequestDto(){
+    //         SerialNumberCode = serialNumber.SerialNumberCode,
+    //         ProcessCode = "CLINCHING_SORT_SIDE",
+    //         IsOk = true,
+    //         Parameters = new List<ProcessLogParameterDto>()
+    //         {
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "CORE_ASM_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "UPPER_TANK_ASM_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "LOWER_TANK_ASM_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //         }
+    //     };
+    //     var processLog = await _processLogService.CreateAsync(newProcessLogDto, cancellationToken);
+
+    //     //2 process clinching long side
+
+    //     newProcessLogDto = new AddProcessLogPerProcessRequestDto(){
+    //         SerialNumberCode = serialNumber.SerialNumberCode,
+    //         ProcessCode = "CLINCHING_LONG_SIDE",
+    //         IsOk = true,
+    //         Parameters = new List<ProcessLogParameterDto>()
+    //         {
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "CLINCHING_HEIGHT_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "CLINCHING_HEIGHT_VALUE",
+    //                 ValueNumber = 100.0,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "END_PLATE_WIDTH_VALUE",
+    //                 ValueNumber = 50.0,
+    //             },
+    //         }
+    //     };
+    //     processLog = await _processLogService.CreateAsync(newProcessLogDto, cancellationToken);
+
+    //     //3. process he leak
+
+    //     newProcessLogDto = new AddProcessLogPerProcessRequestDto(){
+    //         SerialNumberCode = serialNumber.SerialNumberCode,
+    //         ProcessCode = "HE_LEAK",
+    //         IsOk = true,
+    //         Parameters = new List<ProcessLogParameterDto>()
+    //         {
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "CAP_TYPE_POSITION_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "LEAK_TEST_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "LEAK_VALUE",
+    //                 ValueNumber = 100.0,
+    //             },
+    //         }
+    //     };
+    //     processLog = await _processLogService.CreateAsync(newProcessLogDto, cancellationToken);
+
+    //     //4 m fan assy (create child process log dengan serial number tersebut)
+    //     newProcessLogDto = new AddProcessLogPerProcessRequestDto(){
+    //         SerialNumberCode = serialNumber.SerialNumberCode,
+    //         ProcessCode = "M_FAN_ASSY",
+    //         IsOk = true,
+    //         Parameters = new List<ProcessLogParameterDto>()
+    //         {
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "FAN_ASM_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "MOTOR_ASM_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "FUN_GUIDE_ASM_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "BOLT_TIGHTEN_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "BOLT_TIGHTEN_VALUE",
+    //                 ValueNumber = 100.0,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "NUT_TIGHTEN_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //         }
+    //     };
+    //     processLog = await _processLogService.CreateAsync(newProcessLogDto, cancellationToken);
+
+    //     //5 m fan inspection
+
+    //     newProcessLogDto = new AddProcessLogPerProcessRequestDto(){
+    //         SerialNumberCode = serialNumber.SerialNumberCode,
+    //         ProcessCode = "M_FAN_INSPECTION",
+    //         IsOk = true,
+    //         Parameters = new List<ProcessLogParameterDto>()
+    //         {
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "M_FAN_TEST_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "M_FAN_INSPECTION_ROTATION_SPEED_VALUE",
+    //                 //value;max;min
+    //                 ValueString = "80;70;90",
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "M_FAN_INSPECTION_AMPERE_VALUE",
+    //                 //value;max;min
+    //                 ValueString = "80;70;90",
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "M_FAN_INSPECTION_WIND_DIRECTION_VALUE",
+    //                 ValueNumber = 50,
+    //             },
+    //         }
+    //     };
+    //     processLog = await _processLogService.CreateAsync(newProcessLogDto, cancellationToken);
+
+    //     //6 ecm assy
+    //     newProcessLogDto = new AddProcessLogPerProcessRequestDto(){
+    //         SerialNumberCode = serialNumber.SerialNumberCode,
+    //         ProcessCode = "ECM_ASSY",
+    //         IsOk = true,
+    //         Parameters = new List<ProcessLogParameterDto>()
+    //         {
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "RAD_CORE_ASM_NAME_LABEL_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "MOTOR_FAN_ASSY_LABEL_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "ECM_ASSY_BOLT_TIGHTEN_VALUE",
+    //                 ValueNumber = 100.0,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "ECM_ASSY_BOLT_TIGHTEN_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //         }
+    //     };
+
+    //     // 7 ecm inspection
+    //     newProcessLogDto = new AddProcessLogPerProcessRequestDto(){
+    //         SerialNumberCode = serialNumber.SerialNumberCode,
+    //         ProcessCode = "FINAL_INSPECTION",
+    //         IsOk = true,
+    //         Parameters = new List<ProcessLogParameterDto>()
+    //         {
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+    //             new ProcessLogParameterDto()
+    //             {
+    //                 ParameterCode = "ALL_CHECK_POINT_RESULT",
+    //                 ValueBoolean = true,
+    //             },
+               
+    //         }
+    //     };
+    //     processLog = await _processLogService.CreateAsync(newProcessLogDto, cancellationToken);
+           
+    //     return ResponseFormatter.Success(message: "Process log seeder executed. (Implementasi sebenarnya perlu menyesuaikan dengan struktur database yang ada)");
+    // }
 }

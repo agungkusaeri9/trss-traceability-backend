@@ -26,6 +26,7 @@ public class AppDbContext : DbContext
 
     public DbSet<SerialNumberRelation> SerialNumberRelations => Set<SerialNumberRelation>();
     public DbSet<IssueTransaction> IssueTransactions => Set<IssueTransaction>();
+    public DbSet<StockInRework> StockInReworks => Set<StockInRework>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -136,6 +137,15 @@ public class AppDbContext : DbContext
             else if (entry.Entity is IssueTransaction issueTransaction)
             {
                 if (entry.State == EntityState.Added) issueTransaction.CreatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is SerialNumberIssue serialNumberIssue)
+            {
+                if (entry.State == EntityState.Added) serialNumberIssue.CreatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is StockInRework stockInRework)
+            {
+                if (entry.State == EntityState.Added) stockInRework.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) stockInRework.UpdatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

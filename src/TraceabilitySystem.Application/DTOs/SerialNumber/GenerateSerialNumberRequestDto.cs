@@ -16,4 +16,10 @@ public class GenerateSerialNumberRequestDto
     /// Opsional — jika tidak diisi, konsumsi issue tidak dilakukan.
     /// </summary>
     public List<string>? IssueNumbers { get; set; }
+
+    /// <summary>
+    /// Jika true, issue tidak akan dikurangi qty-nya meskipun IssueNumbers diisi.
+    /// Default false.
+    /// </summary>
+    public bool SkipConsume { get; set; } = false;
 }

@@ -46,3 +46,13 @@ System.Net.Http.HttpRequestException: No connection could be made because the ta
 2026-06-26 08:19:58.986 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027"],"result":"OK","timestamp":"2026-06-26T01:19:58.982Z"}
 2026-06-26 08:19:59.044 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027
 2026-06-26 08:19:59.077 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260626002 (Type: CLINCHING)
+2026-06-26 09:52:00.107 +07:00 [INF] [MQTT] Received message on topic [data/process/clinching-short-side/result]
+2026-06-26 09:52:00.110 +07:00 [INF] [MQTT][ClinchingShortSide] Payload: {"issue_numbers":["ISS-00030","ISS-00027"],"result":"OK","timestamp":"2026-06-26T02:52:00.089Z"}
+2026-06-26 09:52:00.174 +07:00 [INF] [MQTT][ClinchingShortSide] Generating clinching SN for Issues: ISS-00030, ISS-00027
+2026-06-26 09:52:00.273 +07:00 [INF] [MQTT][ClinchingShortSide] Generated Clinching SN: CC20260626001 (Type: CLINCHING)
+2026-06-26 10:14:41.434 +07:00 [INF] [MQTT] Received message on topic [traceability/print/request/clinching-short-side]
+2026-06-26 10:14:41.543 +07:00 [INF] MQTT message saved to DB with ID: 1
+2026-06-26 10:14:41.556 +07:00 [INF] MQTT print request ID 1 marked as Processed
+2026-06-26 10:14:42.795 +07:00 [INF] [MQTT] Received message on topic [traceability/print/request/clinching-short-side]
+2026-06-26 10:14:42.822 +07:00 [INF] MQTT message saved to DB with ID: 2
+2026-06-26 10:14:42.827 +07:00 [INF] MQTT print request ID 2 marked as Processed

@@ -21,10 +21,7 @@ public static class DependencyInjection
                 ? src.ProcessParameters.Select(pp => pp.Parameter)
                 : null);
 
-        TypeAdapterConfig<ProcessLog, ProcessLogDto>.NewConfig()
-            .Map(dest => dest.SerialNumberCode, src => src.SerialNumber != null
-                ? src.SerialNumber.SerialNumberCode
-                : string.Empty);
+
 
         services.AddValidatorsFromAssemblyContaining<UserService>();
 
@@ -41,7 +38,11 @@ public static class DependencyInjection
         services.AddScoped<IMqttPrintRequestService, MqttPrintRequestService>();
         services.AddScoped<IIssueService, IssueService>();
         services.AddScoped<ISerialNumberService, SerialNumberService>();
+        services.AddScoped<IStockInReworkService, StockInReworkService>();
         services.AddSingleton<ITraceabilitySummarySimulator, TraceabilitySummarySimulator>();
+
+        // Default no-op publisher; Worker sẽ override dengan singleton nyata sesudah AddApplication()
+        services.AddSingleton<IMqttPublisher, NullMqttPublisher>();
 
         return services;
     }

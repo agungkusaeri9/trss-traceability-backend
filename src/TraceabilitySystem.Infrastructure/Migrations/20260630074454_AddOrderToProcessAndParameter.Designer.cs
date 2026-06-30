@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TraceabilitySystem.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TraceabilitySystem.Infrastructure.Persistence;
 namespace TraceabilitySystem.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260630074454_AddOrderToProcessAndParameter")]
+    partial class AddOrderToProcessAndParameter
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -756,61 +759,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.ToTable("stock_ins", (string)null);
                 });
 
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.StockInRework", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("IssueNumberAfter")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("issue_number_after");
-
-                    b.Property<string>("IssueNumberBefore")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("issue_number_before");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("note");
-
-                    b.Property<int>("Qty")
-                        .HasColumnType("int")
-                        .HasColumnName("qty");
-
-                    b.Property<int>("SerialNumberId")
-                        .HasColumnType("int")
-                        .HasColumnName("serial_number_id");
-
-                    b.Property<bool>("Status")
-                        .HasColumnType("tinyint(1)")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_stock_in_reworks");
-
-                    b.HasIndex("SerialNumberId")
-                        .HasDatabaseName("ix_stock_in_reworks_serial_number_id");
-
-                    b.ToTable("stock_in_reworks");
-                });
-
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -1016,18 +964,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasConstraintName("fk_stock_ins_parts_part_id");
 
                     b.Navigation("Part");
-                });
-
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.StockInRework", b =>
-                {
-                    b.HasOne("TraceabilitySystem.Domain.Entities.SerialNumber", "SerialNumber")
-                        .WithMany()
-                        .HasForeignKey("SerialNumberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_stock_in_reworks_serial_numbers_serial_number_id");
-
-                    b.Navigation("SerialNumber");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.Issue", b =>

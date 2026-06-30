@@ -5,9 +5,11 @@ using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Infrastructure.Persistence;
 using TraceabilitySystem.Infrastructure.Persistence.Repositories;
+using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Application.Services;
+using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Infrastructure.Services;
-
-namespace TraceabilitySystem.Infrastructure;
+using TraceabilitySystem.Shared.Models;
 
 public static class DependencyInjection
 {
@@ -41,7 +43,9 @@ public static class DependencyInjection
         services.AddScoped<IProcessLogRepository, ProcessLogRepository>();
         services.AddScoped<IMqttPrintRequestRepository, MqttPrintRequestRepository>();
         services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
+        services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
         services.AddScoped<IIssueTransactionRepository, IssueTransactionRepository>();
+        services.AddScoped<IStockInReworkRepository, StockInReworkRepository>();
 
         // Infrastructure Services
         services.AddScoped<IJwtService, JwtService>();

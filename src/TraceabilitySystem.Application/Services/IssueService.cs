@@ -78,7 +78,9 @@ public class IssueService : IIssueService
         _stockInRepository.Update(stockIn);
         await _stockInRepository.SaveChangesAsync(cancellationToken);
 
-        return transaction.Adapt<IssueTransactionDto>();
+        var result = transaction.Adapt<IssueTransactionDto>();
+        result.IssueNumber = request.IssueNumber;
+        return result;
     }
 
     /// <inheritdoc/>
