@@ -81,3 +81,6 @@ Thumbs.db
 
 
 src/TraceabilitySystem.API/logging/
+src/TraceabilitySystem.BACKUP/logging/
+src/TraceabilitySystem.BACKUP/backup/
+src/TraceabilitySystem.Worker/logging/
