@@ -63,11 +63,13 @@ try
 
             // MQTT shared state (singleton so MqttPrintRequestService can set the client
             // and MqttPublisher can use it later from any scope)
+            services.AddScoped<DatabaseService>();
             services.AddSingleton<MqttClientAccessor>();
             services.AddSingleton<IMqttPublisher, MqttPublisher>();
+            services.AddScoped<MqttSubscriptionService>();
 
             // Background worker
-            services.AddHostedService<MqttPrintRequestService>();
+            services.AddHostedService<MqttWorkerService>();
         })
         .Build();
 
