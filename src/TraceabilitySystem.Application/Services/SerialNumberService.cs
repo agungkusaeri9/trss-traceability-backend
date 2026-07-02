@@ -1,10 +1,12 @@
 using Mapster;
 using TraceabilitySystem.Application.DTOs.Issue;
+using TraceabilitySystem.Application.DTOs.Parameter;
 using TraceabilitySystem.Application.DTOs.SerialNumber;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
+using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.Application.Services;
 
@@ -25,6 +27,29 @@ public class SerialNumberService : ISerialNumberService
         _issueService = issueService;
         _issueRepository = issueRepository;
         _mqttPublisher = mqttPublisher;
+    }
+
+
+    public async Task<PagedResult<SerialNumberDto>> GetSerialNumbersAsync(
+        int page, int pageSize, string? searchTerm = null, CancellationToken cancellationToken = default)
+    {       
+
+        var (serialNumbers, totalCount) = await _serialNumberRepository.GetPagedAsync(
+            page,
+            pageSize,
+          predicate: p => (string.IsNullOrEmpty(searchTerm)
+                || p.SerialNumberCode.Contains(searchTerm))
+                && (p.SerialNumberCode.StartsWith("CC")),
+            orderBy: q => q.OrderByDescending(u => u.CreatedAt),
+            cancellationToken: cancellationToken);
+
+        return new PagedResult<SerialNumberDto>
+        {
+            Items = serialNumbers.Adapt<IEnumerable<SerialNumberDto>>(),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     public async Task<SerialNumberDto> CreateAsync(

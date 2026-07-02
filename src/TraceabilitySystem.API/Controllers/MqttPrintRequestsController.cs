@@ -36,7 +36,7 @@ public class MqttPrintRequestsController : ControllerBase
     [HttpPost("{id:long}/print")]
     [ProducesResponseType(typeof(ApiResponse<MqttPrintRequestDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Print(long id, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Print(int id, CancellationToken cancellationToken = default)
     {
         var result = await _mqttPrintRequestService.PrintAsync(id, cancellationToken);
         return ResponseFormatter.Success(result, "Print request processed successfully.");

@@ -1,15 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Infrastructure.Persistence;
 using TraceabilitySystem.Infrastructure.Persistence.Repositories;
-using TraceabilitySystem.Application.Interfaces;
-using TraceabilitySystem.Application.Services;
-using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Infrastructure.Services;
-using TraceabilitySystem.Shared.Models;
 
 public static class DependencyInjection
 {

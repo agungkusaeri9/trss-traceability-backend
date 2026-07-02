@@ -40,7 +40,7 @@ public class ExceptionMiddleware
             UnauthorizedException ex => (HttpStatusCode.Unauthorized,         ApiResponse.Fail(ex.Message)),
             ValidationException ex  => (HttpStatusCode.UnprocessableEntity,   ApiResponse.Fail(ex.Message, ex.ValidationErrors)),
             AppException ex         => ((HttpStatusCode)ex.StatusCode,        ApiResponse.Fail(ex.Message)),
-            _                       => (HttpStatusCode.InternalServerError,   ApiResponse.Fail("An unexpected error occurred."))
+            _                       => (HttpStatusCode.InternalServerError,   ApiResponse.Fail("Terjadi kesalahan pada sistem. Silakan hubungi administrator apabila masalah masih berlanjut."))
         };
 
         context.Response.StatusCode = (int)statusCode;

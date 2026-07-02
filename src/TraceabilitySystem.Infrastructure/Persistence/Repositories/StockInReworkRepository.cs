@@ -13,7 +13,7 @@ public class StockInReworkRepository : BaseRepository<StockInRework>, IStockInRe
 {
     public StockInReworkRepository(AppDbContext context) : base(context) { }
 
-    public override async Task<StockInRework?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    public override async Task<StockInRework?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .Include(x => x.SerialNumber)

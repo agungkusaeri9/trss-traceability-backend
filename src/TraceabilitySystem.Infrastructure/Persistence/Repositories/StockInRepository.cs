@@ -14,7 +14,7 @@ public class StockInRepository : BaseRepository<StockIn>, IStockInRepository
 {
     public StockInRepository(AppDbContext context) : base(context) { }
 
-    public override async Task<StockIn?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    public override async Task<StockIn?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
             .Include(s => s.Part)

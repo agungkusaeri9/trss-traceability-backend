@@ -1,19 +1,12 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.SignalR.Client;
 using MQTTnet;
 using MQTTnet.Client;
 using System;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using TraceabilitySystem.Application.DTOs.MqttPrintRequest;
-using TraceabilitySystem.Application.DTOs.SerialNumber;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
-using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Worker.Services;
 

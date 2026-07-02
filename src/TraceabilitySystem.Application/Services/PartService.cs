@@ -37,9 +37,16 @@ public class PartService : BaseService<Part, PartDto>, IPartService
         };
     }
 
-    public Task<PartDto> GetPartByIdAsync(int id, CancellationToken cancellationToken = default)
-        => GetByIdAsync(id, cancellationToken);
-    
+    public async Task<PartDto> GetPartByIdAsync(
+     int id,
+     CancellationToken cancellationToken = default)
+    {
+        var part = await _partRepository.GetByIdAsync(id, cancellationToken)
+            ?? throw new NotFoundException(nameof(Part), id);
+
+        return part.Adapt<PartDto>();
+    }
+
     public async Task<PartDto> CreatePartAsync(CreatePartRequestDto request, CancellationToken cancellationToken = default)
     {
        bool checkByNumber = await CheckByNumberAsync(request.Number, cancellationToken);
@@ -100,11 +107,22 @@ public class PartService : BaseService<Part, PartDto>, IPartService
 
     public async Task DeletePartAsync(int id, CancellationToken cancellationToken = default)
     {
-        await DeleteAsync(id, cancellationToken);
+
+        try
+        {
+            var entity = await _partRepository.GetDetailByIdAsync(id, cancellationToken);
+            if (entity == null) throw new NotFoundException(nameof(Part), id);
+            await _partRepository.RemoveAsync(entity, cancellationToken);
+        }catch(Exception)
+        {
+            throw new AppException("Data Part tidak dapat dihapus karena masih digunakan pada transaksi lain.");
+        }
+       
     }
 
     private Task<bool> CheckByNumberAsync(string number, CancellationToken cancellationToken = default)
     {
         return _partRepository.ExistsAsync(p => p.Number == number, cancellationToken);
     }
+
 }

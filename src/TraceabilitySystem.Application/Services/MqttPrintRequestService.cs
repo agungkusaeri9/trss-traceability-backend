@@ -53,7 +53,7 @@ public class MqttPrintRequestService : IMqttPrintRequestService
         return entity.Adapt<MqttPrintRequestDto>();
     }
 
-    public async Task<MqttPrintRequestDto?> UpdateStatusAsync(long id, string status, string? errorMessage = null, CancellationToken cancellationToken = default)
+    public async Task<MqttPrintRequestDto?> UpdateStatusAsync(int id, string status, string? errorMessage = null, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null)
@@ -74,7 +74,7 @@ public class MqttPrintRequestService : IMqttPrintRequestService
         return entity.Adapt<MqttPrintRequestDto>();
     }
 
-    public async Task<MqttPrintRequestDto?> PrintAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<MqttPrintRequestDto?> PrintAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null)

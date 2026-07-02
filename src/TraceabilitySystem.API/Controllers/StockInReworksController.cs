@@ -33,7 +33,7 @@ public class StockInReworksController : ControllerBase
     [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<StockInReworkDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
         var result = await _service.GetByIdAsync(id, cancellationToken);
         return ResponseFormatter.Success(result, "Stock in rework retrieved successfully.");
@@ -51,7 +51,7 @@ public class StockInReworksController : ControllerBase
     [HttpPut("{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<StockInReworkDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Update(long id, [FromBody] UpdateStockInReworkDto dto, CancellationToken cancellationToken)
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateStockInReworkDto dto, CancellationToken cancellationToken)
     {
         var result = await _service.UpdateAsync(id, dto, cancellationToken);
         return ResponseFormatter.Success(result, "Stock in rework updated successfully.");
@@ -60,7 +60,7 @@ public class StockInReworksController : ControllerBase
     [HttpDelete("{id:long}")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await _service.DeleteAsync(id, cancellationToken);
         return ResponseFormatter.Success(message: "Stock in rework deleted successfully.");

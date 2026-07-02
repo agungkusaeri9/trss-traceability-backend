@@ -11,11 +11,11 @@ public interface IStockInReworkService
         long? serialNumberId = null,
         CancellationToken cancellationToken = default);
 
-    Task<StockInReworkDto> GetByIdAsync(long id, CancellationToken cancellationToken = default);
+    Task<StockInReworkDto> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<StockInReworkDto>> CreateAsync(CreateStockInReworkDto dto, CancellationToken cancellationToken = default);
 
-    Task<StockInReworkDto> UpdateAsync(long id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default);
+    Task<StockInReworkDto> UpdateAsync(int id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default);
 
-    Task DeleteAsync(long id, CancellationToken cancellationToken = default);
+    Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

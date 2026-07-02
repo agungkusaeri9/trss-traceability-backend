@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace TraceabilitySystem.Worker
+namespace TraceabilitySystem.Worker.Models
 {
     public class MqttMessageLog
     {

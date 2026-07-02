@@ -42,7 +42,7 @@
             <input
               type="text"
               id="mqtt-host"
-              value="localhost"
+              value="192.168.245.191"
               class="w-full bg-white border border-gray-300 rounded p-2 text-gray-800 font-mono text-sm focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -280,16 +280,15 @@
     </div>
 
     <script>
-      // ─── Issue Numbers (for Clinching Short Side only) ────────────────────────
+      // ─── Issue Numbers (for Clinching & M-Fan topics) ────────────────────────
 
       const allIssueNumbers = [
-        "ISS-00001",
-        "ISS-00002",
-        "ISS-00003",
-        "ISS-00027",
-        "ISS-00028",
-        "ISS-00029",
-        "ISS-00030",
+        "20260702001",
+        "20260702002",
+        "20260702003",
+        "20260702004",
+        "20260702005",
+        "20260702006",
       ];
 
       // ─── Topic Definitions ────────────────────────────────────────────────────
@@ -300,13 +299,14 @@
           label: "Clinching Short Side",
           topic: "data/process/clinching-short-side/result",
           color: "blue",
-          hasIssuePicker: true, // ← only this topic has the issue picker
+          hasIssuePicker: true,
+          defaultIssues: ["20260702001", "20260702002", "20260702003"],
           payload: {
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
             isOk: true,
             data: {
-              issue_numbers: ["ISS-00001"],
+              issue_numbers: ["20260702001", "20260702002", "20260702003"],
             },
           },
         },
@@ -350,13 +350,14 @@
           topic: "data/process/m-fan-assy/result-scan",
           color: "violet",
           hasIssuePicker: true,
+          defaultIssues: ["20260702004", "20260702005", "20260702006"],
           payload: {
             serial_number_clinching: "CC20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
             isOk: true,
             data: {
-              issue_numbers: ["ISS-00027"],
+              issue_numbers: ["20260702004", "20260702005", "20260702006"],
             },
           },
         },
@@ -528,12 +529,14 @@
             <div id="checkboxes-${t.id}"
               class="grid grid-cols-3 gap-x-3 gap-y-1 bg-white rounded p-3 max-h-40 overflow-y-auto mb-3 border border-gray-200">
               ${allIssueNumbers
-                .map(
-                  (num) => `
+                .map((num) => {
+                  const isDefault =
+                    t.defaultIssues && t.defaultIssues.includes(num);
+                  return `
                 <label class="flex items-center gap-1 cursor-pointer hover:text-gray-900 text-gray-700 text-xs whitespace-nowrap">
-                  <input type="checkbox" class="issue-checkbox accent-blue-500" value="${num}"> ${num}
-                </label>`,
-                )
+                  <input type="checkbox" class="issue-checkbox accent-blue-500" value="${num}" ${isDefault ? "checked" : ""}> ${num}
+                </label>`;
+                })
                 .join("")}
             </div>
           </div>`

@@ -42,7 +42,7 @@ public class StockInReworkService : IStockInReworkService
         };
     }
 
-    public async Task<StockInReworkDto> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    public async Task<StockInReworkDto> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null) throw new NotFoundException(nameof(StockInRework), id);
@@ -99,7 +99,7 @@ public class StockInReworkService : IStockInReworkService
         return resultEntities.Select(MapToDto).ToList();
     }
 
-    public async Task<StockInReworkDto> UpdateAsync(long id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default)
+    public async Task<StockInReworkDto> UpdateAsync(int id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null) throw new NotFoundException(nameof(StockInRework), id);
@@ -118,7 +118,7 @@ public class StockInReworkService : IStockInReworkService
         return MapToDto(entity);
     }
 
-    public async Task DeleteAsync(long id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null) throw new NotFoundException(nameof(StockInRework), id);

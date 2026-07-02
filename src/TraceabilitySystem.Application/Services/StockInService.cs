@@ -152,7 +152,6 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
         entity.PartId = request.PartId;
         entity.SupplyQty = request.SupplyQty;
         entity.SupplyDate = request.SupplyDate;
-        entity.ReceiptQty = request.ReceiptQty;
         entity.ReceiptDate = request.ReceiptDate;
         entity.UpdatedAt = DateTime.UtcNow;
 
@@ -170,8 +169,14 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
     {
         var entity = await _stockInRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new NotFoundException(nameof(StockIn), id);
-
-        _stockInRepository.Remove(entity);
-        await _stockInRepository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            _stockInRepository.Remove(entity);
+            await _stockInRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception)
+        {
+            throw new AppException("Data Stock In tidak dapat dihapus karena masih digunakan pada transaksi lain.");
+        }
     }
 }

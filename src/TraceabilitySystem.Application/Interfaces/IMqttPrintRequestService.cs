@@ -7,6 +7,6 @@ public interface IMqttPrintRequestService
 {
     Task<PagedResult<MqttPrintRequestDto>> GetAllPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
     Task<MqttPrintRequestDto> CreateAsync(CreateMqttPrintRequestDto request, CancellationToken cancellationToken = default);
-    Task<MqttPrintRequestDto?> UpdateStatusAsync(long id, string status, string? errorMessage = null, CancellationToken cancellationToken = default);
-    Task<MqttPrintRequestDto?> PrintAsync(long id, CancellationToken cancellationToken = default);
+    Task<MqttPrintRequestDto?> UpdateStatusAsync(int id, string status, string? errorMessage = null, CancellationToken cancellationToken = default);
+    Task<MqttPrintRequestDto?> PrintAsync(int id, CancellationToken cancellationToken = default);
 }
