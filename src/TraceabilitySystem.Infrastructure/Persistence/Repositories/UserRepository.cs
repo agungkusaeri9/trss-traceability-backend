@@ -10,6 +10,8 @@ public class UserRepository : BaseRepository<User>, IUserRepository
 
     public async Task<User?> GetByEmailAsync(string Username, CancellationToken cancellationToken = default)
         => await _dbSet.FirstOrDefaultAsync(u => u.Username == Username, cancellationToken);
+    public async Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
+        => await _dbSet.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
 
     public Task<(IEnumerable<User> Items, int TotalCount)> GetPagedAsync(
         int page, int pageSize, string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default)

@@ -8,6 +8,7 @@ using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Worker.BackgroundServices;
+using TraceabilitySystem.Worker.Validator;
 
 namespace TraceabilitySystem.Worker.Services
 {
@@ -20,6 +21,7 @@ namespace TraceabilitySystem.Worker.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly MqttClientAccessor _mqttClientAccessor;
         private readonly DatabaseService _databaseService;
+        private readonly IProcessValidator _validator;
 
         private IMqttClient? _mqttClient;
         private HubConnection? _hubConnection;
@@ -31,7 +33,10 @@ namespace TraceabilitySystem.Worker.Services
             IOptions<WorkerSettings> workerSettings,
             IServiceScopeFactory scopeFactory,
             MqttClientAccessor mqttClientAccessor,
-            DatabaseService databaseService)
+            DatabaseService databaseService,
+            IProcessValidator validator
+            
+            )
         {
             _logger = logger;
             _mqttSettings = mqttSettings.Value;
@@ -39,42 +44,50 @@ namespace TraceabilitySystem.Worker.Services
             _scopeFactory = scopeFactory;
             _mqttClientAccessor = mqttClientAccessor;
             _databaseService = databaseService;
+            _validator = validator;
         }
 
 
         public async Task HandleClinchingShortSideResultAsync(string payload, CreateProcessLogRequestDto request)
         {
             _logger.LogInformation("[MQTT][ClinchingShortSide] Payload: {Payload}", payload);
+            request.ProcessCode = "CLINCHING_SHORT_SIDE";
 
-            await _databaseService.SaveProcessClinchingShortSideAsync(payload, request);
-
-            if (request == null)
+            var validation = await _validator.ClinchingShortSideValidator(request);
+            if (!validation.IsValid)
             {
-                //await _databaseService.UpdateStatusAsync(
-                //    logId,
-                //    "FAILED",
-                //    "Failed to deserialize payload.");
+                var errorMessage = string.Join(
+                   Environment.NewLine,
+                   validation.Errors);
 
-                _logger.LogWarning("[MQTT][ClinchingShortSide] Failed to deserialize payload");
+                await _databaseService.SaveProcessClinchingShortSideAsync(
+                    errorMessage,
+                    payload,
+                    request);
+
+                foreach (var error in validation.Errors)
+                {
+
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+
                 return;
             }
+
+
+            await _databaseService.SaveProcessClinchingShortSideAsync(null, payload, request);
 
             using var scope = _scopeFactory.CreateScope();
             var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
             try
             {
-                request.ProcessCode = "CLINCHING_SHORT_SIDE";
-
-                _logger.LogInformation("[MQTT][ClinchingShortSide] Calling CreateProcessLogByClinchingAsync...");
-
+         
                 var result = await processLogService.CreateProcessLogByClinchingAsync(
                     request,
                     cancellationToken: default);
-
-                //await _databaseService.UpdateStatusAsync(
-                //    logId,
-                //    "SUCCESS");
 
                 _logger.LogInformation(
                     "[MQTT][ClinchingShortSide] Process log created. Id={ProcessLogId}, SN={SerialNumber}",
@@ -83,11 +96,6 @@ namespace TraceabilitySystem.Worker.Services
             }
             catch (Exception ex)
             {
-                //await _databaseService.UpdateStatusAsync(
-                //    logId,
-                //    "FAILED",
-                //    ex.ToString());
-
                 _logger.LogError(ex,
                     "[MQTT][ClinchingShortSide] Error: {Message}",
                     ex.Message);
@@ -97,9 +105,27 @@ namespace TraceabilitySystem.Worker.Services
         public async Task HandleClinchingLongSideResultAsync(string payload, CreateProcessLogRequestDto request)
         {
             _logger.LogInformation("[MQTT][ClinchingLongSide] Payload: {Payload}", payload);
+            request.ProcessCode = "CLINCHING_LONG_SIDE";
+            
 
-            await _databaseService.SaveProcessClinchingLongSideAsync(payload, request);
+            var validation = await _validator.ClinchingLongSideValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+                  Environment.NewLine,
+                  validation.Errors);
 
+                await _databaseService.SaveProcessClinchingLongSideAsync(errorMessage, payload, request);
+                foreach (var error in validation.Errors)
+                {
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+                return;
+            }
+
+            await _databaseService.SaveProcessClinchingLongSideAsync(null,payload, request);
 
             try
             {
@@ -108,8 +134,6 @@ namespace TraceabilitySystem.Worker.Services
                     _logger.LogWarning("[MQTT][ClinchingLongSide] Failed to deserialize payload");
                     return;
                 }
-
-                request.ProcessCode = "CLINCHING_LONG_SIDE";
 
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
@@ -127,9 +151,26 @@ namespace TraceabilitySystem.Worker.Services
         {
             _logger.LogInformation("[MQTT][HeLeak] Payload: {Payload}", payload);
 
+            request.ProcessCode = "HE_LEAK";
+          
 
-            await _databaseService.SaveHeLeakAsync(payload, request);
+            var validation = await _validator.HeLeakValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+                Environment.NewLine,
+                validation.Errors);
 
+                await _databaseService.SaveHeLeakAsync(errorMessage, payload, request);
+                foreach (var error in validation.Errors)
+                {
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+                return;
+            }
+            await _databaseService.SaveHeLeakAsync(null, payload, request);
             try
             {
 
@@ -138,8 +179,6 @@ namespace TraceabilitySystem.Worker.Services
                     _logger.LogWarning("[MQTT][HeLeak] Failed to deserialize payload");
                     return;
                 }
-
-                request.ProcessCode = "HE_LEAK";
 
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
@@ -157,18 +196,29 @@ namespace TraceabilitySystem.Worker.Services
         {
             _logger.LogInformation("[MQTT][MFanAssyScan] Payload: {Payload}", payload);
 
-            await _databaseService.SaveMFanAssyScanAsync(payload, request);
+            request.ProcessCode = "M_FAN_ASSY";
+            request.SerialNumber = request.SerialNumberClinching;
+
+            var validation = await _validator.MFanAssyScanValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+               Environment.NewLine,
+               validation.Errors);
+
+                await _databaseService.SaveMFanAssyScanAsync(errorMessage,payload, request);
+
+                foreach (var error in validation.Errors)
+                {
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+                return;
+            }
+            await _databaseService.SaveMFanAssyScanAsync(null,payload, request);
             try
             {
-                if (request == null)
-                {
-                    _logger.LogWarning("[MQTT][MFanAssyScan] Failed to deserialize payload");
-                    return;
-                }
-
-                request.ProcessCode = "M_FAN_ASSY";
-                request.SerialNumber = request.SerialNumberClinching;
-
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
@@ -184,9 +234,25 @@ namespace TraceabilitySystem.Worker.Services
         public async Task HandleMFanAssyResultAsync(string payload, CreateProcessLogRequestDto request)
         {
             _logger.LogInformation("[MQTT][MFanAssy] Payload: {Payload}", payload);
-
-            await _databaseService.SaveMFanAssyAsync(payload, request);
-
+            request.ProcessCode = "M_FAN_ASSY";
+            request.SerialNumber = request.SerialNumberMFanAssy;
+          
+            var validation = await _validator.MFanAssyValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+                  Environment.NewLine,
+                  validation.Errors);
+                await _databaseService.SaveMFanAssyAsync(errorMessage,payload, request);
+                foreach (var error in validation.Errors)
+                {
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+                return;
+            }
+            await _databaseService.SaveMFanAssyAsync(null, payload, request);
             try
             {
                 if (request == null)
@@ -194,9 +260,6 @@ namespace TraceabilitySystem.Worker.Services
                     _logger.LogWarning("[MQTT][MFanAssy] Failed to deserialize payload");
                     return;
                 }
-
-                request.ProcessCode = "M_FAN_ASSY";
-                request.SerialNumber = request.SerialNumberMFanAssy;
 
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
@@ -213,19 +276,28 @@ namespace TraceabilitySystem.Worker.Services
         public async Task HandleMFanInspectionResultAsync(string payload, CreateProcessLogRequestDto request)
         {
             _logger.LogInformation("[MQTT][MFanInspection] Payload: {Payload}", payload);
+            request.ProcessCode = "M_FAN_INSPECTION";
+            request.SerialNumber = request.SerialNumberMFanAssy;
 
-            await _databaseService.SaveMFanInspectionAsync(payload, request);
+            var validation = await _validator.MFanInspectionValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+                 Environment.NewLine,
+                 validation.Errors);
+                await _databaseService.SaveMFanInspectionAsync(errorMessage, payload, request);
+                foreach (var error in validation.Errors)
+                {
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+                return;
+            }
+            await _databaseService.SaveMFanInspectionAsync(null,payload, request);
 
             try
             {
-                if (request == null)
-                {
-                    _logger.LogWarning("[MQTT][MFanInspection] Failed to deserialize payload");
-                    return;
-                }
-
-                request.ProcessCode = "M_FAN_INSPECTION";
-                request.SerialNumber = request.SerialNumberMFanAssy;
 
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
@@ -244,19 +316,29 @@ namespace TraceabilitySystem.Worker.Services
         public async Task HandleEcmAssyResultAsync(string payload, CreateProcessLogRequestDto request)
         {
             _logger.LogInformation("[MQTT][EcmAssy] Payload: {Payload}", payload);
+            request.ProcessCode = "ECM_ASSY";
+          
 
-            await _databaseService.SaveEcmAssynAsync(payload, request);
+            var validation = await _validator.EcmAssyValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+                 Environment.NewLine,
+                 validation.Errors);
+                await _databaseService.SaveEcmAssynAsync(errorMessage, payload, request);
+                foreach (var error in validation.Errors)
+                {
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+                return;
+            }
+
+            await _databaseService.SaveEcmAssynAsync(null,payload, request);
 
             try
             {
-                if (request == null)
-                {
-                    _logger.LogWarning("[MQTT][EcmAssy] Failed to deserialize payload");
-                    return;
-                }
-
-                request.ProcessCode = "ECM_ASSY";
-
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
@@ -272,19 +354,27 @@ namespace TraceabilitySystem.Worker.Services
         public async Task HandleFinalInspectionResultAsync(string payload, CreateProcessLogRequestDto request)
         {
             _logger.LogInformation("[MQTT][FinalInspection] Payload: {Payload}", payload);
+            request.ProcessCode = "FINAL_INSPECTION";
 
-            await _databaseService.SaveFinalInspectionAsync(payload, request);
+            var validation = await _validator.FinalInspectionValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+               Environment.NewLine,
+               validation.Errors);
+                await _databaseService.SaveFinalInspectionAsync(errorMessage, payload, request);
 
+                foreach (var error in validation.Errors)
+                {
+                    _logger.LogWarning(
+                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        error);
+                }
+                return;
+            }
+            await _databaseService.SaveFinalInspectionAsync(null, payload, request);
             try
             {
-                if (request == null)
-                {
-                    _logger.LogWarning("[MQTT][FinalInspection] Failed to deserialize payload");
-                    return;
-                }
-
-                request.ProcessCode = "FINAL_INSPECTION";
-
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 

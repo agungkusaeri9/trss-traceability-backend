@@ -48,4 +48,25 @@ public class ProcessRepository : BaseRepository<Process>, IProcessRepository
 
         return (items, totalCount);
     }
+
+    public async Task<Dictionary<string, bool>> CheckParametersByProcessCodeAsync(
+    string processCode,
+    IEnumerable<string> parameterCodes,
+    CancellationToken cancellationToken = default)
+    {
+        var parameterList = parameterCodes.Distinct().ToList();
+
+        var existingParameters = await _dbSet
+            .Where(p => p.Code == processCode)
+            .SelectMany(p => p.ProcessParameters)
+            .Select(pp => pp.Parameter.Code)
+            .Where(pc => parameterList.Contains(pc))
+            .ToListAsync(cancellationToken);
+
+        var existingSet = existingParameters.ToHashSet();
+
+        return parameterList.ToDictionary(
+            parameterCode => parameterCode,
+            parameterCode => existingSet.Contains(parameterCode));
+    }
 }

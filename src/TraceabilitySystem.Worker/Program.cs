@@ -10,6 +10,7 @@ using TraceabilitySystem.Infrastructure;
 using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Worker.BackgroundServices;
 using TraceabilitySystem.Worker.Services;
+using TraceabilitySystem.Worker.Validator;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -67,6 +68,7 @@ try
             services.AddSingleton<MqttClientAccessor>();
             services.AddSingleton<IMqttPublisher, MqttPublisher>();
             services.AddScoped<MqttSubscriptionService>();
+            services.AddScoped<IProcessValidator, ProcessValidator>();
 
             // Background worker
             services.AddHostedService<MqttWorkerService>();

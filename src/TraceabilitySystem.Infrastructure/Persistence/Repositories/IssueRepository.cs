@@ -21,4 +21,22 @@ public class IssueRepository : BaseRepository<Issue>, IIssueRepository
             .Include(i => i.StockIn)
             .FirstOrDefaultAsync(predicate, cancellationToken);
     }
+
+    public async Task<Dictionary<string, bool>> CheckIssueNumbersAsync(
+    IEnumerable<string> issueNumbers,
+    CancellationToken cancellationToken = default)
+    {
+        var issueNumberList = issueNumbers.Distinct().ToList();
+
+        var existingIssueNumbers = await _context.Issues
+            .Where(x => issueNumberList.Contains(x.Number))
+            .Select(x => x.Number)
+            .ToListAsync(cancellationToken);
+
+        var existingSet = existingIssueNumbers.ToHashSet();
+
+        return issueNumberList.ToDictionary(
+            issueNumber => issueNumber,
+            issueNumber => existingSet.Contains(issueNumber));
+    }
 }

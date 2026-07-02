@@ -69,7 +69,34 @@ VALUES
         await command.ExecuteNonQueryAsync();
     }
 
-    public async Task SaveProcessClinchingShortSideAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task UpdateMqttMessageStatusAsync(
+    string messageId,
+    string status,
+    string? errorMessage = null)
+    {
+        const string sql = @"
+UPDATE mqtt_message_logs
+SET
+    status = @status,
+    error_message = @errorMessage,
+    updated_at = NOW(3)
+WHERE message_id = @messageId;";
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.Add("@messageId", MySqlDbType.VarChar).Value = messageId;
+        command.Parameters.Add("@status", MySqlDbType.VarChar).Value = status;
+        command.Parameters.Add("@errorMessage", MySqlDbType.Text).Value =
+            (object?)errorMessage ?? DBNull.Value;
+
+        await command.ExecuteNonQueryAsync();
+    }
+
+
+    public async Task SaveProcessClinchingShortSideAsync(string? errorMessage,string payload, CreateProcessLogRequestDto request)
     {
         try
         {
@@ -79,6 +106,7 @@ VALUES
                 payload: payload,
                 operatorUsername: request?.OperatorUsername,
                 isOk: request?.IsOk,
+                errorMessage: errorMessage,
                 status: "RECEIVED"
             );
         }
@@ -90,7 +118,7 @@ VALUES
         
     }
 
-    public async Task SaveProcessClinchingLongSideAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task SaveProcessClinchingLongSideAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
     {
         try
         {
@@ -100,6 +128,7 @@ VALUES
                   payload: payload,
                   operatorUsername: request?.OperatorUsername,
                   isOk: request?.IsOk,
+                  errorMessage: errorMessage,
                   status: "RECEIVED"
               );
         }
@@ -112,7 +141,7 @@ VALUES
        
     }
 
-    public async Task SaveHeLeakAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task SaveHeLeakAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
     {
         try
         {
@@ -122,6 +151,7 @@ VALUES
                payload: payload,
                operatorUsername: request?.OperatorUsername,
                isOk: request?.IsOk,
+               errorMessage: errorMessage,
                status: "RECEIVED"
            );
         }
@@ -134,7 +164,7 @@ VALUES
         
     }
 
-    public async Task SaveMFanAssyScanAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task SaveMFanAssyScanAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
     {
         
         try
@@ -145,6 +175,7 @@ VALUES
                payload: payload,
                operatorUsername: request?.OperatorUsername,
                isOk: request?.IsOk,
+               errorMessage: errorMessage,
                status: "RECEIVED"
            );
         }
@@ -155,7 +186,7 @@ VALUES
         }
     }
 
-    public async Task SaveMFanAssyAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task SaveMFanAssyAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
     {
         try
         {
@@ -165,6 +196,7 @@ VALUES
                payload: payload,
                operatorUsername: request?.OperatorUsername,
                isOk: request?.IsOk,
+               errorMessage:errorMessage,
                status: "RECEIVED"
            );
         }
@@ -176,7 +208,7 @@ VALUES
        
     }
 
-    public async Task SaveMFanInspectionAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task SaveMFanInspectionAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
     {
         try
         {
@@ -186,6 +218,7 @@ VALUES
                   payload: payload,
                   operatorUsername: request?.OperatorUsername,
                   isOk: request?.IsOk,
+                  errorMessage: errorMessage,
                   status: "RECEIVED"
               );
         }
@@ -197,7 +230,7 @@ VALUES
        
     }
 
-    public async Task SaveEcmAssynAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task SaveEcmAssynAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
     {
        
         try
@@ -208,6 +241,7 @@ VALUES
                payload: payload,
                operatorUsername: request?.OperatorUsername,
                isOk: request?.IsOk,
+               errorMessage: errorMessage,
                status: "RECEIVED"
            );
         }
@@ -219,7 +253,7 @@ VALUES
     }
 
 
-    public async Task SaveFinalInspectionAsync(string payload, CreateProcessLogRequestDto request)
+    public async Task SaveFinalInspectionAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
     {
         try
         {
@@ -229,6 +263,7 @@ VALUES
               payload: payload,
               operatorUsername: request?.OperatorUsername,
               isOk: request?.IsOk,
+              errorMessage: errorMessage,
               status: "RECEIVED"
           );
         }

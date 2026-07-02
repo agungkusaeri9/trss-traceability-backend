@@ -6,6 +6,9 @@ namespace TraceabilitySystem.Application.DTOs.ProcessLog;
 
 public class CreateProcessLogRequestDto
 {
+    [JsonIgnore]
+    public string MessageId { get; set; } = Guid.CreateVersion7().ToString();
+
     [JsonPropertyName("serial_number_clinching")]
     public string SerialNumberClinching { get; set; } = string.Empty;
 
