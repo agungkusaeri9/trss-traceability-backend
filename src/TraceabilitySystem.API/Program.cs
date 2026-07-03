@@ -21,6 +21,9 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    builder.WebHost.UseUrls(
+    builder.Configuration["Server:Url"] ?? "http://0.0.0.0:5039");
+
     // ── Serilog ────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, services, config) =>
     {

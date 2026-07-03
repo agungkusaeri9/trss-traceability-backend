@@ -44,13 +44,38 @@ try
         })
         .ConfigureServices((hostContext, services) =>
         {
-            // Settings
-            services.Configure<BackupSettings>(hostContext.Configuration.GetSection("BackupSettings"));
+            services.Configure<BackupSettings>(
+                hostContext.Configuration.GetSection("BackupSettings"));
 
-            // Background service
             services.AddHostedService<DatabaseBackupService>();
         })
         .Build();
+
+    // ==========================
+    // Startup Information
+    // ==========================
+    var configuration = host.Services.GetRequiredService<IConfiguration>();
+    var environment = host.Services.GetRequiredService<IHostEnvironment>();
+
+    var backupSettings = configuration
+        .GetSection("BackupSettings")
+        .Get<BackupSettings>();
+
+    Log.Information("======================================================");
+    Log.Information("Traceability Backup Service");
+    Log.Information("======================================================");
+    Log.Information("Environment     : {Environment}", environment.EnvironmentName);
+    Log.Information("Machine         : {Machine}", Environment.MachineName);
+    Log.Information(".NET Version    : {Version}", Environment.Version);
+    Log.Information("Output Folder   : {Folder}", backupSettings?.OutputFolder);
+    Log.Information("Interval Hours  : {Hours}", backupSettings?.IntervalHours);
+    Log.Information("Retention Days  : {Days}", backupSettings?.RetentionDays);
+    Log.Information("MySQL Host      : {Host}", backupSettings?.Host);
+    Log.Information("MySQL Port      : {Port}", backupSettings?.Port);
+    Log.Information("Database        : {Database}", backupSettings?.Database);
+    Log.Information("MySQLDump Path  : {Path}", backupSettings?.MySqlDumpPath);
+    Log.Information("Started At      : {Time}", DateTime.Now);
+    Log.Information("======================================================");
 
     await host.RunAsync();
 }
