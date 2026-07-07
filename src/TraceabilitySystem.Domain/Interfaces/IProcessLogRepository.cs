@@ -25,18 +25,4 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
         bool isOk,
         List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean, bool status)> parameters,
         CancellationToken cancellationToken = default);
-
-    Task<int> GetTotalProductionAsync(DateTime? startDate, CancellationToken cancellationToken);
-    Task<int> GetOkCountAsync(DateTime? startDate, CancellationToken cancellationToken);
-    Task<int> GetNgCountAsync(DateTime? startDate, CancellationToken cancellationToken);
-    Task<List<(string Label, int Value)>> GetTopPartsProductionAsync(
-        DateTime startDatel,
-        int take = 5,
-        CancellationToken cancellationToken = default);
-
-    Task<List<(string Label, int Value)>> GetProductionTrendAsync(
-        int days = 7,
-        CancellationToken cancellationToken = default);
-
-
 }

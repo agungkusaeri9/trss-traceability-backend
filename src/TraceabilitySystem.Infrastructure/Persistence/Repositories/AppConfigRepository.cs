@@ -12,4 +12,10 @@ public class AppConfigRepository : BaseRepository<AppConfig>, IAppConfigReposito
     {
         return await _dbSet.FirstOrDefaultAsync(x => x.Key == key, cancellationToken);
     }
+
+    public async Task<string> GetPrinterNameClinching(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_NAME_CLINCHING");
+        return config?.Value ?? string.Empty;
+    }
 }

@@ -88,7 +88,7 @@ public class MqttPrintRequestService : IMqttPrintRequestService
             }
             else if (entity.ProcessCode == "M_FAN_ASSY")
             {
-                await _printService.PrintMFanAssyAsync(entity.IssueNumber, cancellationToken);
+                //await _printService.PrintMFanAssyAsync(entity.IssueNumber, cancellationToken);
             }
 
             entity.Status = "Processed";
