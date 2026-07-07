@@ -214,4 +214,9 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
             .Where(sn => sn.SerialNumberCode.StartsWith("CC") || sn.SerialNumberCode.StartsWith("MF"))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<bool> CheckByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet.AnyAsync(sn => sn.SerialNumberCode == serialNumberCode, cancellationToken);
+    }
 }

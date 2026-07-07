@@ -22,6 +22,7 @@ namespace TraceabilitySystem.Worker.Services
         private readonly MqttClientAccessor _mqttClientAccessor;
         private readonly DatabaseService _databaseService;
         private readonly IProcessValidator _validator;
+        private readonly IPrintService _printService;
 
         public MqttSubscriptionService(
             ILogger<MqttSubscriptionService> logger,
@@ -30,8 +31,8 @@ namespace TraceabilitySystem.Worker.Services
             IServiceScopeFactory scopeFactory,
             MqttClientAccessor mqttClientAccessor,
             DatabaseService databaseService,
-            IProcessValidator validator
-            
+            IProcessValidator validator,
+            IPrintService printService
             )
         {
             _logger = logger;
@@ -41,6 +42,7 @@ namespace TraceabilitySystem.Worker.Services
             _mqttClientAccessor = mqttClientAccessor;
             _databaseService = databaseService;
             _validator = validator;
+            _printService = printService;
         }
 
 
@@ -84,6 +86,9 @@ namespace TraceabilitySystem.Worker.Services
                 var result = await processLogService.CreateProcessLogByClinchingAsync(
                     request,
                     cancellationToken: default);
+
+                //print label 
+                await _printService.PrintClinchingShortSideAsync(request.SerialNumber!);
 
                 _logger.LogInformation(
                     "[MQTT][ClinchingShortSide] Process log created. Id={ProcessLogId}, SN={SerialNumber}",

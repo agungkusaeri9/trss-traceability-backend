@@ -13,4 +13,6 @@ public interface ISerialNumberRepository : IRepository<SerialNumber>
         IEnumerable<SerialNumber> serialNumbers,
         IEnumerable<string> issueNumbers,
         CancellationToken cancellationToken = default);
+
+    Task<bool> CheckByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default);
 }

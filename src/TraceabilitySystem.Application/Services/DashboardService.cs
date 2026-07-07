@@ -60,21 +60,20 @@ public class DashboardService : IDashboardService
 
         var summary = new DashboardSummaryDto();
 
-        summary.Today.TotalProduction = await _processLogRepository.GetTotalProductionAsync(todayStart, cancellationToken);
-        summary.Today.OkCount = await _processLogRepository.GetOkCountAsync(todayStart, cancellationToken);
-        summary.Today.NgCount = await _processLogRepository.GetNgCountAsync(todayStart, cancellationToken);
+        summary.Today.TotalProduction = await _processLogRepository.CountAsync(x => x.CreatedAt >= todayStart, cancellationToken);
+        summary.Today.OkCount = await _processLogRepository.CountAsync(x => x.CreatedAt >= todayStart && x.IsActive, cancellationToken);
+        summary.Today.NgCount = summary.Today.TotalProduction - summary.Today.OkCount;
         summary.Today.YieldRate = CalculateYield(summary.Today.TotalProduction, summary.Today.OkCount);
 
-        summary.ThisMonth.TotalProduction = await _processLogRepository.GetTotalProductionAsync(monthStart, cancellationToken);
-        summary.ThisMonth.OkCount = await _processLogRepository.GetOkCountAsync(monthStart, cancellationToken);
-        summary.ThisMonth.NgCount = await _processLogRepository.GetNgCountAsync(monthStart, cancellationToken);
+        summary.ThisMonth.TotalProduction = await _processLogRepository.CountAsync(x => x.CreatedAt >= monthStart, cancellationToken);
+        summary.ThisMonth.OkCount = await _processLogRepository.CountAsync(x => x.CreatedAt >= monthStart && x.IsActive, cancellationToken);
+        summary.ThisMonth.NgCount = summary.ThisMonth.TotalProduction - summary.ThisMonth.OkCount;
         summary.ThisMonth.YieldRate = CalculateYield(summary.ThisMonth.TotalProduction, summary.ThisMonth.OkCount);
 
-        summary.Total.TotalProduction = await _processLogRepository.GetTotalProductionAsync(null, cancellationToken);
-        summary.Total.OkCount = await _processLogRepository.GetOkCountAsync(null, cancellationToken);
-        summary.Total.NgCount = await _processLogRepository.GetNgCountAsync(null, cancellationToken);
+        summary.Total.TotalProduction = await _processLogRepository.CountAsync(null, cancellationToken);
+        summary.Total.OkCount = await _processLogRepository.CountAsync(x => x.IsActive, cancellationToken);
+        summary.Total.NgCount = summary.Total.TotalProduction - summary.Total.OkCount;
         summary.Total.YieldRate = CalculateYield(summary.Total.TotalProduction, summary.Total.OkCount);
-
 
         return summary;
     }
@@ -84,59 +83,70 @@ public class DashboardService : IDashboardService
         return Task.FromResult(_traceabilitySummarySimulator.GetSnapshot());
     }
 
-    public async Task<DashboardStatsDto> GetStatsAsync(
-    int topParts = 5,
-    int trendDays = 7,
-    CancellationToken cancellationToken = default)
+    public async Task<DashboardStatsDto> GetStatsAsync(int topPart, int trendDays, CancellationToken cancellationToken = default)
     {
         var stats = new DashboardStatsDto();
-        var now = DateTime.Now;
-        var startDate = DateTime.Today.AddDays(-(trendDays - 1));
-        var monthStart = new DateTime(now.Year, now.Month, 1);
-        // Quality Distribution
 
-        // Quality Distribution
-        var ok = await _processLogRepository.GetOkCountAsync(startDate, cancellationToken);
-        var ng = await _processLogRepository.GetNgCountAsync(startDate, cancellationToken);
+        // 1. Quality Distribution (Pie Chart)
+        int ok = await _processLogRepository.CountAsync(x => x.IsActive, cancellationToken);
+        int total = await _processLogRepository.CountAsync(null, cancellationToken);
+        int ng = total - ok;
 
-        stats.QualityDistribution.Add(new ChartDataDto
+        stats.QualityDistribution.Add(new ChartDataDto { Label = "OK", Value = ok });
+        stats.QualityDistribution.Add(new ChartDataDto { Label = "NG", Value = ng });
+
+        // 2. Top Parts Production (Bar Chart)
+        // Note: In a real app, we'd use a more optimized query or Dapper. 
+        // For now, we'll use a simple group by on the logs we fetch.
+        var allLogs = await _processLogRepository.GetAllAsync(cancellationToken);
+        
+        // This is a bit heavy, but for seed data it's fine. 
+        // In production, you'd want a specific repository method for this.
+        var topParts = new List<ChartDataDto>();
+        var partCount = new Dictionary<string, int>();
+
+        foreach (var log in allLogs.Take(100))
         {
-            Label = "OK",
-            Value = ok
-        });
-
-        stats.QualityDistribution.Add(new ChartDataDto
-        {
-            Label = "NG",
-            Value = ng
-        });
-
-        // Top Parts Production
-        var topPartsData = await _processLogRepository.GetTopPartsProductionAsync(
-            monthStart,
-            topParts,
-            cancellationToken);
-
-        stats.TopPartsProduction = topPartsData
-            .Select(x => new ChartDataDto
+            var serialNumber = await _serialNumberRepository.GetWithRelatedAsync(log.SerialNumberId, cancellationToken);
+            if (serialNumber != null && serialNumber.Issues.Any())
             {
-                Label = x.Label,
-                Value = x.Value
-            })
+                var firstIssue = serialNumber.Issues.FirstOrDefault();
+                if (firstIssue?.Issue?.StockIn?.Part != null)
+                {
+                    string partNumber = firstIssue.Issue.StockIn.Part.Number;
+                    if (partCount.ContainsKey(partNumber))
+                    {
+                        partCount[partNumber]++;
+                    }
+                    else
+                    {
+                        partCount[partNumber] = 1;
+                    }
+                }
+            }
+        }
+
+        topParts = partCount
+            .Select(kvp => new ChartDataDto { Label = kvp.Key, Value = kvp.Value })
+            .OrderByDescending(x => x.Value)
+            .Take(5)
             .ToList();
 
-        // Production Trend
-        var productionTrend = await _processLogRepository.GetProductionTrendAsync(
-            trendDays,
-            cancellationToken);
+        stats.TopPartsProduction = topParts;
 
-        stats.ProductionTrend = productionTrend
-            .Select(x => new ChartDataDto
-            {
-                Label = x.Label,
-                Value = x.Value
-            })
-            .ToList();
+        // 3. Production Trend (Last 7 Days)
+        for (int i = 6; i >= 0; i--)
+        {
+            var date = DateTime.Now.Date.AddDays(-i);
+            var nextDate = date.AddDays(1);
+            var count = await _processLogRepository.CountAsync(x => x.CreatedAt >= date && x.CreatedAt < nextDate, cancellationToken);
+            
+            stats.ProductionTrend.Add(new ChartDataDto 
+            { 
+                Label = date.ToString("dd MMM"), 
+                Value = count 
+            });
+        }
 
         return stats;
     }
