@@ -8,7 +8,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/serial-numbers")]
     [ApiController]
     public class SerialNumbersController : ControllerBase
     {

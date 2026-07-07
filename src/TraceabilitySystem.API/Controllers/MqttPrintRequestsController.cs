@@ -8,7 +8,7 @@ using TraceabilitySystem.Shared.Models;
 namespace TraceabilitySystem.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/mqtt-print-requestes")]
 public class MqttPrintRequestsController : ControllerBase
 {
     private readonly IMqttPrintRequestService _mqttPrintRequestService;

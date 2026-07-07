@@ -9,7 +9,7 @@ using TraceabilitySystem.Shared.Models;
 namespace TraceabilitySystem.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/process-logs")]
 public class ProcessLogsController : ControllerBase
 {
     private readonly IProcessLogService _processLogService;

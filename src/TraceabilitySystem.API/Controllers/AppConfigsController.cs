@@ -10,7 +10,7 @@ namespace TraceabilitySystem.API.Controllers;
 
 [Authorize(Roles = "admin")]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/app-configs")]
 public class AppConfigsController : ControllerBase
 {
     private readonly IAppConfigService _appConfigService;

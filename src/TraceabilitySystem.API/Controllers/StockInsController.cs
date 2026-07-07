@@ -13,7 +13,7 @@ using TraceabilitySystem.Shared.Models;
 namespace TraceabilitySystem.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/stock-ins")]
 public class StockInsController : ControllerBase
 {
     private readonly IStockInService _stockInService;
