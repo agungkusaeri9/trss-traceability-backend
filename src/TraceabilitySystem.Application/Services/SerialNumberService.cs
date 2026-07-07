@@ -530,4 +530,36 @@ public class SerialNumberService : ISerialNumberService
             IssueNumbers = request.IssueNumbers
         }, cancellationToken);
     }
+
+    public async Task<string> GenerateSerialNumberAsync(CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.UtcNow.ToString("yyyyMMdd");
+        var datePrefix = $"CC{today}";
+
+        var existingToday = await _serialNumberRepository.FindAsync(
+            s => s.SerialNumberCode.StartsWith(datePrefix), cancellationToken);
+
+        var maxSequence = existingToday
+            .Select(s =>
+            {
+                var suffix = s.SerialNumberCode[datePrefix.Length..];
+                return int.TryParse(suffix, out var seq) ? seq : 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max();
+
+        var newCode = $"{datePrefix}{(maxSequence + 1):D3}";
+
+        var entity = new SerialNumber
+        {
+            SerialNumberCode = newCode,
+            Type = "CLINCHING",
+            CreatedBy = "SYSTEM"
+        };
+
+        await _serialNumberRepository.AddAsync(entity, cancellationToken);
+        await _serialNumberRepository.SaveChangesAsync(cancellationToken);
+
+        return newCode;
+    }
 }

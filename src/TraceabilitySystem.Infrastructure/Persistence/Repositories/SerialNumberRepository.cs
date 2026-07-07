@@ -206,4 +206,12 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
             }
         }
     }
+
+    public async Task<IEnumerable<SerialNumber>> GetAllWithChildRelationsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(sn => sn.ChildRelations!)
+            .Where(sn => sn.SerialNumberCode.StartsWith("CC") || sn.SerialNumberCode.StartsWith("MF"))
+            .ToListAsync(cancellationToken);
+    }
 }

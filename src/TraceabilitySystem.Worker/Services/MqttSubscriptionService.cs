@@ -23,10 +23,6 @@ namespace TraceabilitySystem.Worker.Services
         private readonly DatabaseService _databaseService;
         private readonly IProcessValidator _validator;
 
-        private IMqttClient? _mqttClient;
-        private HubConnection? _hubConnection;
-        private bool _isConnected;
-
         public MqttSubscriptionService(
             ILogger<MqttSubscriptionService> logger,
             IOptions<MqttSettings> mqttSettings,
@@ -377,7 +373,7 @@ namespace TraceabilitySystem.Worker.Services
             {
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
-
+                request.IsFInihed = true;
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][FinalInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
             }

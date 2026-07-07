@@ -1,8 +1,9 @@
-using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using TraceabilitySystem.Application.DTOs.Dashboard;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 
@@ -42,7 +43,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                 .ThenInclude(sn => sn.Issues)
                     .ThenInclude(sni => sni.Issue)
                         .ThenInclude(i => i.StockIn)
-                            .ThenInclude(si => si.Part)
+                            .ThenInclude(si => si!.Part)
             // Child SN issues
             .Include(x => x.SerialNumber)
                 .ThenInclude(sn => sn.ParentRelations)
@@ -50,7 +51,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                         .ThenInclude(child => child.Issues)
                             .ThenInclude(sni => sni.Issue)
                                 .ThenInclude(i => i.StockIn)
-                                    .ThenInclude(si => si.Part)
+                                    .ThenInclude(si => si!.Part)
             .OrderByDescending(x => x.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -67,7 +68,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                 .ThenInclude(sn => sn.Issues)
                     .ThenInclude(sni => sni.Issue)
                         .ThenInclude(i => i.StockIn)
-                            .ThenInclude(si => si.Part)
+                            .ThenInclude(si => si!.Part)
             // Child SN issues
             .Include(x => x.SerialNumber)
                 .ThenInclude(sn => sn.ParentRelations)
@@ -75,7 +76,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                         .ThenInclude(child => child.Issues)
                             .ThenInclude(sni => sni.Issue)
                                 .ThenInclude(i => i.StockIn)
-                                    .ThenInclude(si => si.Part)
+                                    .ThenInclude(si => si!.Part)
             // Child SN process log details (process)
             .Include(x => x.SerialNumber)
                 .ThenInclude(sn => sn.ParentRelations)
@@ -99,7 +100,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
     }
 
 
- public async Task<ProcessLog?> GetLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default)
+    public async Task<ProcessLog?> GetLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default)
     {
         return await _context.ProcessLogs
             // Parent SN issues
@@ -107,7 +108,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                 .ThenInclude(sn => sn.Issues)
                     .ThenInclude(sni => sni.Issue)
                         .ThenInclude(i => i.StockIn)
-                            .ThenInclude(si => si.Part)
+                            .ThenInclude(si => si!.Part)
             // Child SN issues
             .Include(x => x.SerialNumber)
                 .ThenInclude(sn => sn.ParentRelations)
@@ -115,7 +116,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                         .ThenInclude(child => child.Issues)
                             .ThenInclude(sni => sni.Issue)
                                 .ThenInclude(i => i.StockIn)
-                                    .ThenInclude(si => si.Part)
+                                    .ThenInclude(si => si!.Part)
             // Child SN process log details (process)
             .Include(x => x.SerialNumber)
                 .ThenInclude(sn => sn.ParentRelations)
@@ -136,6 +137,31 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
             .Include(x => x.Details)
                 .ThenInclude(d => d.Parameter)
             .FirstOrDefaultAsync(x => x.SerialNumber.SerialNumberCode == serialNumber, cancellationToken);
+    }
+
+    public async Task<IEnumerable<ProcessLog>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.ProcessLogs
+            .Include(x => x.SerialNumber)
+                .ThenInclude(sn => sn.ChildRelations)
+                    .ThenInclude(cr => cr.ChildSerialNumber)
+                        .ThenInclude(child => child.ProcessLogs)
+                            .ThenInclude(pl => pl.Details)
+                                .ThenInclude(d => d.Process)
+            .Include(x => x.SerialNumber)
+                .ThenInclude(sn => sn.ParentRelations)
+                    .ThenInclude(pr => pr.ParentSerialNumber)
+                        .ThenInclude(parent => parent.ProcessLogs)
+                            .ThenInclude(pl => pl.Details)
+                                .ThenInclude(d => d.Process)
+            // Include both parent (CC) and child (MF) serial numbers
+            .Where(x => x.SerialNumber != null && 
+                        (x.SerialNumber.SerialNumberCode.StartsWith("CC") || 
+                         x.SerialNumber.SerialNumberCode.StartsWith("MF")))
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
     }
 
 
@@ -217,5 +243,79 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
 
         await SaveChangesAsync(cancellationToken);
         return processLog;
+    }
+
+
+    public async Task<int> GetTotalProductionAsync(DateTime? startDate, CancellationToken cancellationToken)
+    {
+        return await _context.ProcessLogs
+            .Where(x => x.IsFinished &&
+                        (!startDate.HasValue || x.CreatedAt >= startDate.Value))
+            .CountAsync(cancellationToken);
+    }
+
+    public async Task<int> GetOkCountAsync(DateTime? startDate, CancellationToken cancellationToken)
+    {
+        return await _context.ProcessLogs
+            .Where(x => x.IsFinished &&
+                        x.Status &&
+                        (!startDate.HasValue || x.CreatedAt >= startDate.Value))
+            .CountAsync(cancellationToken);
+    }
+
+    public async Task<int> GetNgCountAsync(DateTime? startDate, CancellationToken cancellationToken)
+    {
+        return await _context.ProcessLogs
+            .Where(x => x.IsFinished &&
+                        x.Status == false &&
+                        (!startDate.HasValue || x.CreatedAt >= startDate.Value))
+            .CountAsync(cancellationToken);
+    }
+
+    public async Task<List<(string Label, int Value)>> GetProductionTrendAsync(
+     int days = 7,
+     CancellationToken cancellationToken = default)
+    {
+        var result = new List<(string Label, int Value)>();
+
+        for (int i = days - 1; i >= 0; i--)
+        {
+            var date = DateTime.Today.AddDays(-i);
+            var nextDate = date.AddDays(1);
+
+            var count = await _dbSet.CountAsync(
+                x => x.IsFinished &&
+                     x.CreatedAt >= date &&
+                     x.CreatedAt < nextDate,
+                cancellationToken);
+
+            result.Add((date.ToString("dd MMM"), count));
+        }
+
+        return result;
+    }
+
+    public async Task<List<(string Label, int Value)>> GetTopPartsProductionAsync(
+    DateTime startDate,
+    int take = 5,
+    CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Where(x => x.IsFinished && x.CreatedAt >= startDate)
+            .SelectMany(x => x.SerialNumber.Issues
+                .Where(i => i.Issue != null &&
+                            i.Issue.StockIn != null &&
+                            i.Issue.StockIn.Part != null)
+                .Select(i => i.Issue!.StockIn!.Part!.Number))
+            .GroupBy(x => x)
+            .Select(g => new
+            {
+                Label = g.Key,
+                Value = g.Count()
+            })
+            .OrderByDescending(x => x.Value)
+            .Take(take)
+            .Select(x => ValueTuple.Create(x.Label, x.Value))
+            .ToListAsync(cancellationToken);
     }
 }

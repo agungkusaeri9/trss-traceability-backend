@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.DTOs.Parameter;
@@ -29,6 +29,14 @@ namespace TraceabilitySystem.API.Controllers
         {
             var result = await _serialNumberSerivice.GetSerialNumbersAsync(pagination.Page, pagination.Limit, search, cancellationToken);
             return ResponseFormatter.PagedSuccess(result);
+        }
+
+        [HttpPost("generate")]
+        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GenerateTestData(CancellationToken cancellationToken = default)
+        {
+            var serialNumber = await _serialNumberSerivice.GenerateSerialNumberAsync(cancellationToken);
+            return ResponseFormatter.Success(serialNumber, "Test serial number generated.");
         }
     }
 }

@@ -385,6 +385,7 @@ public class ProcessLogService : IProcessLogService
                 SerialNumberId = serialNumber.Id,
                 IsActive = true,
                 Status = request.IsOk ?? true,
+                IsFinished = request.IsOk == false ? true : request.IsFInihed,
                 CreatedAt = DateTime.Now
             };
             await _processLogRepository.AddAsync(processLog, cancellationToken);
@@ -393,6 +394,7 @@ public class ProcessLogService : IProcessLogService
         else
         {
             processLog.UpdatedAt = DateTime.Now;
+            processLog.IsFinished = request.IsOk == false ? true : request.IsFInihed;
             if (request.IsOk == false)
             {
                 processLog.Status = false;

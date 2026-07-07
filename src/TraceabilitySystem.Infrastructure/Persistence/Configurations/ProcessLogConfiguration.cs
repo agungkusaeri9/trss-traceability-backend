@@ -12,6 +12,8 @@ public class ProcessLogConfiguration : IEntityTypeConfiguration<ProcessLog>
 
         builder.Property(x => x.IsActive)
             .HasDefaultValue(true);
+        builder.Property(x => x.IsFinished)
+            .HasDefaultValue(false);
 
         if (!AppDbContext.IsInMemory)
         {

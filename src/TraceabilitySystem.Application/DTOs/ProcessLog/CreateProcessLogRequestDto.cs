@@ -32,5 +32,10 @@ public class CreateProcessLogRequestDto
 
     [JsonPropertyName("data")]
     public Dictionary<string, object>? Data { get; set; }
+
+    [JsonIgnore]
+    public bool IsFInihed { get; set; } = false;
+
+
 }
 

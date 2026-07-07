@@ -40,9 +40,10 @@ public class DashboardController : ControllerBase
 
     [HttpGet("stats")]
     [ProducesResponseType(typeof(ApiResponse<DashboardStatsDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetStats(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetStats([FromQuery] int topParts = 5, [FromQuery]
+    int trendDays = 7, CancellationToken cancellationToken = default) 
     {
-        var result = await _dashboardService.GetStatsAsync(cancellationToken);
+        var result = await _dashboardService.GetStatsAsync(topParts, trendDays,cancellationToken);
         return ResponseFormatter.Success(result, "Dashboard stats retrieved successfully.");
     }
 
@@ -55,4 +56,12 @@ public class DashboardController : ControllerBase
         var result = await _dashboardService.GetRecentLogsAsync(count, cancellationToken);
         return ResponseFormatter.Success(result, "Recent logs retrieved successfully.");
     }
+
+    //[HttpGet("traceability-flow")]
+    //[ProducesResponseType(typeof(ApiResponse<TraceabilityFlowDto>), StatusCodes.Status200OK)]
+    //public async Task<IActionResult> GetTraceabilityFlow(CancellationToken cancellationToken)
+    //{
+    //    var result = await _dashboardService.GetTraceabilityFlowAsync(cancellationToken);
+    //    return ResponseFormatter.Success(result, "Traceability flow retrieved successfully.");
+    //}
 }

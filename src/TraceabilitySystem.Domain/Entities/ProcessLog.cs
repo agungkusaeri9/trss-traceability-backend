@@ -17,4 +17,6 @@ public class ProcessLog
     public DateTime? UpdatedAt { get; set; }
 
     public ICollection<ProcessLogDetail> Details { get; set; } = new List<ProcessLogDetail>();
+    public bool IsFinished { get; set; } = false;
+    
 }
