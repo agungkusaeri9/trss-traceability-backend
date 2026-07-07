@@ -21,6 +21,8 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    builder.Services.AddWindowsService();
+
     builder.WebHost.UseUrls(
     builder.Configuration["Server:Url"] ?? "http://0.0.0.0:5039");
 
@@ -108,12 +110,9 @@ try
     // ── Middleware pipeline ────────────────────────────────────────────────
     app.UseMiddleware<ExceptionMiddleware>();
 
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI(c =>
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "TraceabilitySystem API v1"));
-    }
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TraceabilitySystem API v1"));
 
     app.UseHttpsRedirection();
 
