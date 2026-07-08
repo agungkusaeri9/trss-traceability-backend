@@ -10,6 +10,7 @@ using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 
 namespace TraceabilitySystem.API.Controllers;
@@ -32,6 +33,7 @@ public class ConfigController : ControllerBase
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly AppDbContext _context;
     private readonly ISerialNumberService _serialNumberService;
+    private readonly IPrintService _printService;
 
     public ConfigController(
         IAuthService authService,
@@ -47,7 +49,9 @@ public class ConfigController : ControllerBase
         IIssueRepository issueRepository,
         IRefreshTokenRepository refreshTokenRepository,
         AppDbContext context,
-        ISerialNumberService serialNumberService)
+        ISerialNumberService serialNumberService,
+        IPrintService printService
+        )
     {
         _authService = authService;
         _userRepository = userRepository;
@@ -63,6 +67,7 @@ public class ConfigController : ControllerBase
         _refreshTokenRepository = refreshTokenRepository;
         _context = context;
         _serialNumberService = serialNumberService;
+        _printService = printService;
     }
 
     /// <summary>Reset all master data (Process, Parameter, Process Log) and their relations.</summary>
@@ -959,6 +964,24 @@ public class ConfigController : ControllerBase
         return ResponseFormatter.Success(data: result, message: "Serial numbers berhasil dibuat.");
     }
 
+
+    //[HttpPost("print-stock-in")]
+    //[ProducesResponseType(typeof(ApiResponse<IEnumerable<SerialNumberDto>>), StatusCodes.Status200OK)]
+    //[ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    //[ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    //public async Task<IActionResult> PrintStockIn(
+    //    CancellationToken cancellationToken)
+    //{
+    //    string issueNumber = "ISS-00001"; // Contoh issue number
+    //    await _printService.PrintStockInAsync(issueNumber, cancellationToken);
+    //    return Ok(new
+    //    {
+    //        StatusCode = 200,
+    //        Success = true,
+    //        Message = "Stock In berhasil dicetak."
+    //    });
+    //}
+
     /// <summary>Seed process logs dengan alur: buat serial numbers dari issues, kemudian buat process logs dari proses pertama sampai selesai.</summary>
     // [HttpPost("process-log-seeder")]
     // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
@@ -1179,11 +1202,11 @@ public class ConfigController : ControllerBase
     //                 ParameterCode = "ALL_CHECK_POINT_RESULT",
     //                 ValueBoolean = true,
     //             },
-               
+
     //         }
     //     };
     //     processLog = await _processLogService.CreateAsync(newProcessLogDto, cancellationToken);
-           
+
     //     return ResponseFormatter.Success(message: "Process log seeder executed. (Implementasi sebenarnya perlu menyesuaikan dengan struktur database yang ada)");
     // }
 }

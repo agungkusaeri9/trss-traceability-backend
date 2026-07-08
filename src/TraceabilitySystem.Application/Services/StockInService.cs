@@ -83,6 +83,35 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
         return entity.Adapt<StockInDto>();
     }
 
+    private async Task<(string StockInCode, string IssueNumber)> GenerateStockInCodeAsync(
+    CancellationToken cancellationToken = default)
+    {
+        var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
+
+        var prefix = $"ST{datePart}";
+
+        var existingCodes = await _stockInRepository.FindAsync(
+            s => s.Code.StartsWith(prefix),
+            cancellationToken);
+
+        int nextSeq = 1;
+
+        if (existingCodes.Any())
+        {
+            var maxSeq = existingCodes
+                .Select(s => s.Code.Replace(prefix, ""))
+                .Select(s => int.TryParse(s, out int val) ? val : 0)
+                .Max();
+
+            nextSeq = maxSeq + 1;
+        }
+
+        var stockInCode = $"{prefix}{nextSeq:D3}";
+        var issueNumber = $"{datePart}{nextSeq:D3}";
+
+        return (stockInCode, issueNumber);
+    }
+
     public async Task<StockInDto> CreateStockInAsync(CreateStockInRequestDto request, CancellationToken cancellationToken = default)
     {
         // 1. Validate Part exists
@@ -90,58 +119,48 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
         if (!partExists)
             throw new NotFoundException(nameof(Part), request.PartId);
 
-        // 2. Generate auto-generated codes based on the highest sequence today
-        var today = DateTime.UtcNow.Date;
-        var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
-
-        // Fetch all codes starting with STyyyyMMdd to find the max sequence
-        var prefix = $"ST{datePart}";
-        var existingCodes = await _stockInRepository.FindAsync(s => s.Code.StartsWith(prefix), cancellationToken);
-
-        int nextSeq = 1;
-        if (existingCodes.Any())
+        try
         {
-            var maxSeq = existingCodes
-                .Select(s => s.Code.Replace(prefix, ""))
-                .Select(s => int.TryParse(s, out int val) ? val : 0)
-                .Max();
-            nextSeq = maxSeq + 1;
+
+            var (stockInCode, issueNumber) =
+                await GenerateStockInCodeAsync(cancellationToken);
+
+            // 3. Build entity with nested issue
+            var stockIn = new StockIn
+            {
+                Code = stockInCode,
+                PartId = request.PartId,
+                SupplyQty = request.SupplyQty,
+                SupplyDate = request.SupplyDate,
+                ReceiptQty = request.ReceiptQty,
+                ReceiptDate = request.ReceiptDate,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            stockIn.Issues.Add(new Issue
+            {
+                Number = issueNumber,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _stockInRepository.AddAsync(stockIn, cancellationToken);
+            await _stockInRepository.SaveChangesAsync(cancellationToken);
+
+            // 4. Reload with navigation (Part + Issues eager-loaded)
+            var saved = await _stockInRepository.GetByIdAsync(stockIn.Id, cancellationToken)
+                ?? throw new NotFoundException(nameof(StockIn), stockIn.Id);
+
+            var dto = saved.Adapt<StockInDto>();
+
+            // 5. Trigger print label
+             await _printService.PrintStockInAsync(dto);
+
+            return dto;
         }
-
-        var stockInCode = $"{prefix}{nextSeq:D3}";
-        var issueNumber = $"{datePart}{nextSeq:D3}";
-
-        // 3. Build entity with nested issue
-        var stockIn = new StockIn
+        catch (Exception ex)
         {
-            Code = stockInCode,
-            PartId = request.PartId,
-            SupplyQty = request.SupplyQty,
-            SupplyDate = request.SupplyDate,
-            ReceiptQty = request.ReceiptQty,
-            ReceiptDate = request.ReceiptDate,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        stockIn.Issues.Add(new Issue
-        {
-            Number = issueNumber,
-            CreatedAt = DateTime.UtcNow
-        });
-
-        await _stockInRepository.AddAsync(stockIn, cancellationToken);
-        await _stockInRepository.SaveChangesAsync(cancellationToken);
-
-        // 4. Reload with navigation (Part + Issues eager-loaded)
-        var saved = await _stockInRepository.GetByIdAsync(stockIn.Id, cancellationToken)
-            ?? throw new NotFoundException(nameof(StockIn), stockIn.Id);
-
-        var dto = saved.Adapt<StockInDto>();
-
-        // 5. Trigger print label
-        // await _printService.PrintStockInLabelWithSdkAsync(dto);
-
-        return dto;
+            throw new AppException($"Failed to create Stock In: {ex.Message}");
+        }
     }
 
     public async Task<StockInDto> UpdateStockInAsync(int id, UpdateStockInRequestDto request, CancellationToken cancellationToken = default)

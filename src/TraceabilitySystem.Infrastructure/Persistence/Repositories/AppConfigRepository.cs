@@ -18,4 +18,10 @@ public class AppConfigRepository : BaseRepository<AppConfig>, IAppConfigReposito
         var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_NAME_CLINCHING");
         return config?.Value ?? string.Empty;
     }
+
+    public async Task<string> GetPrinterNameStockIn(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_NAME_STOCK_IN");
+        return config?.Value ?? string.Empty;
+    }
 }

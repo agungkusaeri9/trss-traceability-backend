@@ -49,4 +49,16 @@ public class StockInRepository : BaseRepository<StockIn>, IStockInRepository
 
         return (items, totalCount);
     }
+
+    public async Task<StockIn?> GetByIssueNumberAsync(
+    string issueNumber,
+    CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(s => s.Part)
+            .Include(s => s.Issues)
+            .FirstOrDefaultAsync(
+                s => s.Issues.Any(i => i.Number == issueNumber),
+                cancellationToken);
+    }
 }

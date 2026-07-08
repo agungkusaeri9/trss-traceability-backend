@@ -1,4 +1,5 @@
 using System;
+using System.Drawing.Printing;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
@@ -6,6 +7,17 @@ using Microsoft.Extensions.Logging;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Interfaces;
 using Zebra.Sdk.Comm;
+using QRCoder;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using DrawingFont = System.Drawing.Font;
+using DrawingImage = System.Drawing.Image;
+using DrawingBrushes = System.Drawing.Brushes;
+using DrawingPens = System.Drawing.Pens;
+using DrawingColor = System.Drawing.Color;
+using DrawingFontStyle = System.Drawing.FontStyle;
+using TraceabilitySystem.Application.DTOs.StockIn;
+using Mapster;
 
 namespace TraceabilitySystem.Infrastructure.Services;
 
@@ -21,48 +33,22 @@ public class PrintService : IPrintService
     private readonly ILogger<PrintService> _logger;
     private readonly IPrinterService _printerService;
     private readonly IAppConfigRepository _configRepository;
+    private readonly IStockInRepository _stockInRepository;
 
     public PrintService(
         IServiceScopeFactory serviceScopeFactory,
         ILogger<PrintService> logger,
-        IPrinterService printerService, IAppConfigRepository configRepository)
+        IPrinterService printerService, IAppConfigRepository configRepository,
+        IStockInRepository stockInRepository
+        )
     {
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
         _printerService = printerService;
         _configRepository = configRepository;
+        _stockInRepository = stockInRepository;
     }
 
-    // public async Task PrintClinchingLabelAsync(StockInDto stockIn, CancellationToken cancellationToken = default)
-    // {
-    //     var printer = await _printerService.GetClinchingPrinterAsync(cancellationToken);
-    //     if (printer is null)
-    //     {
-    //         _logger.LogWarning("Clinching printer not found. Skipping print job.");
-    //         return;
-    //     }
-
-    //     var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
-    //     var partNumber = stockIn.Part?.Number ?? "-";
-    //     var partName = stockIn.Part?.Name ?? "-";
-
-    //     var zpl = BuildZplLabelStockIn(
-    //         stockIn.Code, issueNumber, partNumber, partName,
-    //         stockIn.SupplyQty, stockIn.SupplyDate);
-
-    //     // Use printer IP and Port from database
-    //     await SendRawTcpAsync(printer.IpAddress, printer.Port, zpl, cancellationToken);
-
-    //     _logger.LogInformation(
-    //         "Print job sent for StockIn [{Code}] to printer {Name} at {Ip}:{Port}.",
-    //         stockIn.Code, printer.Name, printer.IpAddress, printer.Port);
-    // }
-
-    /// <summary>
-    /// Prints using Zebra SDK (Zebra Link-OS SDK for .NET)
-    /// This method uses the official Zebra SDK instead of raw TCP socket.
-    /// Requires Zebra.Printer.SDK NuGet package.
-    /// </summary>
     public async Task PrintClinchingLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
@@ -90,31 +76,6 @@ public class PrintService : IPrintService
 
     }
 
-    /// <summary>
-    /// Get raw ZPL string for a StockIn label
-    /// </summary>
-    //public string GetZplForStockIn(StockInDto stockIn)
-    //{
-    //    var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
-    //    var partNumber = stockIn.Part?.Number ?? "-";
-    //    var partName = stockIn.Part?.Name ?? "-";
-
-    //    return new StockInDto();
-
-    //    //return BuildZplLabelStockIn(
-    //    //    stockIn.Code, issueNumber, partNumber, partName,
-    //    //    stockIn.SupplyQty, stockIn.SupplyDate);
-    //}
-
-    /// <summary>
-    /// Get the configured StockIn printer from PrinterService
-    /// </summary>
-    // private async Task<Domain.Entities.Printer?> GetStockInPrinterAsync(CancellationToken cancellationToken)
-    // {
-    //     // using var scope = _serviceScopeFactory.CreateScope();
-    //     // var printerService = scope.ServiceProvider.GetRequiredService<IPrinterService>();
-    //     return await printerService.GetStockInPrinterAsync(cancellationToken);
-    // }
 
     private static string BuildZplLabelClinching(
         string mitsubishiCode,
@@ -149,53 +110,6 @@ public class PrintService : IPrintService
         """;
     }
 
-    //private static async Task SendRawTcpAsync(string ip, int port, string data, CancellationToken cancellationToken)
-    //{
-    //    using var client = new TcpClient();
-    //    await client.ConnectAsync(ip, port, cancellationToken);
-
-    //    var bytes = Encoding.UTF8.GetBytes(data);
-    //    var stream = client.GetStream();
-    //    await stream.WriteAsync(bytes, cancellationToken);
-    //    await stream.FlushAsync(cancellationToken);
-    //}
-
-    /// <summary>
-    /// Sends ZPL data to printer using Zebra SDK TcpConnection.
-    /// This provides better error handling and connection management than raw TCP.
-    /// </summary>
-    //private Task SendViaZebraSdkAsync(string ip, int port, string zplData)
-    //{
-    //    return Task.Run(() =>
-    //    {
-    //        var connection = new TcpConnection(ip, port);
-
-    //        try
-    //        {
-    //            _logger.LogInformation("Connecting to Zebra printer at {Ip}:{Port}...", ip, port);
-    //            connection.Open();
-
-    //            var bytes = Encoding.UTF8.GetBytes(zplData);
-    //            connection.Write(bytes);
-
-    //            _logger.LogInformation("Print completed successfully.");
-    //        }
-    //        catch (ConnectionException ex)
-    //        {
-    //            _logger.LogError(ex, "Connection error with Zebra printer at {Ip}:{Port}", ip, port);
-    //            throw;
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            _logger.LogError(ex, "Unexpected error when printing to Zebra printer");
-    //            throw;
-    //        }
-    //        finally
-    //        {
-    //            connection.Close();
-    //        }
-    //    });
-    //}
 
     private Task SendViaZebraSdkAsync(string printerName, string zplData)
     {
@@ -232,95 +146,7 @@ public class PrintService : IPrintService
         });
     }
 
-    /// <summary>
-    /// Generate PDF for StockIn label using QuestPDF (A5 landscape)
-    /// </summary>
-    //public byte[] GeneratePdfForStockIn(StockInDto stockIn)
-    //{
-    //    // Configure QuestPDF license
-    //    QuestPDF.Settings.License = LicenseType.Community;
-
-    //    var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
-    //    var partNumber = stockIn.Part?.Number ?? "-";
-    //    var partName = stockIn.Part?.Name ?? "-";
-
-    //    // A5 landscape dimensions in mm: 210mm x 148.5mm
-    //    var document = Document.Create(container =>
-    //    {
-    //        container.Page(page =>
-    //        {
-    //            page.Size(PageSizes.A5.Landscape());
-    //            page.Margin(5, Unit.Millimetre);
-    //            page.DefaultTextStyle(x => x.FontSize(10));
-
-    //            page.Content().Column(column =>
-    //            {
-    //                column.Spacing(3);
-
-    //                // Title
-    //                column.Item().Text("２．Issue Label / ラベル発行")
-    //                    .FontSize(14).Bold();
-
-    //                // Row 1: Issue No
-    //                column.Item().Row(row =>
-    //                {
-    //                    row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Issue No / 発行No.").Bold());
-    //                    row.RelativeItem(2).Border(1).Padding(3).Text(issueNumber).FontSize(16).Bold();
-    //                    row.RelativeItem().Border(1).Padding(3).AlignCenter().Text(td =>
-    //                    {
-    //                        td.Line("QR CODE").FontSize(8);
-    //                        td.Line($"[{issueNumber}]").FontSize(6);
-    //                    });
-    //                });
-
-    //                // Row 2: Parts No
-    //                column.Item().Row(row =>
-    //                {
-    //                    row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Parts No / 品番").Bold());
-    //                    row.RelativeItem(2).Border(1).Padding(3).Text(partNumber).FontSize(14).Bold();
-    //                    row.RelativeItem().Border(1).Padding(3);
-    //                });
-
-    //                // Row 3: Parts Name
-    //                column.Item().Row(row =>
-    //                {
-    //                    row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Parts Name / 品名").Bold());
-    //                    row.RelativeItem(2).Border(1).Padding(3).Text(partName).FontSize(14).Bold();
-    //                    row.RelativeItem().Border(1).Padding(3);
-    //                });
-
-    //                // Row 4: Supply Qty
-    //                column.Item().Row(row =>
-    //                {
-    //                    row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Supply Qty / 供給数").Bold());
-    //                    row.RelativeItem(2).Border(1).Padding(3).Text(stockIn.SupplyQty.ToString()).FontSize(18).Bold();
-    //                    row.RelativeItem().Border(1).Padding(3);
-    //                });
-
-    //                // Row 5: Supply Date
-    //                column.Item().Row(row =>
-    //                {
-    //                    row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Supply Date / 供給日").Bold());
-    //                    row.RelativeItem(2).Border(1).Padding(3).Text(stockIn.SupplyDate.ToString("yyyy.MM.dd")).FontSize(14).Bold();
-    //                    row.RelativeItem().Border(1).Padding(3);
-    //                });
-
-    //                // Row 6: Receipt Date
-    //                column.Item().Row(row =>
-    //                {
-    //                    row.RelativeItem().Border(1).Padding(3).Text(td => td.Span("Receipt Date / <minimax:tool_call>日").Bold());
-    //                    row.RelativeItem(2).Border(1).Padding(3).Text(stockIn.ReceiptDate.ToString("yyyy.MM.dd")).FontSize(14).Bold();
-    //                    row.RelativeItem().Border(1).Padding(3);
-    //                });
-    //            });
-    //        });
-    //    });
-
-    //    using var stream = new MemoryStream();
-    //    document.GeneratePdf(stream);
-    //    return stream.ToArray();
-    //}
-
+    
     public async Task PrintClinchingShortSideAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
         try
@@ -329,6 +155,191 @@ public class PrintService : IPrintService
         }catch(Exception ex)
         {
             _logger.LogError(ex, "Error printing....");
+            throw;
+        }
+    }
+
+    public async Task PrintStockInAsync(StockInDto stockInDto, CancellationToken cancellationToken = default)
+    {
+        await PrintStockInProcessAsync(stockInDto, cancellationToken);
+    }
+
+    private async Task PrintStockInProcessAsync(StockInDto stockInDto, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Printing stock in processing....");
+
+        string printerNameStockIn = await _configRepository.GetPrinterNameStockIn(cancellationToken);
+
+        var issue = stockInDto.Issues.First();
+        var part = stockInDto.Part!;
+
+        var issueNumber = issue.Number;
+        var partNumber = part.Number;
+        var partName = part.Name;
+        var supplyQty = stockInDto.SupplyQty.ToString();
+        var supplyDate = stockInDto.SupplyDate.ToString("yyyy.MM.dd");
+        var receiptDate = stockInDto.ReceiptDate.ToString("yyyy.MM.dd");
+
+        try
+        {
+            // Generate QR
+            string qrContent = string.Join(";", new[]
+            {
+                issueNumber,
+                partNumber,
+                partName,
+                supplyQty,
+                supplyDate,
+                receiptDate
+            });
+
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrData = qrGenerator.CreateQrCode(qrContent, QRCodeGenerator.ECCLevel.Q);
+            var qrCode = new PngByteQRCode(qrData);
+            var qrBytes = qrCode.GetGraphic(20);
+
+            using var qrStream = new MemoryStream(qrBytes);
+            using var qrImage = System.Drawing.Image.FromStream(qrStream);
+
+            PrintDocument pd = new();
+
+            pd.PrinterSettings.PrinterName = printerNameStockIn;
+
+            pd.DefaultPageSettings.Landscape = true;
+
+            // A5
+            pd.DefaultPageSettings.PaperSize = new PaperSize("A5", 583, 827);
+
+            pd.PrintPage += (sender, e) =>
+            {
+                Graphics g = e.Graphics;
+                int pageWidth = e.PageBounds.Width;
+                int pageHeight = e.PageBounds.Height;
+
+                g.Clear(DrawingColor.White);
+                g.SmoothingMode = SmoothingMode.HighQuality;
+
+                using DrawingFont labelFont = new("Arial", 12, DrawingFontStyle.Bold);
+                using DrawingFont valueFont = new("Arial", 18, DrawingFontStyle.Bold);
+
+                Pen pen = Pens.Black;
+
+                // Margin lebih besar
+                int marginHorizontal = 80;
+                int marginVertical = 80;
+
+                int printableWidth = pageWidth - (marginHorizontal * 2);
+                int printableHeight = pageHeight - (marginVertical * 2);
+
+                // Tinggi tiap row
+                int rowHeight = printableHeight / 6;
+
+                // Lebar kolom
+                int labelWidth = (int)(printableWidth * 0.32);
+                int qrWidth = (int)(printableWidth * 0.30);
+                int valueWidth = printableWidth - labelWidth - qrWidth;
+
+                int startX = marginHorizontal;
+                int startY = marginVertical;
+
+                StringFormat leftMiddle = new()
+                {
+                    Alignment = StringAlignment.Near,
+                    LineAlignment = StringAlignment.Center
+                };
+
+                string[] labels =
+                {
+                "Issue No / 発行No.",
+                "Parts No / 品番",
+                "Parts Name / 品名",
+                "Supply Qty / 供給数",
+                "Supply Date / 供給日",
+                "Receipt Date / 入荷日"
+            };
+
+                string[] values =
+                {
+                    issueNumber,
+                    partNumber,
+                    partName,
+                    supplyQty,
+                    supplyDate,
+                    receiptDate
+                };
+
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    int y = startY + (i * rowHeight);
+
+                    // Label
+                    g.DrawRectangle(
+                        pen,
+                        startX,
+                        y,
+                        labelWidth,
+                        rowHeight);
+
+                    // Value
+                    g.DrawRectangle(
+                        pen,
+                        startX + labelWidth,
+                        y,
+                        valueWidth,
+                        rowHeight);
+
+                    g.DrawString(
+                     labels[i],
+                     labelFont,
+                     Brushes.Black,
+                     new RectangleF(
+                         startX + 12,
+                         y,
+                         labelWidth - 20,
+                         rowHeight),
+                     leftMiddle);
+
+                    g.DrawString(
+                        values[i],
+                        valueFont,
+                        Brushes.Black,
+                        new RectangleF(
+                            startX + labelWidth + 12,
+                            y,
+                            valueWidth - 20,
+                            rowHeight),
+                        leftMiddle);
+                }
+
+                // QR Area
+                g.DrawRectangle(
+                    pen,
+                    startX + labelWidth + valueWidth,
+                    startY,
+                    qrWidth,
+                    rowHeight * 6);
+
+                int qrSize = 150;
+
+                int qrX = startX + labelWidth + valueWidth + ((qrWidth - qrSize) / 2);
+
+                int qrY = startY + ((rowHeight * 6 - qrSize) / 2);
+
+                g.DrawImage(
+                    qrImage,
+                    qrX,
+                    qrY,
+                    qrSize,
+                    qrSize);
+            };
+
+            pd.Print();
+
+            _logger.LogInformation("Printing stock in completed....");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error printing stock in....");
             throw;
         }
     }
