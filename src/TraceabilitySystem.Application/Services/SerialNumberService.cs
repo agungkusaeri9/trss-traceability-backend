@@ -2,7 +2,9 @@ using Mapster;
 using TraceabilitySystem.Application.DTOs.Issue;
 using TraceabilitySystem.Application.DTOs.Parameter;
 using TraceabilitySystem.Application.DTOs.SerialNumber;
+using TraceabilitySystem.Application.DTOs.StockIn;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Application.Mappers;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
@@ -34,7 +36,7 @@ public class SerialNumberService : ISerialNumberService
         int page, int pageSize, string? searchTerm = null, CancellationToken cancellationToken = default)
     {       
 
-        var (serialNumbers, totalCount) = await _serialNumberRepository.GetPagedAsync(
+        var (serialNumbers, totalCount) = await _serialNumberRepository.GetPagedWithRelatedAsync(
             page,
             pageSize,
           predicate: p => (string.IsNullOrEmpty(searchTerm)
@@ -45,7 +47,7 @@ public class SerialNumberService : ISerialNumberService
 
         return new PagedResult<SerialNumberDto>
         {
-            Items = serialNumbers.Adapt<IEnumerable<SerialNumberDto>>(),
+            Items = serialNumbers.Select(x => x.ToDto()),
             TotalCount = totalCount,
             Page = page,
             PageSize = pageSize
@@ -475,13 +477,13 @@ public class SerialNumberService : ISerialNumberService
     }
 
     public async Task<SerialNumberDto?> GetBySerialNumberAsync(
-        string serialNumber,
-        CancellationToken cancellationToken = default)
+    string serialNumber,
+    CancellationToken cancellationToken = default)
     {
-        var entity = await _serialNumberRepository.FirstOrDefaultAsync(
-            s => s.SerialNumberCode == serialNumber, cancellationToken);
+        var entity = await _serialNumberRepository
+            .GetWithRelatedBySerialNumberAsync(serialNumber, cancellationToken);
 
-        return entity?.Adapt<SerialNumberDto>();
+        return entity?.ToDto();
     }
 
     // ─── Private Helpers ────────────────────────────────────────────────────────

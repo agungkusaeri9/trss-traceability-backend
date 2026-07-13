@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -218,5 +219,48 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
     public async Task<bool> CheckByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
         return await _dbSet.AnyAsync(sn => sn.SerialNumberCode == serialNumberCode, cancellationToken);
+    }
+
+    public async Task<SerialNumber?> GetWithRelatedBySerialNumberAsync(
+    string serialNumber,
+    CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(sn => sn.Issues!)
+                .ThenInclude(sni => sni.Issue!)
+                    .ThenInclude(i => i.StockIn!)
+                        .ThenInclude(si => si.Part!)
+            .FirstOrDefaultAsync(
+                sn => sn.SerialNumberCode == serialNumber,
+                cancellationToken);
+    }
+
+    public async Task<(IEnumerable<SerialNumber> Items, int TotalCount)> GetPagedWithRelatedAsync(
+    int page,
+    int pageSize,
+    Expression<Func<SerialNumber, bool>>? predicate = null,
+    Func<IQueryable<SerialNumber>, IOrderedQueryable<SerialNumber>>? orderBy = null,
+    CancellationToken cancellationToken = default)
+    {
+        IQueryable<SerialNumber> query = _dbSet
+            .Include(sn => sn.Issues!)
+                .ThenInclude(sni => sni.Issue!)
+                    .ThenInclude(i => i.StockIn!)
+                        .ThenInclude(si => si.Part!);
+
+        if (predicate != null)
+            query = query.Where(predicate);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (orderBy != null)
+            query = orderBy(query);
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 }
