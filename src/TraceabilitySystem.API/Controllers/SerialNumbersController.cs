@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.DTOs.Parameter;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Application.Services;
 using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
 
@@ -31,12 +32,13 @@ namespace TraceabilitySystem.API.Controllers
             return ResponseFormatter.PagedSuccess(result);
         }
 
-        [HttpPost("generate")]
-        [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GenerateTestData(CancellationToken cancellationToken = default)
+        [HttpGet("{serialNumber}")]
+        [ProducesResponseType(typeof(ApiResponse<ParameterDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetParameter(string serialNumber, CancellationToken cancellationToken)
         {
-            var serialNumber = await _serialNumberSerivice.GenerateSerialNumberAsync(cancellationToken);
-            return ResponseFormatter.Success(serialNumber, "Test serial number generated.");
+            var result = await _serialNumberSerivice.GetBySerialNumberAsync(serialNumber, cancellationToken);
+            return ResponseFormatter.Success(result, "Serial Number retrieved successfully.");
         }
     }
 }
