@@ -25,4 +25,8 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
         bool isOk,
         List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean, bool status)> parameters,
         CancellationToken cancellationToken = default);
+
+    Task<ProcessLog?> GetProcessLogFullValueAsync(
+    string serialNumberCode,
+    CancellationToken cancellationToken = default);
 }

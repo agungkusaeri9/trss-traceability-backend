@@ -5,6 +5,7 @@ using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
+using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.Application.Services;
@@ -69,10 +70,63 @@ public class ProcessLogService : IProcessLogService
         return MapToDto(log);
     }
 
+    private static readonly HashSet<string> OverallProcessCodes =
+[
+    "ECM_ASSY",
+    "FINAL_INSPECTION"
+];
+
+    public async Task<ProcessLogFullValueDto> GetProcessLogFullValuesAsync(
+    string serialNumberCode,
+    CancellationToken cancellationToken = default)
+    {
+        var log = await _processLogRepository.GetProcessLogFullValueAsync(serialNumberCode, cancellationToken)
+            ?? throw new NotFoundException(nameof(ProcessLog), serialNumberCode);
+
+        var result = log.Adapt<ProcessLogFullValueDto>();
+
+        result.Clinching = new ProcessLogFullValueParentDto
+        {
+            SerialNumberCode = log.SerialNumber.SerialNumberCode,
+            Details = log.Details
+                .Where(x => !OverallProcessCodes.Contains(x.Process.Code))
+                .OrderBy(x => x.Process.Order)
+                .ThenBy(x => x.Parameter.Order)
+                .Adapt<List<ProcessLogFullValueDetailDto>>()
+        };
+
+        var childLog = log.SerialNumber.ParentRelations
+            .SelectMany(x => x.ChildSerialNumber.ProcessLogs)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefault();
+
+        if (childLog != null)
+        {
+            result.MFan = new ProcessLogFullValueChildDto
+            {
+                SerialNumberCode = childLog.SerialNumber.SerialNumberCode,
+                Details = childLog.Details
+                    .OrderBy(x => x.Process.Order)
+                    .ThenBy(x => x.Parameter.Order)
+                    .Adapt<List<ProcessLogFullValueDetailDto>>()
+            };
+        }
+
+        result.Overall = log.Details
+            .Where(x => OverallProcessCodes.Contains(x.Process.Code))
+            .OrderBy(x => x.Process.Order)
+            .ThenBy(x => x.Parameter.Order)
+            .Adapt<List<ProcessLogFullValueDetailDto>>();
+
+        return result;
+    }
+
     public async Task<ProcessLogDto> GetProcessLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default)
     {
         var log = await _processLogRepository.GetLogBySerialNumberAsync(serialNumber, cancellationToken);
         if (log == null) throw new NotFoundException(nameof(ProcessLog), serialNumber);
+
+       
 
         return MapToDto(log);
     }
@@ -107,14 +161,12 @@ public class ProcessLogService : IProcessLogService
         return new ProcessLogListDto
         {
             Id               = log.Id,
-            IsParent         = isParent,
-            Status           = log.Status,
             SerialNumberCode = sn.SerialNumberCode,
-            Type             = sn.Type,
+            Status = log.Status,
+            IsFinished = log.IsFinished,
             CreatedAt        = log.CreatedAt,
             UpdatedAt        = log.UpdatedAt,
-            Issues           = issues,
-            Processes        = MapDetails(allDetails)
+            
         };
     }
 
@@ -262,6 +314,8 @@ public class ProcessLogService : IProcessLogService
             IssueNumbers = issueNumbers.Count > 0 ? issueNumbers : null
         };
 
+        DebugHelper.Log("Issue Numbers for Clinching Serial Number Generation", issueNumbers);
+
         var generatedSns = (await _serialNumberService.CreateByClinchingAsync(generateRequest, cancellationToken)).ToList();
         if (generatedSns.Count == 0)
             throw new AppException("Gagal membuat serial number Clinching.", 500);
@@ -279,9 +333,9 @@ public class ProcessLogService : IProcessLogService
         request.Data ??= new Dictionary<string, object>();
         if (request.IsOk.HasValue)
         {
-            request.Data["CORE_ASM_RESULT"]       = true;
-            request.Data["UPPER_TANK_ASM_RESULT"]  = true;
-            request.Data["LOWER_TANK_ASM_RESULT"]  = true;
+            request.Data["CORE_ASM_RESULT"]       = issueNumbers[0];
+            request.Data["UPPER_TANK_ASM_RESULT"]  = issueNumbers[1];
+            request.Data["LOWER_TANK_ASM_RESULT"]  = issueNumbers[2];
         }
 
         return await CreateProcessLogWithDetailsAsync(request, cancellationToken);
@@ -605,11 +659,11 @@ public class ProcessLogService : IProcessLogService
         // 7. Simpan process log details dengan serial number CC (parent) sebagai referensi
         //    Petakan input data ke parameter code database yang sesuai:
         //    LOT_FAN_ASM_RESULT, LOT_MOTOR_ASM_RESULT, LOT_GUIDE_ASM_RESULT, BOLT_TIGHTEN_RESULT, BOLT_TIGHTEN_VALUE, NUT_TIGHTEN_RESULT
-        var mappedData = new Dictionary<string, object>();
+        //var mappedData = new Dictionary<string, object>();
 
-        if (issueNumbers.Count > 0) mappedData["LOT_FAN_ASM_RESULT"] = issueNumbers[0];
-        if (issueNumbers.Count > 1) mappedData["LOT_MOTOR_ASM_RESULT"] = issueNumbers[1];
-        if (issueNumbers.Count > 2) mappedData["LOT_GUIDE_ASM_RESULT"] = issueNumbers[2];
+        //if (issueNumbers.Count > 0) mappedData["LOT_FAN_ASM_RESULT"] = issueNumbers[0];
+        //if (issueNumbers.Count > 1) mappedData["LOT_MOTOR_ASM_RESULT"] = issueNumbers[1];
+        //if (issueNumbers.Count > 2) mappedData["LOT_GUIDE_ASM_RESULT"] = issueNumbers[2];
 
         // if (request.Data != null)
         // {
@@ -630,9 +684,9 @@ public class ProcessLogService : IProcessLogService
         request.ProcessCode = "M_FAN_ASSY";
         if (request.IsOk.HasValue)
         {
-            request.Data["CORE_ASM_RESULT"] = true;
-            request.Data["UPPER_TANK_ASM_RESULT"] = true;
-            request.Data["LOWER_TANK_ASM_RESULT"] = true;
+            request.Data["FAN_ASM_RESULT"] = issueNumbers[0];
+            request.Data["MOTOR_ASM_RESULT"] = issueNumbers[1];
+            request.Data["FUN_GUIDE_ASM_RESULT"] = issueNumbers[2];
         }
         
         // 8. Pastikan detail disimpan ke child (MF) serial number

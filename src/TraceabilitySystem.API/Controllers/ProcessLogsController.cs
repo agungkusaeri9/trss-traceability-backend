@@ -50,4 +50,13 @@ public class ProcessLogsController : ControllerBase
         var result = await _processLogService.GetProcessLogBySerialNumberAsync(serialNumber, cancellationToken);
         return ResponseFormatter.Success(result, "Process log retrieved successfully.");
     }
+
+    [HttpGet("full-values/{serialNumberCode}")]
+    [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProcessLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken)
+    {
+        var result = await _processLogService.GetProcessLogFullValuesAsync(serialNumberCode, cancellationToken);
+        return ResponseFormatter.Success(result, "Process log retrieved successfully.");
+    }
 }

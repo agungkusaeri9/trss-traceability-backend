@@ -243,4 +243,42 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         await SaveChangesAsync(cancellationToken);
         return processLog;
     }
+
+    public async Task<ProcessLog?> GetProcessLogFullValueAsync(
+    string serialNumberCode,
+    CancellationToken cancellationToken = default)
+    {
+        return await _context.ProcessLogs
+            .AsNoTracking()
+
+            // Current Serial Number
+            .Include(x => x.SerialNumber)
+
+            // Current Process Details
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
+
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Parameter)
+
+            // Parent -> Child Relations
+            .Include(x => x.SerialNumber)
+                .ThenInclude(sn => sn.ParentRelations)
+                    .ThenInclude(r => r.ChildSerialNumber)
+                        .ThenInclude(sn => sn.ProcessLogs)
+                            .ThenInclude(pl => pl.Details)
+                                .ThenInclude(d => d.Process)
+
+            .Include(x => x.SerialNumber)
+                .ThenInclude(sn => sn.ParentRelations)
+                    .ThenInclude(r => r.ChildSerialNumber)
+                        .ThenInclude(sn => sn.ProcessLogs)
+                            .ThenInclude(pl => pl.Details)
+                                .ThenInclude(d => d.Parameter)
+
+             .FirstOrDefaultAsync(
+            x => x.SerialNumber.SerialNumberCode == serialNumberCode &&
+                 x.SerialNumber.SerialNumberCode.StartsWith("CC"),
+            cancellationToken);
+    }
 }

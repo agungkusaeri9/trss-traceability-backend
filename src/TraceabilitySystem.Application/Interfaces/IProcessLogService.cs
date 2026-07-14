@@ -13,6 +13,7 @@ public interface IProcessLogService
         CancellationToken cancellationToken = default);
 
     Task<ProcessLogDto> GetProcessLogByIdAsync(long id, CancellationToken cancellationToken = default);
+    Task<ProcessLogFullValueDto> GetProcessLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken = default);
     Task<ProcessLogDto> GetProcessLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default);
 
     Task<ProcessLogDto> CreateProcessLogWithDetailsAsync(
