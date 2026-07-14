@@ -19,6 +19,35 @@ public class ProcessLogDto
     public List<ProcessGroupDto> Processes { get; set; } = new();
 }
 
+public class ProcessLogByConceptDto
+{
+    public long Id { get; set; }
+    public ProcessLogByConceptParentDto? ParentDetail { get; set; }
+    public ProcessLogByConceptChildDto? ChildDetail { get; set; }
+    public bool Status { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class ProcessLogByConceptParentDto
+{
+    public string SerialNumberCode { get; set; } = string.Empty;
+    public string ProcessName { get; set; } = string.Empty;
+    public string ParameterName { get; set; } = string.Empty;
+    public string? IssueNumber { get; set; }
+    public bool Status { get; set; } = false;
+
+
+}
+
+public class ProcessLogByConceptChildDto
+{
+    public string SerialNumberCode { get; set; } = string.Empty;
+    public string ProcessName { get; set; } = string.Empty;
+    public string ParameterName { get; set; } = string.Empty;
+    public string? IssueNumber { get; set; }
+    public bool Status { get; set; } = false;
+}
+
 /// <summary>Process log list — format flat sesuai format response baru.</summary>
 public class ProcessLogListDto
 {
