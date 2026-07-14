@@ -1,11 +1,7 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Serilog;
 using TraceabilitySystem.Application;
 using TraceabilitySystem.Application.Interfaces;
-using TraceabilitySystem.Infrastructure;
 using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Worker.BackgroundServices;
 using TraceabilitySystem.Worker.Services;
