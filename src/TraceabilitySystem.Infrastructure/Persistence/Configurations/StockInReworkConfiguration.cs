@@ -31,6 +31,10 @@ public class StockInReworkConfiguration : IEntityTypeConfiguration<StockInRework
         builder.Property(x => x.Status)
             .IsRequired();
 
+        builder.Property(x => x.Disposition)
+            .HasMaxLength(20)
+            .IsRequired(false);
+
         builder.Property(x => x.CreatedAt)
             .IsRequired();
 

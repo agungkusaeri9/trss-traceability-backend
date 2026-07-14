@@ -1,17 +1,22 @@
+using System.Text.Json.Serialization;
+using FluentValidation;
+using Mapster;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
-using System.Text.Json.Serialization;
 using TraceabilitySystem.API.BackgroundServices;
 using TraceabilitySystem.API.Extensions;
 using TraceabilitySystem.API.Filters;
 using TraceabilitySystem.API.Hubs;
 using TraceabilitySystem.API.Middleware;
-using TraceabilitySystem.Shared.Models;
 // using TraceabilitySystem.API.Services;
 using TraceabilitySystem.Application;
+using TraceabilitySystem.Application.Mappers;
+
 // using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Infrastructure;
 using TraceabilitySystem.Infrastructure.Persistence;
+using TraceabilitySystem.Shared.Models;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -58,20 +63,42 @@ try
         }
     });
 
+    TypeAdapterConfig.GlobalSettings.Scan(typeof(StockInReworkMapping).Assembly);
+
     // ── Services ───────────────────────────────────────────────────────────
     builder.Services.AddControllers(opts =>
     {
         opts.Filters.Add<ValidationFilter>();
     })
-    .AddJsonOptions(options =>
+     .AddJsonOptions(options =>
+     {
+         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
+         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+
+     });
+
+    builder.Services.Configure<ApiBehaviorOptions>(options =>
     {
-        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var message = string.Join("; ",
+                context.ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage));
+
+            return new BadRequestObjectResult(
+                ApiResponse.Fail(message));
+        };
     });
+
 
     builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerConfiguration();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.UseInlineDefinitionsForEnums();
+    });
     builder.Services.AddJwtAuthentication(builder.Configuration);
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);

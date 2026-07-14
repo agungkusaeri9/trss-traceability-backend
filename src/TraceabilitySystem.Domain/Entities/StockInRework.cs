@@ -17,6 +17,7 @@ public class StockInRework
 
     /// <summary>Status rework: true = OK, false = NG</summary>
     public bool Status { get; set; }
+    public string? Disposition { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

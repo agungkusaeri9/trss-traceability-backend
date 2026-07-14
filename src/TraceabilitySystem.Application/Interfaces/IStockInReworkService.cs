@@ -8,14 +8,14 @@ public interface IStockInReworkService
     Task<PagedResult<StockInReworkDto>> GetPagedAsync(
         int page,
         int pageSize,
-        long? serialNumberId = null,
+        FilterStockInReworkDto filter,
         CancellationToken cancellationToken = default);
 
     Task<StockInReworkDto> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<StockInReworkDto>> CreateAsync(CreateStockInReworkDto dto, CancellationToken cancellationToken = default);
 
-    Task<StockInReworkDto> UpdateAsync(int id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default);
+    Task<StockInReworkDto> UpdateDispositionAsync(int id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

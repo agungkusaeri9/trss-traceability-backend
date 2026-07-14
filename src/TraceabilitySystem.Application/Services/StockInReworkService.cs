@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using Mapster;
 using TraceabilitySystem.Application.DTOs.StockInRework;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
@@ -21,21 +23,28 @@ public class StockInReworkService : IStockInReworkService
     }
 
     public async Task<PagedResult<StockInReworkDto>> GetPagedAsync(
-        int page,
-        int pageSize,
-        long? serialNumberId = null,
-        CancellationToken cancellationToken = default)
+    int page,
+    int pageSize,
+    FilterStockInReworkDto filter,
+    CancellationToken cancellationToken = default)
     {
-        var predicate = serialNumberId.HasValue
-            ? (System.Linq.Expressions.Expression<Func<StockInRework, bool>>)(x => x.SerialNumberId == serialNumberId.Value)
-            : null;
+        //validation enum
 
-        var (items, totalCount) = await _repository.GetPagedAsync(page, pageSize, predicate, cancellationToken: cancellationToken);
+        Expression<Func<StockInRework, bool>> predicate = x =>
+    (!filter.SerialNumberId.HasValue || x.SerialNumberId == filter.SerialNumberId.Value) &&
+    (!filter.Disposition.HasValue
+        ? x.Disposition == DispositionType.PENDING.ToString()
+        : x.Disposition == filter.Disposition.Value.ToString());
 
-        var dtos = items.Select(MapToDto).ToList();
+        var (items, totalCount) = await _repository.GetPagedAsync(
+            page,
+            pageSize,
+            predicate,
+            cancellationToken: cancellationToken);
+
         return new PagedResult<StockInReworkDto>
         {
-            Items = dtos,
+            Items = items.Adapt<List<StockInReworkDto>>(),
             TotalCount = totalCount,
             Page = page,
             PageSize = pageSize
@@ -46,7 +55,7 @@ public class StockInReworkService : IStockInReworkService
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null) throw new NotFoundException(nameof(StockInRework), id);
-        return MapToDto(entity);
+        return entity.Adapt<StockInReworkDto>();
     }
 
     public async Task<IEnumerable<StockInReworkDto>> CreateAsync(CreateStockInReworkDto dto, CancellationToken cancellationToken = default)
@@ -66,6 +75,8 @@ public class StockInReworkService : IStockInReworkService
                 x => x.SerialNumberId == serialNumber.Id && x.IssueNumberBefore == issue.IssueNumber,
                 cancellationToken);
 
+
+
             if (existing != null)
             {
                 // Jika sudah ada, tambah qty
@@ -73,6 +84,7 @@ public class StockInReworkService : IStockInReworkService
                 existing.Note = issue.Note ?? existing.Note;
                 existing.Status = issue.Status;
                 existing.UpdatedAt = DateTime.UtcNow;
+                existing.Disposition = DispositionType.PENDING.ToString();
                 _repository.Update(existing);
                 resultEntities.Add(existing);
             }
@@ -87,6 +99,7 @@ public class StockInReworkService : IStockInReworkService
                     Qty               = 1,
                     Note              = issue.Note,
                     Status            = issue.Status,
+                    Disposition = DispositionType.PENDING.ToString(),
                     CreatedAt         = DateTime.UtcNow
                 };
                 await _repository.AddAsync(entity, cancellationToken);
@@ -96,26 +109,33 @@ public class StockInReworkService : IStockInReworkService
 
         await _repository.SaveChangesAsync(cancellationToken);
 
-        return resultEntities.Select(MapToDto).ToList();
+        return resultEntities.Adapt<List<StockInReworkDto>>();
     }
 
-    public async Task<StockInReworkDto> UpdateAsync(int id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default)
+    public async Task<StockInReworkDto> UpdateDispositionAsync(int id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
-        if (entity == null) throw new NotFoundException(nameof(StockInRework), id);
 
-        if (dto.IssueNumberBefore is not null) entity.IssueNumberBefore = dto.IssueNumberBefore;
-        if (dto.IssueNumberAfter  is not null) entity.IssueNumberAfter  = dto.IssueNumberAfter;
-        if (dto.Qty.HasValue)                  entity.Qty               = dto.Qty.Value;
-        if (dto.Note              is not null) entity.Note              = dto.Note;
-        if (dto.Status.HasValue)               entity.Status            = dto.Status.Value;
+        if (entity == null)
+            throw new NotFoundException(nameof(StockInRework), id);
 
+
+        if (entity.Disposition != DispositionType.PENDING.ToString())
+        {
+            throw new AppException(
+                $"Only items with 'PENDING' disposition can be updated. Current disposition is '{entity.Disposition}'.",
+                400);
+        }
+
+
+
+        entity.Disposition = dto.Disposition;
         entity.UpdatedAt = DateTime.UtcNow;
 
         _repository.Update(entity);
         await _repository.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(entity);
+        return entity.Adapt<StockInReworkDto>();
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
@@ -126,18 +146,4 @@ public class StockInReworkService : IStockInReworkService
         _repository.Remove(entity);
         await _repository.SaveChangesAsync(cancellationToken);
     }
-
-    private static StockInReworkDto MapToDto(StockInRework x) => new()
-    {
-        Id                = x.Id,
-        SerialNumberId    = x.SerialNumberId,
-        SerialNumberCode  = x.SerialNumber?.SerialNumberCode,
-        IssueNumberBefore = x.IssueNumberBefore,
-        IssueNumberAfter  = x.IssueNumberAfter,
-        Qty               = x.Qty,
-        Note              = x.Note,
-        Status            = x.Status,
-        CreatedAt         = x.CreatedAt,
-        UpdatedAt         = x.UpdatedAt
-    };
 }
