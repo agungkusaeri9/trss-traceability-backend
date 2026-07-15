@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<ISerialNumberService, SerialNumberService>();
         services.AddScoped<IStockInReworkService, StockInReworkService>();
         services.AddSingleton<ITraceabilitySummarySimulator, TraceabilitySummarySimulator>();
+        services.AddScoped<IPrintHistoryService, PrintHistoryService>();
 
         // Default no-op publisher; Worker sẽ override dengan singleton nyata sesudah AddApplication()
         services.AddSingleton<IMqttPublisher, NullMqttPublisher>();

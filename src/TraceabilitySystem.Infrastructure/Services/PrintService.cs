@@ -1,23 +1,32 @@
 using System;
-using System.Drawing.Printing;
-using System.IO;
-using System.Net.Sockets;
-using System.Text;
-using Microsoft.Extensions.Logging;
-using TraceabilitySystem.Application.Interfaces;
-using TraceabilitySystem.Domain.Interfaces;
-using Zebra.Sdk.Comm;
-using QRCoder;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using DrawingFont = System.Drawing.Font;
-using DrawingImage = System.Drawing.Image;
-using DrawingBrushes = System.Drawing.Brushes;
-using DrawingPens = System.Drawing.Pens;
-using DrawingColor = System.Drawing.Color;
-using DrawingFontStyle = System.Drawing.FontStyle;
-using TraceabilitySystem.Application.DTOs.StockIn;
+using System.Drawing.Printing;
+using System.IO;
+using System.Linq.Expressions;
+using System.Net.Sockets;
+using System.Text;
 using Mapster;
+using Microsoft.Extensions.Logging;
+using QRCoder;
+using TraceabilitySystem.Application.DTOs.PrintHistory;
+using TraceabilitySystem.Application.DTOs.StockIn;
+using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Domain.Entities;
+using TraceabilitySystem.Domain.Enums;
+using TraceabilitySystem.Domain.Interfaces;
+using TraceabilitySystem.Infrastructure.Persistence.Repositories;
+using TraceabilitySystem.Shared.Exceptions;
+using TraceabilitySystem.Shared.Models;
+using Zebra.Sdk.Comm;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using DrawingBrushes = System.Drawing.Brushes;
+using DrawingColor = System.Drawing.Color;
+using DrawingFont = System.Drawing.Font;
+using DrawingFontStyle = System.Drawing.FontStyle;
+using DrawingImage = System.Drawing.Image;
+using DrawingPens = System.Drawing.Pens;
+using System.Management;
 
 namespace TraceabilitySystem.Infrastructure.Services;
 
@@ -33,13 +42,19 @@ public class PrintService : IPrintService
     private readonly ILogger<PrintService> _logger;
     private readonly IPrinterService _printerService;
     private readonly IAppConfigRepository _configRepository;
+    private readonly IPrintHistoryService _printHistoryService;
     private readonly IStockInRepository _stockInRepository;
+    private readonly IPrintHistoryRepository _printHistoryRepository;
+    private readonly ISerialNumberRepository _serialNumberRepo;
 
     public PrintService(
         IServiceScopeFactory serviceScopeFactory,
         ILogger<PrintService> logger,
         IPrinterService printerService, IAppConfigRepository configRepository,
-        IStockInRepository stockInRepository
+        IStockInRepository stockInRepository,
+        IPrintHistoryService printHistoryService,
+        IPrintHistoryRepository printHistoryRepository,
+        ISerialNumberRepository serialNumberRepo
         )
     {
         _serviceScopeFactory = serviceScopeFactory;
@@ -47,9 +62,13 @@ public class PrintService : IPrintService
         _printerService = printerService;
         _configRepository = configRepository;
         _stockInRepository = stockInRepository;
+        _printHistoryService = printHistoryService;
+        _printHistoryRepository = printHistoryRepository;
+        _serialNumberRepo = serialNumberRepo;
     }
 
-    public async Task PrintClinchingLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    
+    private async Task PrintClinchingLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
 
@@ -115,7 +134,7 @@ public class PrintService : IPrintService
     {
         return Task.Run(() =>
         {
-            Connection connection = new DriverPrinterConnection(printerName);
+            Zebra.Sdk.Comm.Connection connection = new DriverPrinterConnection(printerName);
 
             try
             {
@@ -149,25 +168,66 @@ public class PrintService : IPrintService
     
     public async Task PrintClinchingShortSideAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
+        var printHistoryDto = new PrintHistoryCreateClinchingDto
+        {
+            Status = PrintStatus.Success,
+            SerialNumberCode = serialNumberCode,
+        };
+
         try
         {
             await PrintClinchingLabelWithSdkAsync(serialNumberCode, cancellationToken);
+            await _printHistoryService.CreateHistoryPrintClinchingAsync(printHistoryDto);
         }catch(Exception ex)
         {
-            _logger.LogError(ex, "Error printing....");
-            throw;
+            printHistoryDto.Status = PrintStatus.Failed;
+            printHistoryDto.ErrorMessage = ex.Message;
+            await _printHistoryService.CreateHistoryPrintClinchingAsync(printHistoryDto);
+           
         }
     }
 
     public async Task PrintStockInAsync(StockInDto stockInDto, CancellationToken cancellationToken = default)
     {
-        await PrintStockInProcessAsync(stockInDto, cancellationToken);
+        var printHistoryDto = new PrintHistoryCreateStockInDto
+        {
+            Status = PrintStatus.Success,
+            IssueNumber = stockInDto!.Issues!.FirstOrDefault()!.Number,
+        };
+
+        try
+        {
+            await PrintStockInProcessAsync(stockInDto, cancellationToken);
+            await _printHistoryService.CreateHistoryPrintStockInAsync(printHistoryDto);
+        }
+        catch (Exception ex)
+        {
+            printHistoryDto.Status = PrintStatus.Failed;
+            printHistoryDto.ErrorMessage = ex.Message;
+            await _printHistoryService.CreateHistoryPrintStockInAsync(printHistoryDto);
+
+        }
+    }
+
+    private static void ValidatePrinter(string printerName)
+    {
+        using var searcher = new ManagementObjectSearcher(
+            $"SELECT * FROM Win32_Printer WHERE Name='{printerName.Replace("\\", "\\\\")}'");
+
+        var printer = searcher.Get()
+            .Cast<ManagementObject>()
+            .FirstOrDefault();
+
+        if (printer == null)
+            throw new InvalidOperationException($"Printer '{printerName}' not found.");
+
+        if ((bool)printer["WorkOffline"])
+            throw new InvalidOperationException($"Printer '{printerName}' is offline.");
     }
 
     private async Task PrintStockInProcessAsync(StockInDto stockInDto, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Printing stock in processing....");
-
         string printerNameStockIn = await _configRepository.GetPrinterNameStockIn(cancellationToken);
 
         var issue = stockInDto.Issues.First();
@@ -180,11 +240,9 @@ public class PrintService : IPrintService
         var supplyDate = stockInDto.SupplyDate.ToString("yyyy.MM.dd");
         var receiptDate = stockInDto.ReceiptDate.ToString("yyyy.MM.dd");
 
-        try
+        // Generate QR
+        string qrContent = string.Join(";", new[]
         {
-            // Generate QR
-            string qrContent = string.Join(";", new[]
-            {
                 issueNumber,
                 partNumber,
                 partName,
@@ -192,6 +250,9 @@ public class PrintService : IPrintService
                 supplyDate,
                 receiptDate
             });
+        try
+        {
+
 
             using var qrGenerator = new QRCodeGenerator();
             using var qrData = qrGenerator.CreateQrCode(qrContent, QRCodeGenerator.ECCLevel.Q);
@@ -205,6 +266,18 @@ public class PrintService : IPrintService
 
             pd.PrinterSettings.PrinterName = printerNameStockIn;
 
+            if (!pd.PrinterSettings.IsValid)
+            {
+                throw new InvalidOperationException(
+                    $"Printer '{printerNameStockIn}' was not found.");
+            }
+
+            ValidatePrinter(printerNameStockIn);
+
+
+            pd.PrinterSettings.PrinterName = printerNameStockIn;
+
+
             pd.DefaultPageSettings.Landscape = true;
 
             // A5
@@ -212,7 +285,7 @@ public class PrintService : IPrintService
 
             pd.PrintPage += (sender, e) =>
             {
-                Graphics g = e.Graphics;
+                Graphics g = e.Graphics!;
                 int pageWidth = e.PageBounds.Width;
                 int pageHeight = e.PageBounds.Height;
 
@@ -334,12 +407,15 @@ public class PrintService : IPrintService
             };
 
             pd.Print();
-
-            _logger.LogInformation("Printing stock in completed....");
+        }
+        catch (ConnectionException ex)
+        {
+            _logger.LogError(ex, "Failed to connect to printer '{printerNameStockIn}'", printerNameStockIn);
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error printing stock in....");
+            _logger.LogError(ex, "Unexpected error while printing.");
             throw;
         }
     }
@@ -348,4 +424,59 @@ public class PrintService : IPrintService
     //{
     //    await PrintClinchingLabelWithSdkAsync(issueNumber, cancellationToken);
     //}
+
+    public async Task RePrintAsync(int id, CancellationToken cancellation = default)
+    {
+        var result = await _printHistoryRepository.GetByIdAsync(id);
+        if (result is null)
+        {
+            throw new NotFoundException("Print history not found",nameof(id));
+        }
+        try
+        {
+
+            if (result.Module == PrintModule.StockIn)
+                await RePrintStockInAsync(result.ReferenceNumber!);
+            else if (result.Module == PrintModule.Clinching)
+                await RePrintClinchingAsync(result.ReferenceNumber!);
+
+
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MASUK REPRINT CATCH");
+
+
+            result.RetryCount += 1;
+            result.LastRetryAt = DateTime.UtcNow;
+            _printHistoryRepository.Update(result);
+            await _printHistoryRepository.SaveChangesAsync();
+            throw new AppException($"Reprint failed: {ex.Message}");
+        }
+    }
+
+    private async Task RePrintStockInAsync(string issueNumber)
+    {
+        try
+        {
+            var stockIn = await _stockInRepository.GetByIssueNumberAsync(issueNumber);
+            if (stockIn is null)
+                throw new KeyNotFoundException("Stock In not found.");
+            var stockInDto = stockIn.Adapt<StockInDto>();
+            await PrintStockInProcessAsync(stockInDto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during reprint stock in for issue number: {IssueNumber}", issueNumber);
+            throw;
+        }
+    }
+
+    private async Task RePrintClinchingAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    {
+        var serialNumber = await _serialNumberRepo.GetWithRelatedBySerialNumberAsync(serialNumberCode);
+        if (serialNumber is null)
+            throw new KeyNotFoundException("Serial Number not found.");
+        await PrintClinchingLabelWithSdkAsync(serialNumber.SerialNumberCode, cancellationToken);
+    }
 }

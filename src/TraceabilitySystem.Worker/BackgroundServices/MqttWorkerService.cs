@@ -135,14 +135,14 @@ public class MqttWorkerService : BackgroundService
         // Dispatch process result topics to dedicated handlers
         var processResultTask = topic switch
         {
-            "data/process/clinching-short-side/result" =>   _mqttSubsriptionService.HandleClinchingShortSideResultAsync(payload, request),
-            "data/process/clinching-long-side/result" =>  _mqttSubsriptionService.HandleClinchingLongSideResultAsync(payload, request),
-            "data/process/he-leak/result" =>  _mqttSubsriptionService.HandleHeLeakResultAsync(payload, request),
-            "data/process/m-fan-assy/result-scan" =>  _mqttSubsriptionService.HandleMFanAssyResultScanAsync(payload, request),
-             "data/process/m-fan-assy/result"           =>  _mqttSubsriptionService.HandleMFanAssyResultAsync(payload, request),
-            "data/process/m-fan-inspection/result" =>  _mqttSubsriptionService.HandleMFanInspectionResultAsync(payload, request),
-            "data/process/ecm-assy/result" =>  _mqttSubsriptionService.HandleEcmAssyResultAsync(payload, request),
-            "data/process/final-inspection/result" =>  _mqttSubsriptionService.HandleFinalInspectionResultAsync(payload, request),
+            "data/process/clinching-short-side/result" =>   _mqttSubsriptionService.HandleClinchingShortSideResultAsync(payload, request!),
+            "data/process/clinching-long-side/result" =>  _mqttSubsriptionService.HandleClinchingLongSideResultAsync(payload, request!),
+            "data/process/he-leak/result" =>  _mqttSubsriptionService.HandleHeLeakResultAsync(payload, request!),
+            "data/process/m-fan-assy/result-scan" =>  _mqttSubsriptionService.HandleMFanAssyResultScanAsync(payload, request!),
+             "data/process/m-fan-assy/result"           =>  _mqttSubsriptionService.HandleMFanAssyResultAsync(payload, request!),
+            "data/process/m-fan-inspection/result" =>  _mqttSubsriptionService.HandleMFanInspectionResultAsync(payload, request!),
+            "data/process/ecm-assy/result" =>  _mqttSubsriptionService.HandleEcmAssyResultAsync(payload, request!),
+            "data/process/final-inspection/result" =>  _mqttSubsriptionService.HandleFinalInspectionResultAsync(payload, request!),
             _ => null
         };
 

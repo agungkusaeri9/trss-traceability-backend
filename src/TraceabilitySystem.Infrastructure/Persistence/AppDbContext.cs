@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<SerialNumberRelation> SerialNumberRelations => Set<SerialNumberRelation>();
     public DbSet<IssueTransaction> IssueTransactions => Set<IssueTransaction>();
     public DbSet<StockInRework> StockInReworks => Set<StockInRework>();
+    public DbSet<PrintHistory> PrintHistories => Set<PrintHistory>();
 
     public static bool IsInMemory { get; private set; }
 

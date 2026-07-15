@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
         services.AddScoped<IIssueTransactionRepository, IssueTransactionRepository>();
         services.AddScoped<IStockInReworkRepository, StockInReworkRepository>();
+        services.AddScoped<IPrintHistoryRepository, PrintHistoryRepository>();
 
         // Infrastructure Services
         services.AddScoped<IJwtService, JwtService>();

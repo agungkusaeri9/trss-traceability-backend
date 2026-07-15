@@ -7,10 +7,8 @@ namespace TraceabilitySystem.Infrastructure.Persistence.Repositories;
 
 public class PartRepository : BaseRepository<Part>, IPartRepository
 {
-    private readonly AppDbContext _context;
     public PartRepository(AppDbContext context) : base(context)
     {
-        _context = context;
     }
 
     public async Task RemoveAsync(Part entity, CancellationToken cancellationToken = default)

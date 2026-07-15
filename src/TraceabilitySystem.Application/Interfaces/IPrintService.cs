@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using TraceabilitySystem.Application.DTOs.PrintHistory;
 using TraceabilitySystem.Application.DTOs.StockIn;
 
 namespace TraceabilitySystem.Application.Interfaces;
@@ -27,6 +28,7 @@ public interface IPrintService
     /// </summary>
     Task PrintClinchingShortSideAsync(string serialNumber, CancellationToken cancellationToken = default);
     Task PrintStockInAsync(StockInDto stockInDto, CancellationToken cancellationToken = default);
+    Task RePrintAsync(int id, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Process print for M_FAN_ASSY process code
