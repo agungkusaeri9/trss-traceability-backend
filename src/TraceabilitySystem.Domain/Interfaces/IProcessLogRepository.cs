@@ -29,4 +29,6 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
     Task<ProcessLog?> GetProcessLogFullValueAsync(
     string serialNumberCode,
     CancellationToken cancellationToken = default);
+
+    Task<int> CountProductionAsync(DateTime startDate, DateTime endDate, bool? status, CancellationToken cancellationToken = default);
 }

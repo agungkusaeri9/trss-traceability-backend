@@ -27,9 +27,11 @@ namespace TraceabilitySystem.API.Controllers
         public async Task<IActionResult> GetSerialNumbers(
             [FromQuery] PaginationDto pagination,
             [FromQuery] string? search = null,
+            [FromQuery] bool? status = null,
+            [FromQuery] bool isFinished = true,
             CancellationToken cancellationToken = default)
         {
-            var result = await _serialNumberSerivice.GetSerialNumbersAsync(pagination.Page, pagination.Limit, search, cancellationToken);
+            var result = await _serialNumberSerivice.GetSerialNumbersAsync(pagination.Page, pagination.Limit, search, status, isFinished, cancellationToken);
             return ResponseFormatter.PagedSuccess(result);
         }
 

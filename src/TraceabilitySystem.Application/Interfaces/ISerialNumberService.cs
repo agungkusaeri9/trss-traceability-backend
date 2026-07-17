@@ -8,7 +8,7 @@ namespace TraceabilitySystem.Application.Interfaces;
 
 public interface ISerialNumberService
 {
-    Task<PagedResult<SerialNumberDto>> GetSerialNumbersAsync(int page, int pageSize, string? searchTerm = null, CancellationToken cancellationToken = default);
+    Task<PagedResult<SerialNumberDto>> GetSerialNumbersAsync(int page, int pageSize, string? searchTerm = null, bool? status = null, bool isFinished = true, CancellationToken cancellationToken = default);
     Task<SerialNumberDto> CreateAsync(CreateSerialNumberRequestDto request, CancellationToken cancellationToken = default);
     Task<IEnumerable<SerialNumberDto>> CreateBatchAsync(CreateBatchSerialNumberRequestDto request, CancellationToken cancellationToken = default);
     Task<IEnumerable<SerialNumberDto>> CreateFromIssuesAsync(CreateSerialNumbersFromIssuesRequestDto request, CancellationToken cancellationToken = default);

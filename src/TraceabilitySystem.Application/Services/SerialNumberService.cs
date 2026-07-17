@@ -33,7 +33,7 @@ public class SerialNumberService : ISerialNumberService
 
 
     public async Task<PagedResult<SerialNumberDto>> GetSerialNumbersAsync(
-        int page, int pageSize, string? searchTerm = null, CancellationToken cancellationToken = default)
+        int page, int pageSize, string? searchTerm = null, bool? status = null, bool isFinished = true, CancellationToken cancellationToken = default)
     {       
 
         var (serialNumbers, totalCount) = await _serialNumberRepository.GetPagedWithRelatedAsync(
@@ -41,7 +41,8 @@ public class SerialNumberService : ISerialNumberService
             pageSize,
           predicate: p => (string.IsNullOrEmpty(searchTerm)
                 || p.SerialNumberCode.Contains(searchTerm))
-                && (p.SerialNumberCode.StartsWith("CC")),
+                && (p.SerialNumberCode.StartsWith("CC"))
+                && p.ProcessLogs.Any(pl => pl.IsFinished == isFinished && (!status.HasValue || pl.Status == status.Value)),
             orderBy: q => q.OrderByDescending(u => u.CreatedAt),
             cancellationToken: cancellationToken);
 

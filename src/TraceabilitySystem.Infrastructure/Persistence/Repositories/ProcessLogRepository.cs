@@ -163,6 +163,22 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<int> CountProductionAsync(DateTime startDate, DateTime endDate, bool? status, CancellationToken cancellationToken = default)
+    {
+        var query = _context.ProcessLogs
+            .Where(x => x.SerialNumber != null && 
+                        x.SerialNumber.SerialNumberCode.StartsWith("CC") &&
+                        x.CreatedAt >= startDate && 
+                        x.CreatedAt < endDate &&
+                        x.IsFinished);
+
+        if (status.HasValue)
+        {
+            query = query.Where(x => x.Status == status.Value);
+        }
+
+        return await query.CountAsync(cancellationToken);
+    }
 
     public async Task<ProcessLog> AddProcessLogPerProcessAsync(
         string serialNumberCode,

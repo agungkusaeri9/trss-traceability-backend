@@ -216,6 +216,29 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<SerialNumber>> GetAllWithIssuesAndChildRelationsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(sn => sn.Issues!)
+                .ThenInclude(sni => sni.Issue!)
+                    .ThenInclude(i => i.StockIn!)
+                        .ThenInclude(si => si.Part!)
+            .Include(sn => sn.ParentRelations!)
+                .ThenInclude(r => r.ChildSerialNumber)
+                    .ThenInclude(c => c.Issues!)
+                        .ThenInclude(sni => sni.Issue!)
+                            .ThenInclude(i => i.StockIn!)
+                                .ThenInclude(si => si.Part!)
+            .Include(sn => sn.ChildRelations!)
+                .ThenInclude(r => r.ParentSerialNumber)
+                    .ThenInclude(p => p.Issues!)
+                        .ThenInclude(sni => sni.Issue!)
+                            .ThenInclude(i => i.StockIn!)
+                                .ThenInclude(si => si.Part!)
+            .Where(sn => sn.SerialNumberCode.StartsWith("CC") || sn.SerialNumberCode.StartsWith("MF"))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> CheckByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
         return await _dbSet.AnyAsync(sn => sn.SerialNumberCode == serialNumberCode, cancellationToken);
@@ -230,6 +253,18 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
                 .ThenInclude(sni => sni.Issue!)
                     .ThenInclude(i => i.StockIn!)
                         .ThenInclude(si => si.Part!)
+            .Include(sn => sn.ParentRelations!)
+                .ThenInclude(r => r.ChildSerialNumber)
+                    .ThenInclude(c => c.Issues!)
+                        .ThenInclude(sni => sni.Issue!)
+                            .ThenInclude(i => i.StockIn!)
+                                .ThenInclude(si => si.Part!)
+            .Include(sn => sn.ChildRelations!)
+                .ThenInclude(r => r.ParentSerialNumber)
+                    .ThenInclude(p => p.Issues!)
+                        .ThenInclude(sni => sni.Issue!)
+                            .ThenInclude(i => i.StockIn!)
+                                .ThenInclude(si => si.Part!)
             .FirstOrDefaultAsync(
                 sn => sn.SerialNumberCode == serialNumber,
                 cancellationToken);

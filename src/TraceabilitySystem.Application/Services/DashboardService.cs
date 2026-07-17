@@ -56,23 +56,27 @@ public class DashboardService : IDashboardService
     {
         var now = DateTime.Now;
         var todayStart = now.Date;
+        var todayEnd = todayStart.AddDays(1);
         var monthStart = new DateTime(now.Year, now.Month, 1);
+        var monthEnd = now.Month == 12 ? new DateTime(now.Year + 1, 1, 1) : monthStart.AddMonths(1);
+        var yearStart = new DateTime(now.Year, 1, 1);
+        var yearEnd = new DateTime(now.Year + 1, 1, 1);
 
         var summary = new DashboardSummaryDto();
 
-        summary.Today.TotalProduction = await _processLogRepository.CountAsync(x => x.CreatedAt >= todayStart, cancellationToken);
-        summary.Today.OkCount = await _processLogRepository.CountAsync(x => x.CreatedAt >= todayStart && x.IsActive, cancellationToken);
-        summary.Today.NgCount = summary.Today.TotalProduction - summary.Today.OkCount;
+        summary.Today.TotalProduction = await _processLogRepository.CountProductionAsync(todayStart, todayEnd, null, cancellationToken);
+        summary.Today.OkCount = await _processLogRepository.CountProductionAsync(todayStart, todayEnd, true, cancellationToken);
+        summary.Today.NgCount = await _processLogRepository.CountProductionAsync(todayStart, todayEnd, false, cancellationToken);
         summary.Today.YieldRate = CalculateYield(summary.Today.TotalProduction, summary.Today.OkCount);
 
-        summary.ThisMonth.TotalProduction = await _processLogRepository.CountAsync(x => x.CreatedAt >= monthStart, cancellationToken);
-        summary.ThisMonth.OkCount = await _processLogRepository.CountAsync(x => x.CreatedAt >= monthStart && x.IsActive, cancellationToken);
-        summary.ThisMonth.NgCount = summary.ThisMonth.TotalProduction - summary.ThisMonth.OkCount;
+        summary.ThisMonth.TotalProduction = await _processLogRepository.CountProductionAsync(monthStart, monthEnd, null, cancellationToken);
+        summary.ThisMonth.OkCount = await _processLogRepository.CountProductionAsync(monthStart, monthEnd, true, cancellationToken);
+        summary.ThisMonth.NgCount = await _processLogRepository.CountProductionAsync(monthStart, monthEnd, false, cancellationToken);
         summary.ThisMonth.YieldRate = CalculateYield(summary.ThisMonth.TotalProduction, summary.ThisMonth.OkCount);
 
-        summary.Total.TotalProduction = await _processLogRepository.CountAsync(null, cancellationToken);
-        summary.Total.OkCount = await _processLogRepository.CountAsync(x => x.IsActive, cancellationToken);
-        summary.Total.NgCount = summary.Total.TotalProduction - summary.Total.OkCount;
+        summary.Total.TotalProduction = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, null, cancellationToken);
+        summary.Total.OkCount = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, true, cancellationToken);
+        summary.Total.NgCount = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, false, cancellationToken);
         summary.Total.YieldRate = CalculateYield(summary.Total.TotalProduction, summary.Total.OkCount);
 
         return summary;
@@ -88,30 +92,30 @@ public class DashboardService : IDashboardService
         var stats = new DashboardStatsDto();
 
         // 1. Quality Distribution (Pie Chart)
-        int ok = await _processLogRepository.CountAsync(x => x.IsActive, cancellationToken);
-        int total = await _processLogRepository.CountAsync(null, cancellationToken);
-        int ng = total - ok;
+        var now = DateTime.Now;
+        var yearStart = new DateTime(now.Year, 1, 1);
+        var yearEnd = new DateTime(now.Year + 1, 1, 1);
+
+        int total = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, null, cancellationToken);
+        int ok = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, true, cancellationToken);
+        int ng = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, false, cancellationToken);
 
         stats.QualityDistribution.Add(new ChartDataDto { Label = "OK", Value = ok });
         stats.QualityDistribution.Add(new ChartDataDto { Label = "NG", Value = ng });
 
         // 2. Top Parts Production (Bar Chart)
-        // Note: In a real app, we'd use a more optimized query or Dapper. 
-        // For now, we'll use a simple group by on the logs we fetch.
-        var allLogs = await _processLogRepository.GetAllAsync(cancellationToken);
+        var allSerialNumbers = await _serialNumberRepository.GetAllWithIssuesAndChildRelationsAsync(cancellationToken);
+        var ccSerialNumbers = allSerialNumbers.Where(x => x.SerialNumberCode.StartsWith("CC")).Take(100);
         
-        // This is a bit heavy, but for seed data it's fine. 
-        // In production, you'd want a specific repository method for this.
         var topParts = new List<ChartDataDto>();
         var partCount = new Dictionary<string, int>();
 
-        foreach (var log in allLogs.Take(100))
+        foreach (var serialNumber in ccSerialNumbers)
         {
-            var serialNumber = await _serialNumberRepository.GetWithRelatedAsync(log.SerialNumberId, cancellationToken);
-            if (serialNumber != null && serialNumber.Issues.Any())
+            if (serialNumber.Issues != null && serialNumber.Issues.Any())
             {
                 var firstIssue = serialNumber.Issues.FirstOrDefault();
-                if (firstIssue?.Issue?.StockIn?.Part != null)
+                if (firstIssue?.Issue != null && firstIssue.Issue.StockIn != null && firstIssue.Issue.StockIn.Part != null)
                 {
                     string partNumber = firstIssue.Issue.StockIn.Part.Number;
                     if (partCount.ContainsKey(partNumber))
@@ -139,7 +143,7 @@ public class DashboardService : IDashboardService
         {
             var date = DateTime.Now.Date.AddDays(-i);
             var nextDate = date.AddDays(1);
-            var count = await _processLogRepository.CountAsync(x => x.CreatedAt >= date && x.CreatedAt < nextDate, cancellationToken);
+            var count = await _processLogRepository.CountAsync(x => x.CreatedAt >= date && x.CreatedAt < nextDate && x.SerialNumber != null && x.SerialNumber.SerialNumberCode.StartsWith("CC") && x.IsFinished, cancellationToken);
             
             stats.ProductionTrend.Add(new ChartDataDto 
             { 

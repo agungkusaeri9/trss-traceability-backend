@@ -11,6 +11,7 @@ public interface ISerialNumberRepository : IRepository<SerialNumber>
     Task<SerialNumber?> GetWithRelatedAsync(int id, CancellationToken cancellationToken = default);
     Task<SerialNumber?> GetWithRelatedBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default);
     Task<IEnumerable<SerialNumber>> GetAllWithChildRelationsAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<SerialNumber>> GetAllWithIssuesAndChildRelationsAsync(CancellationToken cancellationToken = default);
     Task CreateWithIssuesAsync(
         IEnumerable<SerialNumber> serialNumbers,
         IEnumerable<string> issueNumbers,
