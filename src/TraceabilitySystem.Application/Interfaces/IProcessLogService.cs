@@ -9,7 +9,8 @@ public interface IProcessLogService
         int page, 
         int pageSize, 
         string? serialNumberCode = null, 
-        bool? isActive = null,
+        bool? status = null,
+        bool isFinished = true,
         CancellationToken cancellationToken = default);
 
     Task<ProcessLogDto> GetProcessLogByIdAsync(long id, CancellationToken cancellationToken = default);

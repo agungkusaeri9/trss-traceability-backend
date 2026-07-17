@@ -16,12 +16,13 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         int page,
         int pageSize,
         string? serialNumberCode = null,
-        bool? isActive = null,
+        bool? status = null,
+        bool isFinished = true,
         CancellationToken cancellationToken = default)
     {
         var query = _context.ProcessLogs
             .Include(x => x.SerialNumber)
-            .Where(x => x.SerialNumber.SerialNumberCode.StartsWith("CC"))
+            .Where(x => x.SerialNumber.SerialNumberCode.StartsWith("CC") && x.IsFinished == isFinished)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(serialNumberCode))
@@ -29,9 +30,9 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
             query = query.Where(x => x.SerialNumber.SerialNumberCode.Contains(serialNumberCode));
         }
 
-        if (isActive.HasValue)
+        if (status.HasValue)
         {
-            query = query.Where(x => x.IsActive == isActive.Value);
+            query = query.Where(x => x.Status == status.Value);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

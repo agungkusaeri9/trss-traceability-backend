@@ -24,12 +24,12 @@ public class ProcessLogsController : ControllerBase
     public async Task<IActionResult> GetProcessLogs(
         [FromQuery] PaginationDto pagination,
         [FromQuery] string? serialNumberCode = null,
-
-        [FromQuery] bool? isActive = null,
+        [FromQuery] bool? status = null,
+        [FromQuery] bool isFinished = true,
         CancellationToken cancellationToken = default)
     {
         var result = await _processLogService.GetProcessLogsAsync(
-            pagination.Page, pagination.Limit, serialNumberCode, isActive, cancellationToken);
+            pagination.Page, pagination.Limit, serialNumberCode, status, isFinished, cancellationToken);
         return ResponseFormatter.PagedSuccess(result);
     }
 

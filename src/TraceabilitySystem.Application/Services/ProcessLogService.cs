@@ -45,11 +45,12 @@ public class ProcessLogService : IProcessLogService
         int page,
         int pageSize,
         string? serialNumberCode = null,
-        bool? isActive = null,
+        bool? status = null,
+        bool isFinished = true,
         CancellationToken cancellationToken = default)
     {
         var (logs, totalCount) = await _processLogRepository.GetPagedLogsAsync(
-            page, pageSize, serialNumberCode, isActive, cancellationToken);
+            page, pageSize, serialNumberCode, status, isFinished, cancellationToken);
 
         var dtos = logs.Select(log => MapToListDto(log)).ToList();
 
