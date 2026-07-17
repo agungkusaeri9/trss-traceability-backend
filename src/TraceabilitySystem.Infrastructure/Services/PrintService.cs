@@ -46,6 +46,7 @@ public class PrintService : IPrintService
     private readonly IStockInRepository _stockInRepository;
     private readonly IPrintHistoryRepository _printHistoryRepository;
     private readonly ISerialNumberRepository _serialNumberRepo;
+    private readonly IMqttPublisher _mqttPublisher;
 
     public PrintService(
         IServiceScopeFactory serviceScopeFactory,
@@ -54,7 +55,8 @@ public class PrintService : IPrintService
         IStockInRepository stockInRepository,
         IPrintHistoryService printHistoryService,
         IPrintHistoryRepository printHistoryRepository,
-        ISerialNumberRepository serialNumberRepo
+        ISerialNumberRepository serialNumberRepo,
+        IMqttPublisher mqttPublisher
         )
     {
         _serviceScopeFactory = serviceScopeFactory;
@@ -65,6 +67,7 @@ public class PrintService : IPrintService
         _printHistoryService = printHistoryService;
         _printHistoryRepository = printHistoryRepository;
         _serialNumberRepo = serialNumberRepo;
+        _mqttPublisher = mqttPublisher;
     }
 
     
@@ -166,7 +169,7 @@ public class PrintService : IPrintService
     }
 
     
-    public async Task PrintClinchingShortSideAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    public async Task PrintClinchingShortSideAsync(string serialNumberCode, List<string>? issueNumbers = null, CancellationToken cancellationToken = default)
     {
         var printHistoryDto = new PrintHistoryCreateClinchingDto
         {
@@ -178,12 +181,25 @@ public class PrintService : IPrintService
         {
             await PrintClinchingLabelWithSdkAsync(serialNumberCode, cancellationToken);
             await _printHistoryService.CreateHistoryPrintClinchingAsync(printHistoryDto);
+
+            await _mqttPublisher.PublishAsync("data/print/clinching-short-side", new
+            {
+                IsPrinted = true,
+                SerialNumber = serialNumberCode,
+                IssueNumbers = issueNumbers ?? new List<string>()
+            }, cancellationToken);
         }catch(Exception ex)
         {
             printHistoryDto.Status = PrintStatus.Failed;
             printHistoryDto.ErrorMessage = ex.Message;
             await _printHistoryService.CreateHistoryPrintClinchingAsync(printHistoryDto);
-           
+
+            await _mqttPublisher.PublishAsync("data/print/clinching-short-side", new
+            {
+                IsPrinted = false,
+                SerialNumber = serialNumberCode,
+                IssueNumbers = issueNumbers ?? new List<string>()
+            }, cancellationToken);
         }
     }
 

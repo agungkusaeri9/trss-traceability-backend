@@ -26,7 +26,7 @@ public interface IPrintService
     /// <summary>
     /// Process print for CLINCHING_SHORT_SIDE process code
     /// </summary>
-    Task PrintClinchingShortSideAsync(string serialNumber, CancellationToken cancellationToken = default);
+    Task PrintClinchingShortSideAsync(string serialNumber, List<string>? issueNumbers = null, CancellationToken cancellationToken = default);
     Task PrintStockInAsync(StockInDto stockInDto, CancellationToken cancellationToken = default);
     Task RePrintAsync(int id, CancellationToken cancellationToken = default);
 

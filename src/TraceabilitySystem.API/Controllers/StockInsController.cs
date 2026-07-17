@@ -96,8 +96,9 @@ public class StockInsController : ControllerBase
     {
         var stockIn = await _stockInService.GetStockInByIdAsync(id, cancellationToken);
         var issueNumber = stockIn.Issues.Count > 0 ? stockIn.Issues[0].Number : "-";
+        var issueNumbers = stockIn.Issues.Select(i => i.Number).ToList();
 
-        await _printService.PrintClinchingShortSideAsync(issueNumber);
+        await _printService.PrintClinchingShortSideAsync(issueNumber, issueNumbers);
 
         return ResponseFormatter.Success(message: "Stock-in label print triggered.");
     }

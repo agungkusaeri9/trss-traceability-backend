@@ -84,7 +84,7 @@ public class MqttPrintRequestService : IMqttPrintRequestService
         {
             if (entity.ProcessCode == "CLINCHING_SHORT_SIDE")
             {
-                await _printService.PrintClinchingShortSideAsync(entity.IssueNumber, cancellationToken);
+                await _printService.PrintClinchingShortSideAsync(entity.IssueNumber, new List<string> { entity.IssueNumber }, cancellationToken);
             }
             else if (entity.ProcessCode == "M_FAN_ASSY")
             {

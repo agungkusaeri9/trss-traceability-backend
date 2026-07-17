@@ -88,7 +88,8 @@ namespace TraceabilitySystem.Worker.Services
                     cancellationToken: default);
 
                 //print label 
-                await _printService.PrintClinchingShortSideAsync(request.SerialNumber!);
+                var issueNumbers = ExtractIssueNumbers(request.Data);
+                await _printService.PrintClinchingShortSideAsync(request.SerialNumber!, issueNumbers);
 
                 _logger.LogInformation(
                     "[MQTT][ClinchingShortSide] Process log created. Id={ProcessLogId}, SN={SerialNumber}",
@@ -388,5 +389,25 @@ namespace TraceabilitySystem.Worker.Services
             }
         }
       
+        private static List<string> ExtractIssueNumbers(Dictionary<string, object>? data)
+        {
+            var result = new List<string>();
+            if (data == null) return result;
+
+            var dataInsensitive = new Dictionary<string, object>(data, StringComparer.OrdinalIgnoreCase);
+            if (!dataInsensitive.TryGetValue("issue_numbers", out var raw)) return result;
+
+            if (raw is System.Text.Json.JsonElement element && element.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in element.EnumerateArray())
+                {
+                    var str = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(str))
+                        result.Add(str);
+                }
+            }
+
+            return result;
+        }
     }
 }
