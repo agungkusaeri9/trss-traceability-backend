@@ -23,4 +23,6 @@ public interface ISerialNumberRepository : IRepository<SerialNumber>
      Expression<Func<SerialNumber, bool>>? predicate = null,
      Func<IQueryable<SerialNumber>, IOrderedQueryable<SerialNumber>>? orderBy = null,
      CancellationToken cancellationToken = default);
+
+    Task<HashSet<string>> GetAllIssueNumbersByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default);
 }

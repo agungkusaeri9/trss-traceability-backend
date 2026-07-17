@@ -786,4 +786,21 @@ public class ProcessLogService : IProcessLogService
         }
         return val.ToString();
     }
+
+    public async Task<bool> ValidateSerialNumberProcessLogAsync(
+        string serialNumberCode,
+        CancellationToken cancellationToken = default)
+    {
+        var serialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
+            s => s.SerialNumberCode == serialNumberCode, cancellationToken);
+
+        if (serialNumber == null) return false;
+
+        var processLog = await _processLogRepository.FirstOrDefaultAsync(
+            pl => pl.SerialNumberId == serialNumber.Id, cancellationToken);
+
+        if (processLog == null) return false;
+
+        return processLog.IsFinished && !processLog.Status;
+    }
 }

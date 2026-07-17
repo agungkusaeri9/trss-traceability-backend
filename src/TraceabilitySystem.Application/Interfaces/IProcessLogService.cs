@@ -32,4 +32,8 @@ public interface IProcessLogService
     Task<ProcessLogDto> CreateProcessLogByClinchingAsync(
         CreateProcessLogRequestDto request,
         CancellationToken cancellationToken = default);
+
+    Task<bool> ValidateSerialNumberProcessLogAsync(
+        string serialNumberCode,
+        CancellationToken cancellationToken = default);
 }

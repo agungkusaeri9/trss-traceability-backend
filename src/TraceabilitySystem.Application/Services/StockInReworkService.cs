@@ -13,13 +13,16 @@ public class StockInReworkService : IStockInReworkService
 {
     private readonly IStockInReworkRepository _repository;
     private readonly ISerialNumberRepository _serialNumberRepository;
+    private readonly IProcessLogService _processLogService;
 
     public StockInReworkService(
         IStockInReworkRepository repository,
-        ISerialNumberRepository serialNumberRepository)
+        ISerialNumberRepository serialNumberRepository,
+        IProcessLogService processLogService)
     {
         _repository = repository;
         _serialNumberRepository = serialNumberRepository;
+        _processLogService = processLogService;
     }
 
     public async Task<PagedResult<StockInReworkDto>> GetPagedAsync(
@@ -60,56 +63,138 @@ public class StockInReworkService : IStockInReworkService
 
     public async Task<IEnumerable<StockInReworkDto>> CreateAsync(CreateStockInReworkDto dto, CancellationToken cancellationToken = default)
     {
-        var serialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
-            x => x.SerialNumberCode == dto.SerialNumberCode, cancellationToken);
-            
-        if (serialNumber == null)
-            throw new AppException($"Serial number '{dto.SerialNumberCode}' not found.", 404);
+        var serialNumber = await GetAndValidateSerialNumberAsync(dto.SerialNumberCode, cancellationToken);
 
-        var resultEntities = new List<StockInRework>();
+        await ValidateIssueNumbersExistAsync(dto.SerialNumberCode, dto.IssueNumbers, cancellationToken);
+        await ValidateAllIssueNumbersIncludedAsync(dto.SerialNumberCode, dto.IssueNumbers, cancellationToken);
+        await ValidateProcessLogStatusAsync(dto.SerialNumberCode, cancellationToken);
 
-        foreach (var issue in dto.IssueNumbers)
-        {
-            // Cek apakah sudah ada record dengan serialNumberId + issueNumberBefore yang sama
-            var existing = await _repository.FirstOrDefaultAsync(
-                x => x.SerialNumberId == serialNumber.Id && x.IssueNumberBefore == issue.IssueNumber,
-                cancellationToken);
-
-
-
-            if (existing != null)
-            {
-                // Jika sudah ada, tambah qty
-                existing.Qty += 1;
-                existing.Note = issue.Note ?? existing.Note;
-                existing.Status = issue.Status;
-                existing.UpdatedAt = DateTime.UtcNow;
-                existing.Disposition = DispositionType.PENDING.ToString();
-                _repository.Update(existing);
-                resultEntities.Add(existing);
-            }
-            else
-            {
-                // Jika belum ada, insert baru dengan qty = 1
-                var entity = new StockInRework
-                {
-                    SerialNumberId    = serialNumber.Id,
-                    IssueNumberBefore = issue.IssueNumber,
-                    IssueNumberAfter  = $"{issue.IssueNumber}-R",
-                    Qty               = 1,
-                    Note              = issue.Note,
-                    Status            = issue.Status,
-                    Disposition = DispositionType.PENDING.ToString(),
-                    CreatedAt         = DateTime.UtcNow
-                };
-                await _repository.AddAsync(entity, cancellationToken);
-                resultEntities.Add(entity);
-            }
-        }
+        var resultEntities = await UpsertStockInReworksAsync(serialNumber.Id, dto.IssueNumbers, cancellationToken);
 
         await _repository.SaveChangesAsync(cancellationToken);
 
         return resultEntities.Adapt<List<StockInReworkDto>>();
+    }
+
+    private async Task<SerialNumber> GetAndValidateSerialNumberAsync(
+        string serialNumberCode,
+        CancellationToken cancellationToken)
+    {
+        var serialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
+            x => x.SerialNumberCode == serialNumberCode, cancellationToken);
+
+        if (serialNumber == null)
+            throw new AppException($"Serial number '{serialNumberCode}' not found.", 404);
+
+        return serialNumber;
+    }
+
+    private async Task<List<StockInRework>> UpsertStockInReworksAsync(
+        int serialNumberId,
+        List<IssueNumberRequestDto> issueNumbers,
+        CancellationToken cancellationToken)
+    {
+        var resultEntities = new List<StockInRework>();
+
+        foreach (var issue in issueNumbers)
+        {
+            var entity = await UpsertStockInReworkAsync(serialNumberId, issue, cancellationToken);
+            resultEntities.Add(entity);
+        }
+
+        return resultEntities;
+    }
+
+    private async Task<StockInRework> UpsertStockInReworkAsync(
+        int serialNumberId,
+        IssueNumberRequestDto issueDto,
+        CancellationToken cancellationToken)
+    {
+        var existing = await _repository.FirstOrDefaultAsync(
+            x => x.SerialNumberId == serialNumberId && x.IssueNumberBefore == issueDto.IssueNumber,
+            cancellationToken);
+
+        if (existing != null)
+            return UpdateExistingStockInRework(existing, issueDto);
+
+        return CreateNewStockInRework(serialNumberId, issueDto);
+    }
+
+    private StockInRework UpdateExistingStockInRework(
+        StockInRework entity,
+        IssueNumberRequestDto issueDto)
+    {
+        entity.Qty += 1;
+        entity.Note = issueDto.Note ?? entity.Note;
+        entity.Status = issueDto.Status;
+        entity.UpdatedAt = DateTime.UtcNow;
+        entity.Disposition = DispositionType.PENDING.ToString();
+        _repository.Update(entity);
+        return entity;
+    }
+
+    private StockInRework CreateNewStockInRework(
+        int serialNumberId,
+        IssueNumberRequestDto issueDto)
+    {
+        var entity = new StockInRework
+        {
+            SerialNumberId = serialNumberId,
+            IssueNumberBefore = issueDto.IssueNumber,
+            IssueNumberAfter = $"{issueDto.IssueNumber}-R",
+            Qty = 1,
+            Note = issueDto.Note,
+            Status = issueDto.Status,
+            Disposition = DispositionType.PENDING.ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+        
+        _repository.AddAsync(entity).GetAwaiter().GetResult();
+        return entity;
+    }
+
+    private async Task ValidateIssueNumbersExistAsync(
+        string serialNumberCode, 
+        List<IssueNumberRequestDto> issueNumbers,
+        CancellationToken cancellationToken)
+    {
+        var validIssueNumbers = await _serialNumberRepository.GetAllIssueNumbersByCodeAsync(serialNumberCode, cancellationToken);
+
+        var invalidIssues = issueNumbers
+            .Where(i => !validIssueNumbers.Contains(i.IssueNumber))
+            .Select(i => i.IssueNumber)
+            .ToList();
+
+        if (invalidIssues.Count > 0)
+            throw new AppException(
+                $"Issue number(s) not found on serial number '{serialNumberCode}' or its related serial numbers: {string.Join(", ", invalidIssues)}",
+                400);
+    }
+
+    private async Task ValidateAllIssueNumbersIncludedAsync(
+        string serialNumberCode,
+        List<IssueNumberRequestDto> issueNumbers,
+        CancellationToken cancellationToken)
+    {
+        var validIssueNumbers = await _serialNumberRepository.GetAllIssueNumbersByCodeAsync(serialNumberCode, cancellationToken);
+        var sentIssueNumbers = issueNumbers.Select(i => i.IssueNumber).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missingIssues = validIssueNumbers.Except(sentIssueNumbers, StringComparer.OrdinalIgnoreCase).ToList();
+
+        if (missingIssues.Count > 0)
+            throw new AppException(
+                $"All issue numbers must be included. Missing: {string.Join(", ", missingIssues)}",
+                400);
+    }
+
+    private async Task ValidateProcessLogStatusAsync(
+        string serialNumberCode,
+        CancellationToken cancellationToken)
+    {
+        var isValid = await _processLogService.ValidateSerialNumberProcessLogAsync(serialNumberCode, cancellationToken);
+        if (!isValid)
+            throw new AppException(
+                $"Serial number '{serialNumberCode}' process log must have IsFinished = true and Status = false (NG).",
+                400);
     }
 
     public async Task<StockInReworkDto> UpdateDispositionAsync(int id, UpdateStockInReworkDto dto, CancellationToken cancellationToken = default)

@@ -263,4 +263,30 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
 
         return (items, totalCount);
     }
+
+    public async Task<HashSet<string>> GetAllIssueNumbersByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    {
+        var sn = await _dbSet
+            .Include(s => s.Issues!).ThenInclude(si => si.Issue!)
+            .Include(s => s.ParentRelations).ThenInclude(r => r.ChildSerialNumber).ThenInclude(c => c.Issues!).ThenInclude(si => si.Issue!)
+            .Include(s => s.ChildRelations).ThenInclude(r => r.ParentSerialNumber).ThenInclude(p => p.Issues!).ThenInclude(si => si.Issue!)
+            .FirstOrDefaultAsync(s => s.SerialNumberCode == serialNumberCode, cancellationToken);
+
+        if (sn == null) return new HashSet<string>();
+
+        var issueNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var si in sn.Issues)
+            issueNumbers.Add(si.Issue.Number);
+
+        foreach (var rel in sn.ParentRelations)
+            foreach (var si in rel.ChildSerialNumber.Issues)
+                issueNumbers.Add(si.Issue.Number);
+
+        foreach (var rel in sn.ChildRelations)
+            foreach (var si in rel.ParentSerialNumber.Issues)
+                issueNumbers.Add(si.Issue.Number);
+
+        return issueNumbers;
+    }
 }
