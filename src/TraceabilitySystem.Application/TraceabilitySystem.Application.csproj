@@ -9,6 +9,7 @@
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="Mapster" Version="10.0.7" />
+    <PackageReference Include="EPPlus" Version="7.4.2" />
     <PackageReference Include="System.Management" Version="10.0.10" />
   </ItemGroup>
 

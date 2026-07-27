@@ -12,6 +12,7 @@ public class PartConfiguration : IEntityTypeConfiguration<Part>
         builder.Property(u => u.Number).IsRequired().IsUnicode().HasMaxLength(50);
         builder.Property(u => u.Name).IsRequired().IsUnicode().HasMaxLength(50);
         builder.Property(u => u.Description).HasMaxLength(255).IsRequired(false);
+        builder.Property(u => u.SpecialCharacter).HasMaxLength(50).IsRequired(false);
         builder.Property(u => u.IsActive).HasDefaultValue(true);
         if (!AppDbContext.IsInMemory)
         {

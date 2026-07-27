@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IIssueService, IssueService>();
         services.AddScoped<ISerialNumberService, SerialNumberService>();
         services.AddScoped<IStockInReworkService, StockInReworkService>();
+        services.AddScoped<IProcessLogExportService, ProcessLogExportService>();
         services.AddSingleton<ITraceabilitySummarySimulator, TraceabilitySummarySimulator>();
         services.AddScoped<IPrintHistoryService, PrintHistoryService>();
 

@@ -87,6 +87,7 @@ public class PartService : BaseService<Part, PartDto>, IPartService
 
         if (!string.IsNullOrWhiteSpace(request.Name)) part.Name = request.Name;
         if (!string.IsNullOrWhiteSpace(request.Description)) part.Description = request.Description;
+        if (request.SpecialCharacter != null) part.SpecialCharacter = request.SpecialCharacter;
         if (request.IsActive.HasValue) part.IsActive = request.IsActive.Value;
 
         _partRepository.Update(part);

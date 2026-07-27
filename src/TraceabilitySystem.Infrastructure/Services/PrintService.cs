@@ -248,9 +248,9 @@ public class PrintService : IPrintService
 
         var issue = stockInDto.Issues.First();
         var part = stockInDto.Part!;
-
         var issueNumber = issue.Number;
-        var partNumber = part.Number;
+        var specialIssueNumber = (part.SpecialCharacter ?? string.Empty) + issue.Number;
+        var partNumber = part.Number + part.SpecialCharacter;
         var partName = part.Name;
         var supplyQty = stockInDto.SupplyQty.ToString();
         var supplyDate = stockInDto.SupplyDate.ToString("yyyy.MM.dd");
@@ -259,7 +259,7 @@ public class PrintService : IPrintService
         // Generate QR
         string qrContent = string.Join(";", new[]
         {
-                issueNumber,
+                specialIssueNumber,
                 partNumber,
                 partName,
                 supplyQty,
