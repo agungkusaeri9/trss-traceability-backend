@@ -250,7 +250,7 @@ public class PrintService : IPrintService
         var part = stockInDto.Part!;
         var issueNumber = issue.Number;
         var specialIssueNumber = (part.SpecialCharacter ?? string.Empty) + issue.Number;
-        var partNumber = part.Number + part.SpecialCharacter;
+        var partNumber = part.Number;
         var partName = part.Name;
         var supplyQty = stockInDto.SupplyQty.ToString();
         var supplyDate = stockInDto.SupplyDate.ToString("yyyy.MM.dd");
