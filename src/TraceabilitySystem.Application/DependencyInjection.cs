@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IProcessLogExportService, ProcessLogExportService>();
         services.AddSingleton<ITraceabilitySummarySimulator, TraceabilitySummarySimulator>();
         services.AddScoped<IPrintHistoryService, PrintHistoryService>();
+        services.AddScoped<IProcessCategoryService, ProcessCategoryService>();
 
         // Default no-op publisher; Worker sẽ override dengan singleton nyata sesudah AddApplication()
         services.AddSingleton<IMqttPublisher, NullMqttPublisher>();

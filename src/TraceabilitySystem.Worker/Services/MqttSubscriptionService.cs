@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -23,6 +23,7 @@ namespace TraceabilitySystem.Worker.Services
         private readonly DatabaseService _databaseService;
         private readonly IProcessValidator _validator;
         private readonly IPrintService _printService;
+        private readonly IMqttPublisher _mqttPublisher;
 
         public MqttSubscriptionService(
             ILogger<MqttSubscriptionService> logger,
@@ -32,7 +33,8 @@ namespace TraceabilitySystem.Worker.Services
             MqttClientAccessor mqttClientAccessor,
             DatabaseService databaseService,
             IProcessValidator validator,
-            IPrintService printService
+            IPrintService printService,
+            IMqttPublisher mqttPublisher
             )
         {
             _logger = logger;
@@ -43,6 +45,7 @@ namespace TraceabilitySystem.Worker.Services
             _databaseService = databaseService;
             _validator = validator;
             _printService = printService;
+            _mqttPublisher = mqttPublisher;
         }
 
 
@@ -58,6 +61,14 @@ namespace TraceabilitySystem.Worker.Services
                    Environment.NewLine,
                    validation.Errors);
 
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "clinching-short-side",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
                 await _databaseService.SaveProcessClinchingShortSideAsync(
                     errorMessage,
                     payload,
@@ -65,7 +76,6 @@ namespace TraceabilitySystem.Worker.Services
 
                 foreach (var error in validation.Errors)
                 {
-
                     _logger.LogWarning(
                         "[MQTT][ClinchingShortSide][Validation] {Error}",
                         error);
@@ -82,7 +92,6 @@ namespace TraceabilitySystem.Worker.Services
 
             try
             {
-         
                 var result = await processLogService.CreateProcessLogByClinchingAsync(
                     request,
                     cancellationToken: default);
@@ -95,12 +104,28 @@ namespace TraceabilitySystem.Worker.Services
                     "[MQTT][ClinchingShortSide] Process log created. Id={ProcessLogId}, SN={SerialNumber}",
                     result.Id,
                     result.SerialNumberCode);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "clinching-short-side",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
                     "[MQTT][ClinchingShortSide] Error: {Message}",
                     ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "clinching-short-side",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
 
@@ -117,11 +142,19 @@ namespace TraceabilitySystem.Worker.Services
                   Environment.NewLine,
                   validation.Errors);
 
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "clinching-long-side",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
                 await _databaseService.SaveProcessClinchingLongSideAsync(errorMessage, payload, request);
                 foreach (var error in validation.Errors)
                 {
                     _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        "[MQTT][ClinchingLongSide][Validation] {Error}",
                         error);
                 }
                 return;
@@ -142,10 +175,26 @@ namespace TraceabilitySystem.Worker.Services
 
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][ClinchingLongSide] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "clinching-long-side",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][ClinchingLongSide] Error handling process result: {Message}", ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "clinching-long-side",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
 
@@ -154,7 +203,6 @@ namespace TraceabilitySystem.Worker.Services
             _logger.LogInformation("[MQTT][HeLeak] Payload: {Payload}", payload);
 
             request.ProcessCode = "HE_LEAK";
-          
 
             var validation = await _validator.HeLeakValidator(request);
             if (!validation.IsValid)
@@ -163,19 +211,27 @@ namespace TraceabilitySystem.Worker.Services
                 Environment.NewLine,
                 validation.Errors);
 
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "he-leak",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
                 await _databaseService.SaveHeLeakAsync(errorMessage, payload, request);
                 foreach (var error in validation.Errors)
                 {
                     _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        "[MQTT][HeLeak][Validation] {Error}",
                         error);
                 }
                 return;
             }
+
             await _databaseService.SaveHeLeakAsync(null, payload, request);
             try
             {
-
                 if (request == null)
                 {
                     _logger.LogWarning("[MQTT][HeLeak] Failed to deserialize payload");
@@ -187,10 +243,26 @@ namespace TraceabilitySystem.Worker.Services
 
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][HeLeak] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "he-leak",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][HeLeak] Error handling process result: {Message}", ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "he-leak",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
 
@@ -208,17 +280,26 @@ namespace TraceabilitySystem.Worker.Services
                Environment.NewLine,
                validation.Errors);
 
-                await _databaseService.SaveMFanAssyScanAsync(errorMessage,payload, request);
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "m-fan-assy-scan",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
+                await _databaseService.SaveMFanAssyScanAsync(errorMessage, payload, request);
 
                 foreach (var error in validation.Errors)
                 {
                     _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        "[MQTT][MFanAssyScan][Validation] {Error}",
                         error);
                 }
                 return;
             }
-            await _databaseService.SaveMFanAssyScanAsync(null,payload, request);
+
+            await _databaseService.SaveMFanAssyScanAsync(null, payload, request);
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -226,10 +307,26 @@ namespace TraceabilitySystem.Worker.Services
 
                 var result = await processLogService.CreateProcessLogMFanAssyAsync(request, "create_with_issue_number");
                 _logger.LogInformation("[MQTT][MFanAssyScan] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "m-fan-assy-scan",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][MFanAssy] Error handling process result: {Message}", ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "m-fan-assy-scan",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
 
@@ -238,22 +335,32 @@ namespace TraceabilitySystem.Worker.Services
             _logger.LogInformation("[MQTT][MFanAssy] Payload: {Payload}", payload);
             request.ProcessCode = "M_FAN_ASSY";
             request.SerialNumber = request.SerialNumberMFanAssy;
-          
+
             var validation = await _validator.MFanAssyValidator(request);
             if (!validation.IsValid)
             {
                 var errorMessage = string.Join(
                   Environment.NewLine,
                   validation.Errors);
-                await _databaseService.SaveMFanAssyAsync(errorMessage,payload, request);
+
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "m-fan-assy",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
+                await _databaseService.SaveMFanAssyAsync(errorMessage, payload, request);
                 foreach (var error in validation.Errors)
                 {
                     _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        "[MQTT][MFanAssy][Validation] {Error}",
                         error);
                 }
                 return;
             }
+
             await _databaseService.SaveMFanAssyAsync(null, payload, request);
             try
             {
@@ -268,12 +375,29 @@ namespace TraceabilitySystem.Worker.Services
 
                 var result = await processLogService.CreateProcessLogMFanAssyAsync(request, "create_without_issue_number");
                 _logger.LogInformation("[MQTT][MFanAssy] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "m-fan-assy",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][MFanAssy] Error handling process result: {Message}", ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "m-fan-assy",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
+
 
         public async Task HandleMFanInspectionResultAsync(string payload, CreateProcessLogRequestDto request)
         {
@@ -287,29 +411,53 @@ namespace TraceabilitySystem.Worker.Services
                 var errorMessage = string.Join(
                  Environment.NewLine,
                  validation.Errors);
+
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "m-fan-inspection",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
                 await _databaseService.SaveMFanInspectionAsync(errorMessage, payload, request);
                 foreach (var error in validation.Errors)
                 {
                     _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        "[MQTT][MFanInspection][Validation] {Error}",
                         error);
                 }
                 return;
             }
-            await _databaseService.SaveMFanInspectionAsync(null,payload, request);
 
+            await _databaseService.SaveMFanInspectionAsync(null, payload, request);
             try
             {
-
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][MFanInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "m-fan-inspection",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][MFanInspection] Error handling process result: {Message}", ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "m-fan-inspection",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
 
@@ -319,7 +467,6 @@ namespace TraceabilitySystem.Worker.Services
         {
             _logger.LogInformation("[MQTT][EcmAssy] Payload: {Payload}", payload);
             request.ProcessCode = "ECM_ASSY";
-          
 
             var validation = await _validator.EcmAssyValidator(request);
             if (!validation.IsValid)
@@ -327,18 +474,26 @@ namespace TraceabilitySystem.Worker.Services
                 var errorMessage = string.Join(
                  Environment.NewLine,
                  validation.Errors);
+
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "ecm-assy",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
                 await _databaseService.SaveEcmAssynAsync(errorMessage, payload, request);
                 foreach (var error in validation.Errors)
                 {
                     _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        "[MQTT][EcmAssy][Validation] {Error}",
                         error);
                 }
                 return;
             }
 
-            await _databaseService.SaveEcmAssynAsync(null,payload, request);
-
+            await _databaseService.SaveEcmAssynAsync(null, payload, request);
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -346,10 +501,26 @@ namespace TraceabilitySystem.Worker.Services
 
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][EcmAssy] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "ecm-assy",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][EcmAssy] Error handling process result: {Message}", ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "ecm-assy",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
 
@@ -364,16 +535,25 @@ namespace TraceabilitySystem.Worker.Services
                 var errorMessage = string.Join(
                Environment.NewLine,
                validation.Errors);
-                await _databaseService.SaveFinalInspectionAsync(errorMessage, payload, request);
 
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "final-inspection",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+
+                await _databaseService.SaveFinalInspectionAsync(errorMessage, payload, request);
                 foreach (var error in validation.Errors)
                 {
                     _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
+                        "[MQTT][FinalInspection][Validation] {Error}",
                         error);
                 }
                 return;
             }
+
             await _databaseService.SaveFinalInspectionAsync(null, payload, request);
             try
             {
@@ -382,10 +562,26 @@ namespace TraceabilitySystem.Worker.Services
                 request.IsFInihed = true;
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][FinalInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "final-inspection",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][FinalInspection] Error handling process result: {Message}", ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "final-inspection",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
         }
       

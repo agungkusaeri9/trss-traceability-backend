@@ -19,6 +19,9 @@ public class IssueConfiguration : IEntityTypeConfiguration<Issue>
         builder.HasIndex(i => i.Number)
             .IsUnique();
 
+        builder.Property(i => i.RemainingQty)
+            .IsRequired(false);
+
         builder.HasOne(i => i.StockIn)
             .WithMany(s => s.Issues)
             .HasForeignKey(i => i.StockInId)

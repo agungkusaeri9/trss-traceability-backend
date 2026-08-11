@@ -7,4 +7,12 @@ public interface IIssueRepository : IRepository<Issue>
     Task<Dictionary<string, bool>> CheckIssueNumbersAsync(
         IEnumerable<string> issueNumbers,
         CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<Issue>> GetByNumbersWithPartAsync(
+        IEnumerable<string> issueNumbers,
+        CancellationToken cancellationToken = default);
+
+    Task<decimal?> GetFinalStockByIssueNumberAsync(
+        string issueNumber,
+        CancellationToken cancellationToken = default);
 }

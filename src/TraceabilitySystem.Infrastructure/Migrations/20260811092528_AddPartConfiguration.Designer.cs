@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TraceabilitySystem.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TraceabilitySystem.Infrastructure.Persistence;
 namespace TraceabilitySystem.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811092528_AddPartConfiguration")]
+    partial class AddPartConfiguration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -77,10 +80,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)")
                         .HasColumnName("number");
-
-                    b.Property<decimal?>("RemainingQty")
-                        .HasColumnType("decimal(65,30)")
-                        .HasColumnName("remaining_qty");
 
                     b.Property<int>("StockInId")
                         .HasColumnType("int")
@@ -493,67 +492,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.ToTable("processes");
                 });
 
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessCategory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)")
-                        .HasColumnName("name");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_process_categories");
-
-                    b.ToTable("process_categories");
-                });
-
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessCategoryPart", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("PartId")
-                        .HasColumnType("int")
-                        .HasColumnName("part_id");
-
-                    b.Property<int>("ProcessCategoryId")
-                        .HasColumnType("int")
-                        .HasColumnName("process_category_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_process_category_parts");
-
-                    b.HasIndex("PartId")
-                        .HasDatabaseName("ix_process_category_parts_part_id");
-
-                    b.HasIndex("ProcessCategoryId", "PartId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_process_category_parts_process_category_id_part_id");
-
-                    b.ToTable("process_category_parts");
-                });
-
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessLog", b =>
                 {
                     b.Property<long>("Id")
@@ -891,10 +829,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("receipt_qty");
 
-                    b.Property<decimal?>("RemainingQty")
-                        .HasColumnType("decimal(65,30)")
-                        .HasColumnName("remaining_qty");
-
                     b.Property<DateTime>("SupplyDate")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("supply_date");
@@ -1058,27 +992,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.Navigation("Issue");
                 });
 
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessCategoryPart", b =>
-                {
-                    b.HasOne("TraceabilitySystem.Domain.Entities.Part", "Part")
-                        .WithMany()
-                        .HasForeignKey("PartId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_process_category_parts_parts_part_id");
-
-                    b.HasOne("TraceabilitySystem.Domain.Entities.ProcessCategory", "ProcessCategory")
-                        .WithMany("ProcessCategoryParts")
-                        .HasForeignKey("ProcessCategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_process_category_parts_process_categories_process_category_id");
-
-                    b.Navigation("Part");
-
-                    b.Navigation("ProcessCategory");
-                });
-
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessLog", b =>
                 {
                     b.HasOne("TraceabilitySystem.Domain.Entities.SerialNumber", "SerialNumber")
@@ -1235,11 +1148,6 @@ namespace TraceabilitySystem.Infrastructure.Migrations
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.Process", b =>
                 {
                     b.Navigation("ProcessParameters");
-                });
-
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessCategory", b =>
-                {
-                    b.Navigation("ProcessCategoryParts");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessLog", b =>

@@ -134,12 +134,14 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
                 SupplyDate = request.SupplyDate,
                 ReceiptQty = request.ReceiptQty,
                 ReceiptDate = request.ReceiptDate,
+                RemainingQty = request.ReceiptQty,
                 CreatedAt = DateTime.UtcNow
             };
 
             stockIn.Issues.Add(new Issue
             {
                 Number = issueNumber,
+                RemainingQty = request.ReceiptQty,
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -154,6 +156,52 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
 
             // 5. Trigger print label
              await _printService.PrintStockInAsync(dto);
+
+            return dto;
+        }
+        catch (Exception ex)
+        {
+            throw new AppException($"Failed to create Stock In: {ex.Message}");
+        }
+    }
+
+    public async Task<StockInDto> CreateStockInWithSpecificIssueAsync(CreateStockInRequestDto request, string issueNumber, CancellationToken cancellationToken = default)
+    {
+        var partExists = await _partRepository.ExistsAsync(p => p.Id == request.PartId, cancellationToken);
+        if (!partExists)
+            throw new NotFoundException(nameof(Part), request.PartId);
+
+        try
+        {
+            var (stockInCode, _) = await GenerateStockInCodeAsync(cancellationToken);
+
+            var stockIn = new StockIn
+            {
+                Code = stockInCode,
+                PartId = request.PartId,
+                SupplyQty = request.SupplyQty,
+                SupplyDate = request.SupplyDate,
+                ReceiptQty = request.ReceiptQty,
+                ReceiptDate = request.ReceiptDate,
+                RemainingQty = request.ReceiptQty,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            stockIn.Issues.Add(new Issue
+            {
+                Number = issueNumber,
+                RemainingQty = request.ReceiptQty,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _stockInRepository.AddAsync(stockIn, cancellationToken);
+            await _stockInRepository.SaveChangesAsync(cancellationToken);
+
+            var saved = await _stockInRepository.GetByIdAsync(stockIn.Id, cancellationToken)
+                ?? throw new NotFoundException(nameof(StockIn), stockIn.Id);
+
+            var dto = saved.Adapt<StockInDto>();
+            await _printService.PrintStockInAsync(dto);
 
             return dto;
         }

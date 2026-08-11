@@ -28,6 +28,8 @@ public class AppDbContext : DbContext
     public DbSet<IssueTransaction> IssueTransactions => Set<IssueTransaction>();
     public DbSet<StockInRework> StockInReworks => Set<StockInRework>();
     public DbSet<PrintHistory> PrintHistories => Set<PrintHistory>();
+    public DbSet<ProcessCategory> ProcessCategories => Set<ProcessCategory>();
+    public DbSet<ProcessCategoryPart> ProcessCategoryParts => Set<ProcessCategoryPart>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -147,6 +149,11 @@ public class AppDbContext : DbContext
             {
                 if (entry.State == EntityState.Added) stockInRework.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) stockInRework.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is ProcessCategory processCategory)
+            {
+                if (entry.State == EntityState.Added) processCategory.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) processCategory.UpdatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

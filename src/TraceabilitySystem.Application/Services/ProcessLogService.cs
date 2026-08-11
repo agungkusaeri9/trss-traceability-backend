@@ -255,56 +255,7 @@ public class ProcessLogService : IProcessLogService
         CancellationToken cancellationToken = default)
     {
         // 1. Ekstrak issue numbers dari request.Data
-        var issueNumbers = new List<string>();
-        if (request.Data != null)
-        {
-            var dataInsensitive = new Dictionary<string, object>(request.Data, StringComparer.OrdinalIgnoreCase);
-
-            if (dataInsensitive.TryGetValue("issue_numbers", out var rawIssueNumbers))
-            {
-                if (rawIssueNumbers is System.Text.Json.JsonElement element && element.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        var str = item.GetString();
-                        if (!string.IsNullOrWhiteSpace(str))
-                            issueNumbers.Add(str);
-                    }
-                }
-                else if (rawIssueNumbers is IEnumerable<object> list)
-                {
-                    foreach (var item in list)
-                    {
-                        var str = item?.ToString();
-                        if (!string.IsNullOrWhiteSpace(str))
-                            issueNumbers.Add(str);
-                    }
-                }
-                else if (rawIssueNumbers is IEnumerable<string> strList)
-                {
-                    foreach (var str in strList)
-                    {
-                        if (!string.IsNullOrWhiteSpace(str))
-                            issueNumbers.Add(str);
-                    }
-                }
-                else if (rawIssueNumbers is System.Text.Json.JsonElement strElement && strElement.ValueKind == System.Text.Json.JsonValueKind.String)
-                {
-                    var str = strElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(str))
-                        issueNumbers.Add(str);
-                }
-            }
-            else if (dataInsensitive.TryGetValue("issue_number", out var rawIssueNumber))
-            {
-                if (rawIssueNumber is System.Text.Json.JsonElement strElement && strElement.ValueKind == System.Text.Json.JsonValueKind.String)
-                {
-                    var str = strElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(str))
-                        issueNumbers.Add(str);
-                }
-            }
-        }
+        var issueNumbers = ExtractIssueNumbers(request.Data);
 
         // 2. Generate Clinching Serial Number
         var generateRequest = new GenerateSerialNumberRequestDto
@@ -315,24 +266,22 @@ public class ProcessLogService : IProcessLogService
             IssueNumbers = issueNumbers.Count > 0 ? issueNumbers : null
         };
 
-        DebugHelper.Log("Issue Numbers for Clinching Serial Number Generation", issueNumbers);
-
         var generatedSns = (await _serialNumberService.CreateByClinchingAsync(generateRequest, cancellationToken)).ToList();
         if (generatedSns.Count == 0)
             throw new AppException("Gagal membuat serial number Clinching.", 500);
 
         var clinchingSerialNumberCode = generatedSns[0].SerialNumberCode;
 
-        // 3. Set serial number ke request dan panggil CreateProcessLogWithDetailsAsync
+        // 4. Set serial number ke request dan panggil CreateProcessLogWithDetailsAsync
         request.SerialNumber = clinchingSerialNumberCode;
         if (string.IsNullOrWhiteSpace(request.ProcessCode))
         {
             request.ProcessCode = "CLINCHING_SHORT_SIDE";
         }
 
-        // 4. Mapping IsOk ke parameter codes yang sesuai dengan value true, dikarenakan process log pertama dan slalu true, karena dari PLC sudah di control
+        // 5. Mapping IsOk ke parameter codes yang sesuai dengan value true, dikarenakan process log pertama dan slalu true, karena dari PLC sudah di control
         request.Data ??= new Dictionary<string, object>();
-        if (request.IsOk.HasValue)
+        if (request.IsOk.HasValue && issueNumbers.Count >= 3)
         {
             request.Data["CORE_ASM_RESULT"]       = issueNumbers[0];
             request.Data["UPPER_TANK_ASM_RESULT"]  = issueNumbers[1];
@@ -340,6 +289,61 @@ public class ProcessLogService : IProcessLogService
         }
 
         return await CreateProcessLogWithDetailsAsync(request, cancellationToken);
+    }
+
+    private static List<string> ExtractIssueNumbers(Dictionary<string, object>? data)
+    {
+        var issueNumbers = new List<string>();
+        if (data == null) return issueNumbers;
+
+        var dataInsensitive = new Dictionary<string, object>(data, StringComparer.OrdinalIgnoreCase);
+
+        if (dataInsensitive.TryGetValue("issue_numbers", out var rawIssueNumbers))
+        {
+            if (rawIssueNumbers is System.Text.Json.JsonElement element && element.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in element.EnumerateArray())
+                {
+                    var str = item.GetString();
+                    if (!string.IsNullOrWhiteSpace(str))
+                        issueNumbers.Add(str);
+                }
+            }
+            else if (rawIssueNumbers is IEnumerable<object> list)
+            {
+                foreach (var item in list)
+                {
+                    var str = item?.ToString();
+                    if (!string.IsNullOrWhiteSpace(str))
+                        issueNumbers.Add(str);
+                }
+            }
+            else if (rawIssueNumbers is IEnumerable<string> strList)
+            {
+                foreach (var str in strList)
+                {
+                    if (!string.IsNullOrWhiteSpace(str))
+                        issueNumbers.Add(str);
+                }
+            }
+            else if (rawIssueNumbers is System.Text.Json.JsonElement strElement && strElement.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                var str = strElement.GetString();
+                if (!string.IsNullOrWhiteSpace(str))
+                    issueNumbers.Add(str);
+            }
+        }
+        else if (dataInsensitive.TryGetValue("issue_number", out var rawIssueNumber))
+        {
+            if (rawIssueNumber is System.Text.Json.JsonElement strElement && strElement.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                var str = strElement.GetString();
+                if (!string.IsNullOrWhiteSpace(str))
+                    issueNumbers.Add(str);
+            }
+        }
+
+        return issueNumbers;
     }
 
     public async Task<ProcessLogDto> CreateProcessLogWithDetailsAsync(
@@ -637,10 +641,14 @@ public class ProcessLogService : IProcessLogService
         _serialNumberRepository.Update(parentSerialNumber);
         await _serialNumberRepository.SaveChangesAsync(cancellationToken);
 
-        // 6. Publish MQTT ke topic data/process/m-fan-assy/process
+        // 6. Publish MQTT ke topic data/process/m-fan-assy/process-scan
         var fanAsmIssueNo      = issueNumbers.Count > 0 ? issueNumbers[0] : null;
         var fanMotorAsmIssueNo = issueNumbers.Count > 1 ? issueNumbers[1] : null;
         var fanGuideAsmIssueNo = issueNumbers.Count > 2 ? issueNumbers[2] : null;
+
+        var fanAsmQtyRemaining      = fanAsmIssueNo      != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanAsmIssueNo,      cancellationToken) : null;
+        var fanMotorAsmQtyRemaining = fanMotorAsmIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanMotorAsmIssueNo, cancellationToken) : null;
+        var fanGuideAsmQtyRemaining = fanGuideAsmIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanGuideAsmIssueNo, cancellationToken) : null;
 
         var mqttPayload = new
         {
@@ -649,9 +657,12 @@ public class ProcessLogService : IProcessLogService
             timestamp         = DateTime.UtcNow,
             data = new
             {
-                fan_asm_issue_no       = fanAsmIssueNo,
-                fan_motor_asm_issue_no = fanMotorAsmIssueNo,
-                fan_guide_asm_issue_no = fanGuideAsmIssueNo
+                fan_asm_issue_no            = fanAsmIssueNo,
+                fan_asm_qty_remaining       = fanAsmQtyRemaining,
+                fan_motor_asm_issue_no      = fanMotorAsmIssueNo,
+                fan_motor_asm_qty_remaining = fanMotorAsmQtyRemaining,
+                fan_guide_asm_issue_no      = fanGuideAsmIssueNo,
+                fan_guide_asm_qty_remaining = fanGuideAsmQtyRemaining
             }
         };
 

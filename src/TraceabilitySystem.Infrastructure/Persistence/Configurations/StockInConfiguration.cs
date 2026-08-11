@@ -31,6 +31,9 @@ public class StockInConfiguration : IEntityTypeConfiguration<StockIn>
         builder.Property(s => s.ReceiptDate)
             .IsRequired();
 
+        builder.Property(s => s.RemainingQty)
+            .IsRequired(false);
+
         builder.HasOne(s => s.Part)
             .WithMany()
             .HasForeignKey(s => s.PartId)

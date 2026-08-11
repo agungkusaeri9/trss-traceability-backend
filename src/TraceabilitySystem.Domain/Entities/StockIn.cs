@@ -14,6 +14,7 @@ public class StockIn
     public DateTime SupplyDate { get; set; }
     public int ReceiptQty { get; set; }
     public DateTime ReceiptDate { get; set; }
+    public decimal? RemainingQty { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

@@ -8,6 +8,7 @@ public class Issue
     public string Number { get; set; } = string.Empty;
     public int StockInId { get; set; }
     public StockIn? StockIn { get; set; }
+    public decimal? RemainingQty { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

@@ -15,6 +15,7 @@ public class StockInDto
     public DateTime SupplyDate { get; set; }
     public int ReceiptQty { get; set; }
     public DateTime ReceiptDate { get; set; }
+    public decimal? RemainingQty { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

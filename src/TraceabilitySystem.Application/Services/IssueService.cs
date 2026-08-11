@@ -42,13 +42,13 @@ public class IssueService : IIssueService
 
         // 2. Hitung QtyBefore:
         //    - Jika sudah ada transaksi sebelumnya → pakai QtyAfter transaksi terakhir
-        //    - Jika belum ada → pakai ReceiptQty dari StockIn (stok awal)
+        //    - Jika belum ada → pakai RemainingQty / ReceiptQty
         var lastTransaction = (await _transactionRepository.FindAsync(
                 t => t.IssueId == issue.Id, cancellationToken))
             .OrderByDescending(t => t.CreatedAt)
             .FirstOrDefault();
 
-        decimal qtyBefore = lastTransaction?.QtyAfter ?? stockIn.ReceiptQty;
+        decimal qtyBefore = lastTransaction?.QtyAfter ?? issue.RemainingQty ?? stockIn.RemainingQty ?? stockIn.ReceiptQty;
 
         // 3. Validasi stok cukup
         if (qtyBefore < request.QtyConsumed)
@@ -72,8 +72,13 @@ public class IssueService : IIssueService
         await _transactionRepository.AddAsync(transaction, cancellationToken);
         await _transactionRepository.SaveChangesAsync(cancellationToken);
 
-        // 5. Update ReceiptQty di StockIn = QtyAfter (qty tersisa)
-        stockIn.ReceiptQty = (int)qtyAfter;
+        // 5. Update RemainingQty pada Issue dan StockIn = QtyAfter
+        issue.RemainingQty = qtyAfter;
+        issue.UpdatedAt = DateTime.UtcNow;
+        _issueRepository.Update(issue);
+        await _issueRepository.SaveChangesAsync(cancellationToken);
+
+        stockIn.RemainingQty = qtyAfter;
         stockIn.UpdatedAt = DateTime.UtcNow;
         _stockInRepository.Update(stockIn);
         await _stockInRepository.SaveChangesAsync(cancellationToken);

@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Mapster;
+using TraceabilitySystem.Application.DTOs.StockIn;
 using TraceabilitySystem.Application.DTOs.StockInRework;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
@@ -14,15 +15,18 @@ public class StockInReworkService : IStockInReworkService
     private readonly IStockInReworkRepository _repository;
     private readonly ISerialNumberRepository _serialNumberRepository;
     private readonly IProcessLogService _processLogService;
+    private readonly IStockInService _stockInService;
 
     public StockInReworkService(
         IStockInReworkRepository repository,
         ISerialNumberRepository serialNumberRepository,
-        IProcessLogService processLogService)
+        IProcessLogService processLogService,
+        IStockInService stockInService)
     {
         _repository = repository;
         _serialNumberRepository = serialNumberRepository;
         _processLogService = processLogService;
+        _stockInService = stockInService;
     }
 
     public async Task<PagedResult<StockInReworkDto>> GetPagedAsync(
@@ -219,6 +223,22 @@ public class StockInReworkService : IStockInReworkService
 
         _repository.Update(entity);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        if (dto.Disposition == DispositionType.STOCK_IN.ToString())
+        {
+            var originalStockIn = await _stockInService.GetStockInByIssueNumberAsync(entity.IssueNumberBefore, cancellationToken);
+            
+            var createRequest = new CreateStockInRequestDto
+            {
+                PartId = originalStockIn.PartId,
+                SupplyQty = originalStockIn.SupplyQty,
+                SupplyDate = originalStockIn.SupplyDate,
+                ReceiptQty = entity.Qty,
+                ReceiptDate = originalStockIn.ReceiptDate
+            };
+
+            await _stockInService.CreateStockInWithSpecificIssueAsync(createRequest, entity.IssueNumberAfter, cancellationToken);
+        }
 
         return entity.Adapt<StockInReworkDto>();
     }
