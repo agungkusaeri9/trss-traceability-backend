@@ -22,7 +22,6 @@ namespace TraceabilitySystem.Worker.Services
         private readonly MqttClientAccessor _mqttClientAccessor;
         private readonly DatabaseService _databaseService;
         private readonly IProcessValidator _validator;
-        private readonly IPrintService _printService;
         private readonly IMqttPublisher _mqttPublisher;
 
         public MqttSubscriptionService(
@@ -33,7 +32,6 @@ namespace TraceabilitySystem.Worker.Services
             MqttClientAccessor mqttClientAccessor,
             DatabaseService databaseService,
             IProcessValidator validator,
-            IPrintService printService,
             IMqttPublisher mqttPublisher
             )
         {
@@ -44,7 +42,6 @@ namespace TraceabilitySystem.Worker.Services
             _mqttClientAccessor = mqttClientAccessor;
             _databaseService = databaseService;
             _validator = validator;
-            _printService = printService;
             _mqttPublisher = mqttPublisher;
         }
 
@@ -95,10 +92,6 @@ namespace TraceabilitySystem.Worker.Services
                 var result = await processLogService.CreateProcessLogByClinchingAsync(
                     request,
                     cancellationToken: default);
-
-                //print label 
-                var issueNumbers = ExtractIssueNumbers(request.Data);
-                await _printService.PrintClinchingShortSideAsync(request.SerialNumber!, issueNumbers);
 
                 _logger.LogInformation(
                     "[MQTT][ClinchingShortSide] Process log created. Id={ProcessLogId}, SN={SerialNumber}",
@@ -271,7 +264,6 @@ namespace TraceabilitySystem.Worker.Services
             _logger.LogInformation("[MQTT][MFanAssyScan] Payload: {Payload}", payload);
 
             request.ProcessCode = "M_FAN_ASSY";
-            request.SerialNumber = request.SerialNumberClinching;
 
             var validation = await _validator.MFanAssyScanValidator(request);
             if (!validation.IsValid)
@@ -499,8 +491,8 @@ namespace TraceabilitySystem.Worker.Services
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
-                var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
-                _logger.LogInformation("[MQTT][EcmAssy] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+                var result = await processLogService.CreateProcessLogEcmAssyAsync(request);
+                _logger.LogInformation("[MQTT][EcmAssy] Successfully processed ECM Assy log with ID: {ProcessLogId} (Clinching: {CC}, M-Fan: {MF})", result.Id, request.SerialNumberClinching, request.SerialNumberMFanAssy);
 
                 var successPayload = new
                 {
@@ -583,27 +575,6 @@ namespace TraceabilitySystem.Worker.Services
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
             }
-        }
-      
-        private static List<string> ExtractIssueNumbers(Dictionary<string, object>? data)
-        {
-            var result = new List<string>();
-            if (data == null) return result;
-
-            var dataInsensitive = new Dictionary<string, object>(data, StringComparer.OrdinalIgnoreCase);
-            if (!dataInsensitive.TryGetValue("issue_numbers", out var raw)) return result;
-
-            if (raw is System.Text.Json.JsonElement element && element.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                foreach (var item in element.EnumerateArray())
-                {
-                    var str = item.GetString();
-                    if (!string.IsNullOrWhiteSpace(str))
-                        result.Add(str);
-                }
-            }
-
-            return result;
         }
     }
 }

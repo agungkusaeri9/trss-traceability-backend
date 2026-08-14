@@ -71,7 +71,7 @@ public class MqttWorkerService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to connect to API SignalR Hub on startup. Automatic reconnect will handle subsequent attempts.");
+            _logger.LogWarning("Failed to connect to API SignalR Hub at {HubUrl}: {Message}. Automatic reconnect will handle subsequent attempts.", hubUrl, ex.Message);
         }
 
         // Set up MQTT Client Connection
@@ -113,43 +113,48 @@ public class MqttWorkerService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send connection status to API Hub");
+            _logger.LogWarning("Failed to send connection status to API Hub: {Message}", ex.Message);
         }
     }
 
     private async Task OnMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs arg)
     {
-        var topic = arg.ApplicationMessage.Topic;
-        var payload = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment);
-
-        var options = new JsonSerializerOptions
+        var correlationId = Guid.NewGuid().ToString("N")[..12];
+        using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
+        using (Serilog.Context.LogContext.PushProperty("Category", TraceabilitySystem.Shared.Constants.LogCategory.Integration))
+        using (Serilog.Context.LogContext.PushProperty("UserId", "PLC/Worker"))
         {
-            PropertyNameCaseInsensitive = true
-        };
+            var topic = arg.ApplicationMessage.Topic;
+            var payload = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment);
 
-        var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
 
+            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
 
-        _logger.LogInformation("[MQTT] Received message on topic [{Topic}]", topic);
+            _logger.LogInformation("[MQTT] Received message on topic [{Topic}]", topic);
 
-        // Dispatch process result topics to dedicated handlers
-        var processResultTask = topic switch
-        {
-            "data/process/clinching-short-side/result" =>   _mqttSubsriptionService.HandleClinchingShortSideResultAsync(payload, request!),
-            "data/process/clinching-long-side/result" =>  _mqttSubsriptionService.HandleClinchingLongSideResultAsync(payload, request!),
-            "data/process/he-leak/result" =>  _mqttSubsriptionService.HandleHeLeakResultAsync(payload, request!),
-            "data/process/m-fan-assy/result-scan" =>  _mqttSubsriptionService.HandleMFanAssyResultScanAsync(payload, request!),
-             "data/process/m-fan-assy/result"           =>  _mqttSubsriptionService.HandleMFanAssyResultAsync(payload, request!),
-            "data/process/m-fan-inspection/result" =>  _mqttSubsriptionService.HandleMFanInspectionResultAsync(payload, request!),
-            "data/process/ecm-assy/result" =>  _mqttSubsriptionService.HandleEcmAssyResultAsync(payload, request!),
-            "data/process/final-inspection/result" =>  _mqttSubsriptionService.HandleFinalInspectionResultAsync(payload, request!),
-            _ => null
-        };
+            // Dispatch process result topics to dedicated handlers
+            var processResultTask = topic switch
+            {
+                "data/process/clinching-short-side/result" => _mqttSubsriptionService.HandleClinchingShortSideResultAsync(payload, request!),
+                "data/process/clinching-long-side/result" => _mqttSubsriptionService.HandleClinchingLongSideResultAsync(payload, request!),
+                "data/process/he-leak/result" => _mqttSubsriptionService.HandleHeLeakResultAsync(payload, request!),
+                "data/process/m-fan-assy/result-scan" => _mqttSubsriptionService.HandleMFanAssyResultScanAsync(payload, request!),
+                "data/process/m-fan-assy/result" => _mqttSubsriptionService.HandleMFanAssyResultAsync(payload, request!),
+                "data/process/m-fan-inspection/result" => _mqttSubsriptionService.HandleMFanInspectionResultAsync(payload, request!),
+                "data/process/ecm-assy/result" => _mqttSubsriptionService.HandleEcmAssyResultAsync(payload, request!),
+                "data/process/final-inspection/result" => _mqttSubsriptionService.HandleFinalInspectionResultAsync(payload, request!),
+                _ => null
+            };
 
-        if (processResultTask is not null)
-        {
-            await processResultTask;
-            return;
+            if (processResultTask is not null)
+            {
+                await processResultTask;
+                return;
+            }
         }
     }
 
@@ -208,7 +213,7 @@ public class MqttWorkerService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to connect to MQTT broker at {Broker}:{Port}", _mqttSettings.Broker, _mqttSettings.Port);
+            _logger.LogWarning("Failed to connect to MQTT broker at {Broker}:{Port}: {Message}", _mqttSettings.Broker, _mqttSettings.Port, ex.Message);
         }
     }
 }

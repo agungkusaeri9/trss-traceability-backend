@@ -142,6 +142,14 @@ public class PrinterService : BaseService<Printer, PrinterDto>, IPrinterService
         return await GetPrinterByNameAsync(stockInPrinter!.Value, cancellationToken);
     }
 
+    public async Task<PrinterDto> GetMFanAssyPrinterAsync(CancellationToken cancellationToken = default)
+    {
+        var mfanPrinter = await _appConfigRepository.GetByKeyAsync("PRINTER_NAME_M_FAN_ASSY", cancellationToken)
+            ?? await _appConfigRepository.GetByKeyAsync("PRINTER_NAME_MFAN_ASSY", cancellationToken);
+
+        return await GetPrinterByNameAsync(mfanPrinter?.Value ?? string.Empty, cancellationToken);
+    }
+
     // public async Task PrintClinchingLabel(StockInDto stockIn)
     // {
     //     // Execute printing in background with proper logging

@@ -20,6 +20,7 @@ public class ProcessLogService : IProcessLogService
     private readonly IProcessRepository _processRepository;
     private readonly ISerialNumberService _serialNumberService;
     private readonly IMqttPublisher _mqttPublisher;
+    private readonly IPrintService _printService;
 
     public ProcessLogService(
         IProcessLogRepository processLogRepository,
@@ -29,7 +30,8 @@ public class ProcessLogService : IProcessLogService
         IParameterRepository parameterRepository,
         IProcessRepository processRepository,
         ISerialNumberService serialNumberService,
-        IMqttPublisher mqttPublisher)
+        IMqttPublisher mqttPublisher,
+        IPrintService printService)
     {
         _processLogRepository = processLogRepository;
         _issueRepository = issueRepository;
@@ -39,6 +41,7 @@ public class ProcessLogService : IProcessLogService
         _processRepository = processRepository;
         _serialNumberService = serialNumberService;
         _mqttPublisher = mqttPublisher;
+        _printService = printService;
     }
 
     public async Task<PagedResult<ProcessLogListDto>> GetProcessLogsAsync(
@@ -288,7 +291,12 @@ public class ProcessLogService : IProcessLogService
             request.Data["LOWER_TANK_ASM_RESULT"]  = issueNumbers[2];
         }
 
-        return await CreateProcessLogWithDetailsAsync(request, cancellationToken);
+        var result = await CreateProcessLogWithDetailsAsync(request, cancellationToken);
+
+        // Print barcode label clinching short side
+        await _printService.PrintClinchingShortSideAsync(clinchingSerialNumberCode, issueNumbers, cancellationToken);
+
+        return result;
     }
 
     private static List<string> ExtractIssueNumbers(Dictionary<string, object>? data)
@@ -540,74 +548,28 @@ public class ProcessLogService : IProcessLogService
     }
 
     private async Task<ProcessLogDto> CreateProcessLogMFanAssyWithIssueNumberAsync(
-   CreateProcessLogRequestDto request,
+        CreateProcessLogRequestDto request,
         CancellationToken cancellationToken = default
     )
     {
-        if (string.IsNullOrWhiteSpace(request.SerialNumber))
-            throw new AppException("Serial number (CC) is required.", 400);
-
-        // 1. Ambil parent serial number CC dari DB
-        var parentSerialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
-            x => x.SerialNumberCode == request.SerialNumber, cancellationToken);
-
-        if (parentSerialNumber == null)
-            throw new AppException($"Serial number '{request.SerialNumber}' not found.", 404);
-
-        // 2. Ekstrak issue numbers dari request.Data
-        //    Bisa berupa array "issue_numbers" atau individual keys: fan_asm_issue_no, fan_motor_asm_issue_no, fan_guide_asm_issue_no
-
-        var issueNumbers = new List<string>();
-        if (request.Data != null)
+        // 1. Ekstrak issue numbers dari request.Data
+        var issueNumbers = ExtractIssueNumbers(request.Data);
+        if (issueNumbers.Count == 0 && request.Data != null)
         {
             var dataInsensitive = new Dictionary<string, object>(request.Data, StringComparer.OrdinalIgnoreCase);
-
-            if (dataInsensitive.TryGetValue("issue_numbers", out var rawIssueNumbers))
+            var issueKeys = new[] { "fan_asm_issue_no", "fan_motor_asm_issue_no", "fan_guide_asm_issue_no" };
+            foreach (var key in issueKeys)
             {
-                if (rawIssueNumbers is System.Text.Json.JsonElement element && element.ValueKind == System.Text.Json.JsonValueKind.Array)
+                if (dataInsensitive.TryGetValue(key, out var rawVal))
                 {
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        var str = item.GetString();
-                        if (!string.IsNullOrWhiteSpace(str))
-                            issueNumbers.Add(str);
-                    }
-                }
-                else if (rawIssueNumbers is IEnumerable<object> list)
-                {
-                    foreach (var item in list)
-                    {
-                        var str = item?.ToString();
-                        if (!string.IsNullOrWhiteSpace(str))
-                            issueNumbers.Add(str);
-                    }
-                }
-                else if (rawIssueNumbers is IEnumerable<string> strList)
-                {
-                    foreach (var str in strList)
-                    {
-                        if (!string.IsNullOrWhiteSpace(str))
-                            issueNumbers.Add(str);
-                    }
-                }
-            }
-
-            if (issueNumbers.Count == 0)
-            {
-                var issueKeys = new[] { "fan_asm_issue_no", "fan_motor_asm_issue_no", "fan_guide_asm_issue_no" };
-                foreach (var key in issueKeys)
-                {
-                    if (dataInsensitive.TryGetValue(key, out var rawVal))
-                    {
-                        var issueNo = ParseText(rawVal);
-                        if (!string.IsNullOrWhiteSpace(issueNo))
-                            issueNumbers.Add(issueNo);
-                    }
+                    var issueNo = ParseText(rawVal);
+                    if (!string.IsNullOrWhiteSpace(issueNo))
+                        issueNumbers.Add(issueNo);
                 }
             }
         }
 
-        // 3. Generate MF serial number (Qty=1, semua issue dikaitkan, qty issue dikurangi 1)
+        // 2. Generate MF serial number (Qty=1, semua issue dikaitkan, qty issue dikurangi 1)
         var generateRequest = new GenerateSerialNumberRequestDto
         {
             Type         = "MFANASSY",
@@ -623,25 +585,7 @@ public class ProcessLogService : IProcessLogService
 
         var mfSerialNumberCode = generatedSns[0].SerialNumberCode;
 
-        // 4. Load child MF serial number dari DB untuk mendapatkan Id-nya
-        var childSerialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
-            x => x.SerialNumberCode == mfSerialNumberCode, cancellationToken);
-        if (childSerialNumber == null)
-            throw new AppException($"MF serial number '{mfSerialNumberCode}' tidak ditemukan setelah dibuat.", 500);
-
-        // 5. Buat relasi SerialNumberRelation: CC = parent, MF = child
-        var relation = new SerialNumberRelation
-        {
-            ParentSerialNumberId = parentSerialNumber.Id,
-            ChildSerialNumberId  = childSerialNumber.Id,
-            CreatedAt            = DateTime.UtcNow,
-            CreatedBy            = request.OperatorUsername ?? "MQTT_M_FAN_ASSY"
-        };
-        parentSerialNumber.ParentRelations.Add(relation);
-        _serialNumberRepository.Update(parentSerialNumber);
-        await _serialNumberRepository.SaveChangesAsync(cancellationToken);
-
-        // 6. Publish MQTT ke topic data/process/m-fan-assy/process-scan
+        // 3. Publish MQTT ke topic data/process/m-fan-assy/process-scan
         var fanAsmIssueNo      = issueNumbers.Count > 0 ? issueNumbers[0] : null;
         var fanMotorAsmIssueNo = issueNumbers.Count > 1 ? issueNumbers[1] : null;
         var fanGuideAsmIssueNo = issueNumbers.Count > 2 ? issueNumbers[2] : null;
@@ -668,42 +612,76 @@ public class ProcessLogService : IProcessLogService
 
         await _mqttPublisher.PublishAsync("data/process/m-fan-assy/process-scan", mqttPayload, cancellationToken);
 
-        // 7. Simpan process log details dengan serial number CC (parent) sebagai referensi
-        //    Petakan input data ke parameter code database yang sesuai:
-        //    LOT_FAN_ASM_RESULT, LOT_MOTOR_ASM_RESULT, LOT_GUIDE_ASM_RESULT, BOLT_TIGHTEN_RESULT, BOLT_TIGHTEN_VALUE, NUT_TIGHTEN_RESULT
-        //var mappedData = new Dictionary<string, object>();
-
-        //if (issueNumbers.Count > 0) mappedData["LOT_FAN_ASM_RESULT"] = issueNumbers[0];
-        //if (issueNumbers.Count > 1) mappedData["LOT_MOTOR_ASM_RESULT"] = issueNumbers[1];
-        //if (issueNumbers.Count > 2) mappedData["LOT_GUIDE_ASM_RESULT"] = issueNumbers[2];
-
-        // if (request.Data != null)
-        // {
-        //     var dataInsensitive = new Dictionary<string, object>(request.Data, StringComparer.OrdinalIgnoreCase);
-
-        //     if (dataInsensitive.TryGetValue("BOLT_TIGHTEN_RESULT", out var boltResult))
-        //         mappedData["BOLT_TIGHTEN_RESULT"] = boltResult;
-
-        //     if (dataInsensitive.TryGetValue("BOLT_TIGHTEN_VALUE", out var boltVal))
-        //         mappedData["BOLT_TIGHTEN_VALUE"] = boltVal;
-
-        //     if (dataInsensitive.TryGetValue("NUT_TIGHTEN_RESULT", out var nutResult))
-        //         mappedData["NUT_TIGHTEN_RESULT"] = nutResult;
-        // }
-
-       
+        // 4. Pastikan detail disimpan ke MF serial number
         request.Data ??= new Dictionary<string, object>();
         request.ProcessCode = "M_FAN_ASSY";
-        if (request.IsOk.HasValue)
+        if (request.IsOk.HasValue && issueNumbers.Count >= 3)
         {
             request.Data["FAN_ASM_RESULT"] = issueNumbers[0];
             request.Data["MOTOR_ASM_RESULT"] = issueNumbers[1];
             request.Data["FUN_GUIDE_ASM_RESULT"] = issueNumbers[2];
         }
         
-        // 8. Pastikan detail disimpan ke child (MF) serial number
         request.SerialNumber = mfSerialNumberCode;
         
+        var result = await CreateProcessLogDetailOnlyAsync(request, cancellationToken);
+
+        // 5. Print barcode / label M-Fan Assy
+        await _printService.PrintMFanAssyAsync(mfSerialNumberCode, issueNumbers, cancellationToken);
+
+        return result;
+    }
+
+    public async Task<ProcessLogDto> CreateProcessLogEcmAssyAsync(
+        CreateProcessLogRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var clinchingSnCode = !string.IsNullOrWhiteSpace(request.SerialNumberClinching)
+            ? request.SerialNumberClinching
+            : request.SerialNumber;
+
+        var mfanSnCode = !string.IsNullOrWhiteSpace(request.SerialNumberMFanAssy)
+            ? request.SerialNumberMFanAssy
+            : null;
+
+        if (string.IsNullOrWhiteSpace(clinchingSnCode))
+            throw new AppException("Serial number clinching (CC) is required.", 400);
+
+        if (string.IsNullOrWhiteSpace(mfanSnCode))
+            throw new AppException("Serial number M-Fan (MF) is required.", 400);
+
+        // 1. Ambil parent (CC) dan child (MF) dari DB
+        var parentSerialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
+            x => x.SerialNumberCode == clinchingSnCode, cancellationToken);
+        if (parentSerialNumber == null)
+            throw new AppException($"Clinching serial number '{clinchingSnCode}' tidak ditemukan.", 404);
+
+        var childSerialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
+            x => x.SerialNumberCode == mfanSnCode, cancellationToken);
+        if (childSerialNumber == null)
+            throw new AppException($"M-Fan serial number '{mfanSnCode}' tidak ditemukan.", 404);
+
+        // 2. Hubungkan relasi SerialNumberRelation jika belum ada
+        var existingRelation = parentSerialNumber.ParentRelations
+            .FirstOrDefault(r => r.ChildSerialNumberId == childSerialNumber.Id);
+
+        if (existingRelation == null)
+        {
+            var relation = new SerialNumberRelation
+            {
+                ParentSerialNumberId = parentSerialNumber.Id,
+                ChildSerialNumberId  = childSerialNumber.Id,
+                CreatedAt            = DateTime.UtcNow,
+                CreatedBy            = request.OperatorUsername ?? "MQTT_ECM_ASSY"
+            };
+            parentSerialNumber.ParentRelations.Add(relation);
+            _serialNumberRepository.Update(parentSerialNumber);
+            await _serialNumberRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        // 3. Simpan process log detail untuk ECM_ASSY pada serial number CC
+        request.SerialNumber = clinchingSnCode;
+        request.ProcessCode = "ECM_ASSY";
         return await CreateProcessLogDetailOnlyAsync(request, cancellationToken);
     }
 

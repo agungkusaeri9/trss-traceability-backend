@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Infrastructure.Persistence;
@@ -18,7 +19,17 @@ public static class DependencyInjection
             if (configuration["UseInMemoryDatabase"] != "true")
             {
                 var connectionString = configuration.GetConnectionString("DefaultConnection");
-                options.UseMySql(connectionString, new MySqlServerVersion(new System.Version(8, 0, 21)));
+                options.UseMySql(
+                    connectionString,
+                    new MySqlServerVersion(new System.Version(8, 0, 21)),
+                    mySqlOptions => mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+                );
+                options.ConfigureWarnings(w =>
+                {
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.MultipleCollectionIncludeWarning);
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.ConnectionError);
+                    w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.CommandCanceled);
+                });
             }
         });
 
@@ -38,7 +49,6 @@ public static class DependencyInjection
         services.AddScoped<IProcessLogRepository, ProcessLogRepository>();
         services.AddScoped<IMqttPrintRequestRepository, MqttPrintRequestRepository>();
         services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
-        services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
         services.AddScoped<IIssueTransactionRepository, IssueTransactionRepository>();
         services.AddScoped<IStockInReworkRepository, StockInReworkRepository>();
         services.AddScoped<IPrintHistoryRepository, PrintHistoryRepository>();
@@ -51,6 +61,4 @@ public static class DependencyInjection
 
         return services;
     }
-
-
 }

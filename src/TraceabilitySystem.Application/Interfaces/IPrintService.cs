@@ -33,5 +33,5 @@ public interface IPrintService
     /// <summary>
     /// Process print for M_FAN_ASSY process code
     /// </summary>
-    //Task PrintMFanAssyAsync(string issueNumber, CancellationToken cancellationToken = default);
+    Task PrintMFanAssyAsync(string serialNumber, List<string>? issueNumbers = null, CancellationToken cancellationToken = default);
 }

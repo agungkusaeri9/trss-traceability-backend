@@ -34,6 +34,10 @@ public interface IProcessLogService
         CreateProcessLogRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<ProcessLogDto> CreateProcessLogEcmAssyAsync(
+        CreateProcessLogRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<bool> ValidateSerialNumberProcessLogAsync(
         string serialNumberCode,
         CancellationToken cancellationToken = default);

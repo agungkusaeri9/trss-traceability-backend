@@ -14,7 +14,7 @@ public class JwtSettings
     public string SecretKey { get; set; } = string.Empty;
     public string Issuer { get; set; } = string.Empty;
     public string Audience { get; set; } = string.Empty;
-    public int AccessTokenExpirationMinutes { get; set; } = 60;
+    public int AccessTokenExpirationMinutes { get; set; } = 10080; // 7 days (1 week)
     public int RefreshTokenExpirationDays { get; set; } = 7;
 }
 
@@ -62,18 +62,29 @@ public class JwtService : IJwtService
     {
         try
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
+            var signingKeys = new List<SecurityKey>
+            {
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey))
+            };
+
+            const string legacyKey = "YourSuperSecretKeyWithAtLeast32Characters!@#$";
+            if (_settings.SecretKey != legacyKey)
+            {
+                signingKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacyKey)));
+            }
+
             var handler = new JwtSecurityTokenHandler();
             var principal = handler.ValidateToken(token, new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
+                IssuerSigningKey = signingKeys[0],
+                IssuerSigningKeys = signingKeys,
                 ValidateIssuer = true,
                 ValidIssuer = _settings.Issuer,
                 ValidateAudience = true,
                 ValidAudience = _settings.Audience,
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
+                ClockSkew = TimeSpan.FromMinutes(5)
             }, out _);
 
             var idClaim = principal.FindFirst(ClaimTypes.NameIdentifier);

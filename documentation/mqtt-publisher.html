@@ -309,13 +309,24 @@
               ></span>
             </div>
             <div class="p-4">
-              <label class="block text-xs font-semibold text-gray-600 mb-2"
-                >Payload Yang Diterima</label
-              >
-              <pre
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-xs font-semibold text-gray-600"
+                  >Riwayat Validasi (Terbaru di Atas)</label
+                >
+                <span
+                  id="validation-total-count"
+                  class="text-[11px] font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 hidden"
+                  >0 item</span
+                >
+              </div>
+              <div
                 id="sub-log-validation-process"
-                class="bg-gray-900 border border-gray-800 rounded-md p-3 text-xs font-mono text-indigo-300 overflow-x-auto overflow-y-auto h-[calc(100vh-220px)] max-h-[650px] min-h-[350px] whitespace-pre-wrap leading-relaxed shadow-inner"
-              ><div class="text-gray-500 font-sans italic">[System] Siap menerima log validasi (data/process/validation)...</div></pre>
+                class="bg-gray-900 border border-gray-800 rounded-md p-3 text-xs font-mono overflow-y-auto h-[calc(100vh-230px)] max-h-[650px] min-h-[350px] space-y-2.5 shadow-inner"
+              >
+                <div class="empty-state text-gray-500 font-sans italic text-center py-8">
+                  [System] Siap menerima log validasi (data/process/validation)...
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -396,7 +407,6 @@
           hasIssuePicker: true,
           defaultIssues: ["20260702004", "20260702005", "20260702006"],
           payload: {
-            serial_number_clinching: "CC20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
             isOk: true,
@@ -451,7 +461,8 @@
           topic: "data/process/ecm-assy/result",
           color: "amber",
           payload: {
-            serial_number: "CC20260630001",
+            serial_number_clinching: "CC20260630001",
+            serial_number_m_fan_assy: "MF20260630001",
             operator_username: "OP001",
             timestamp: new Date().toISOString(),
             isOk: true,
@@ -798,9 +809,17 @@
 
       function clearSubscribeLog(id) {
         const el = document.getElementById(`sub-log-${id}`);
-        if (el)
-          el.innerHTML =
-            '<div class="text-gray-500">[System] Log cleared.</div>';
+        if (el) {
+          if (id === "validation-process") {
+            el.innerHTML =
+              '<div class="empty-state text-gray-500 font-sans italic text-center py-8">[System] Log dibersihkan. Menunggu data validasi baru...</div>';
+            const totalCountEl = document.getElementById("validation-total-count");
+            if (totalCountEl) totalCountEl.classList.add("hidden");
+          } else {
+            el.innerHTML =
+              '<div class="text-gray-500">[System] Log cleared.</div>';
+          }
+        }
         if (subscriptions[id]) subscriptions[id].count = 0;
         let shortKey = id;
         if (id === "clinching-short-side-process") shortKey = "clinching";
@@ -817,29 +836,93 @@
         );
         if (!matchId) return;
 
-        const preEl = document.getElementById(`sub-log-${matchId}`);
-        if (!preEl) return;
+        const containerEl = document.getElementById(`sub-log-${matchId}`);
+        if (!containerEl) return;
 
         subscriptions[matchId].count = (subscriptions[matchId].count || 0) + 1;
+        const msgCount = subscriptions[matchId].count;
 
-        // Pretty-print JSON ke dalam pre
-        let formatted = payload;
-        try {
-          formatted = JSON.stringify(JSON.parse(payload), null, 2);
-        } catch {
-          /* biarkan raw */
-        }
-
-        preEl.textContent = formatted;
-
-        // Update count badge
         let shortKey = matchId;
         if (matchId === "clinching-short-side-process") shortKey = "clinching";
         if (matchId === "m-fan-assy-scan-process") shortKey = "mfan";
         if (matchId === "validation-process") shortKey = "validation";
+
         const countEl = document.getElementById(`sub-count-${shortKey}`);
-        if (countEl)
-          countEl.textContent = `pesan terakhir diterima: ${new Date().toLocaleTimeString("en-US", { hour12: false })}`;
+        const timeStr = new Date().toLocaleTimeString("en-US", { hour12: false });
+        if (countEl) countEl.textContent = `Pesan #${msgCount} (${timeStr})`;
+
+        // Khusus validation-process, render sebagai list item terbaru di atas
+        if (matchId === "validation-process") {
+          const emptyState = containerEl.querySelector(".empty-state");
+          if (emptyState) emptyState.remove();
+
+          const totalCountEl = document.getElementById("validation-total-count");
+          if (totalCountEl) {
+            totalCountEl.classList.remove("hidden");
+            totalCountEl.textContent = `${msgCount} item`;
+          }
+
+          let parsed = null;
+          try {
+            parsed = JSON.parse(payload);
+          } catch {}
+
+          const isOk = parsed && (parsed.status === true || parsed.status === "true" || parsed.isOk === true);
+          const processName = parsed?.process || "unknown";
+          const errorMsg = parsed?.error || (isOk ? null : "Unknown error");
+          const serialNumber = parsed?.data?.serial_number || parsed?.serial_number || null;
+
+          const itemCard = document.createElement("div");
+          itemCard.className = `p-3 rounded-md border transition-all duration-200 ${
+            isOk
+              ? "bg-emerald-950/40 border-emerald-800/80 text-emerald-300 hover:border-emerald-700"
+              : "bg-rose-950/40 border-rose-800/80 text-rose-300 hover:border-rose-700"
+          }`;
+
+          const formattedJson = parsed ? JSON.stringify(parsed, null, 2) : payload;
+
+          itemCard.innerHTML = `
+            <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap pb-1.5 border-b ${
+              isOk ? "border-emerald-900/60" : "border-rose-900/60"
+            }">
+              <div class="flex items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${
+                  isOk
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                }">${isOk ? "✓ SUCCESS" : "✗ FAILED"}</span>
+                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-800 border border-gray-700 text-gray-200">${processName}</span>
+              </div>
+              <span class="text-[11px] font-mono text-gray-400">#${msgCount} • ${timeStr}</span>
+            </div>
+            ${
+              serialNumber
+                ? `<div class="text-[11px] font-mono mb-1 text-gray-200 flex items-center gap-1"><span class="text-gray-400 font-sans text-[10px]">SN:</span> <strong class="text-indigo-300 bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/50">${serialNumber}</strong></div>`
+                : ""
+            }
+            ${
+              errorMsg
+                ? `<div class="text-xs text-rose-300 font-mono bg-rose-900/30 border border-rose-800/40 p-2 rounded mb-1.5 whitespace-pre-wrap leading-tight">${errorMsg}</div>`
+                : ""
+            }
+            <details open class="group mt-1">
+              <summary class="cursor-pointer text-[10px] text-gray-400 hover:text-gray-200 select-none flex items-center gap-1 font-sans">
+                <span>Raw JSON Payload</span>
+              </summary>
+              <pre class="mt-1.5 p-2 rounded bg-black/60 border border-gray-800 text-[10px] font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">${formattedJson}</pre>
+            </details>
+          `;
+
+          containerEl.prepend(itemCard);
+          return;
+        }
+
+        // Behavior default untuk card lain
+        let formatted = payload;
+        try {
+          formatted = JSON.stringify(JSON.parse(payload), null, 2);
+        } catch {}
+        containerEl.textContent = formatted;
       }
 
       // ─── MQTT ─────────────────────────────────────────────────────────────────

@@ -86,10 +86,10 @@ public class PrintService : IPrintService
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
 
         var serialNumberCheck = await serialNumberRepository.CheckByCodeAsync(serialNumberCode, cancellationToken);
-        if(serialNumberCheck == false)
+        if (serialNumberCheck == false)
         {
             _logger.LogWarning("Serial number [{SerialNumberCode}] not found. Skipping print job.", serialNumberCode);
-            return;
+            throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
         }
 
         var zpl = BuildZplLabelClinching(mitsubishiCode,trssCode,serialNumberCode,dateFormat, qrCodeString);
@@ -153,12 +153,12 @@ public class PrintService : IPrintService
             }
             catch (ConnectionException ex)
             {
-                _logger.LogError(ex, "Failed to connect to printer '{PrinterName}'", printerName);
+                _logger.LogError("Failed to connect to printer '{PrinterName}': {Message}", printerName, ex.Message);
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error while printing.");
+                _logger.LogError("Unexpected error while printing to '{PrinterName}': {Message}", printerName, ex.Message);
                 throw;
             }
             finally
@@ -188,6 +188,17 @@ public class PrintService : IPrintService
                 SerialNumber = serialNumberCode,
                 IssueNumbers = issueNumbers ?? new List<string>()
             }, cancellationToken);
+
+            await _mqttPublisher.PublishAsync("data/process/validation", new
+            {
+                status = true,
+                process = "print-clinching",
+                error = (string?)null,
+                data = new
+                {
+                    serial_number = serialNumberCode
+                }
+            }, cancellationToken);
         }catch(Exception ex)
         {
             printHistoryDto.Status = PrintStatus.Failed;
@@ -199,6 +210,13 @@ public class PrintService : IPrintService
                 IsPrinted = false,
                 SerialNumber = serialNumberCode,
                 IssueNumbers = issueNumbers ?? new List<string>()
+            }, cancellationToken);
+
+            await _mqttPublisher.PublishAsync("data/process/validation", new
+            {
+                status = false,
+                process = "print-clinching",
+                error = ex.Message
             }, cancellationToken);
         }
     }
@@ -436,33 +454,110 @@ public class PrintService : IPrintService
         }
     }
 
-    //public async Task PrintMFanAssyAsync(string issueNumber, CancellationToken cancellationToken = default)
-    //{
-    //    await PrintClinchingLabelWithSdkAsync(issueNumber, cancellationToken);
-    //}
+    private async Task PrintMFanAssyLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    {
+        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+
+        string dateFormat = today.ToString("yyyyMMdd");
+        string mitsubishiCode = "T A000041130";
+        string trssCode = "A T011000004";
+        string qrCodeString = mitsubishiCode + ";" + trssCode + ";" + serialNumberCode;
+        string printerName = await _configRepository.GetPrinterNameMFanAssy(cancellationToken);
+
+        using var scope = _serviceScopeFactory.CreateScope();
+        var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
+
+        var serialNumberCheck = await serialNumberRepository.CheckByCodeAsync(serialNumberCode, cancellationToken);
+        if (serialNumberCheck == false)
+        {
+            _logger.LogWarning("Serial number [{SerialNumberCode}] not found. Skipping print job.", serialNumberCode);
+            throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
+        }
+
+        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString);
+
+        await SendViaZebraSdkAsync(printerName, zpl);
+    }
+
+    public async Task PrintMFanAssyAsync(string serialNumberCode, List<string>? issueNumbers = null, CancellationToken cancellationToken = default)
+    {
+        var printHistoryDto = new PrintHistoryCreateMFanAssyDto
+        {
+            Status = PrintStatus.Success,
+            SerialNumberCode = serialNumberCode,
+        };
+
+        try
+        {
+            await PrintMFanAssyLabelWithSdkAsync(serialNumberCode, cancellationToken);
+            await _printHistoryService.CreateHistoryPrintMFanAssyAsync(printHistoryDto, cancellationToken);
+
+            await _mqttPublisher.PublishAsync("data/print/m-fan-assy", new
+            {
+                IsPrinted = true,
+                SerialNumber = serialNumberCode,
+                IssueNumbers = issueNumbers ?? new List<string>()
+            }, cancellationToken);
+
+            await _mqttPublisher.PublishAsync("data/process/validation", new
+            {
+                status = true,
+                process = "print-mfan",
+                error = (string?)null,
+                data = new
+                {
+                    serial_number = serialNumberCode
+                }
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            printHistoryDto.Status = PrintStatus.Failed;
+            printHistoryDto.ErrorMessage = ex.Message;
+            await _printHistoryService.CreateHistoryPrintMFanAssyAsync(printHistoryDto, cancellationToken);
+
+            await _mqttPublisher.PublishAsync("data/print/m-fan-assy", new
+            {
+                IsPrinted = false,
+                SerialNumber = serialNumberCode,
+                IssueNumbers = issueNumbers ?? new List<string>()
+            }, cancellationToken);
+
+            await _mqttPublisher.PublishAsync("data/process/validation", new
+            {
+                status = false,
+                process = "print-mfan",
+                error = ex.Message
+            }, cancellationToken);
+        }
+    }
 
     public async Task RePrintAsync(int id, CancellationToken cancellation = default)
     {
         var result = await _printHistoryRepository.GetByIdAsync(id);
         if (result is null)
         {
-            throw new NotFoundException("Print history not found",nameof(id));
+            throw new NotFoundException("Print history not found", nameof(id));
         }
         try
         {
-
             if (result.Module == PrintModule.StockIn)
                 await RePrintStockInAsync(result.ReferenceNumber!);
             else if (result.Module == PrintModule.Clinching)
-                await RePrintClinchingAsync(result.ReferenceNumber!);
+                await RePrintClinchingAsync(result.ReferenceNumber!, cancellation);
+            else if (result.Module == PrintModule.MFanAssy)
+                await RePrintMFanAssyAsync(result.ReferenceNumber!, cancellation);
 
-
+            result.Status = PrintStatus.Success;
+            result.ErrorMessage = null;
+            result.RetryCount += 1;
+            result.LastRetryAt = DateTime.UtcNow;
+            _printHistoryRepository.Update(result);
+            await _printHistoryRepository.SaveChangesAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "MASUK REPRINT CATCH");
-
-
+            result.ErrorMessage = ex.Message;
             result.RetryCount += 1;
             result.LastRetryAt = DateTime.UtcNow;
             _printHistoryRepository.Update(result);
@@ -494,5 +589,13 @@ public class PrintService : IPrintService
         if (serialNumber is null)
             throw new KeyNotFoundException("Serial Number not found.");
         await PrintClinchingLabelWithSdkAsync(serialNumber.SerialNumberCode, cancellationToken);
+    }
+
+    private async Task RePrintMFanAssyAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    {
+        var serialNumber = await _serialNumberRepo.GetWithRelatedBySerialNumberAsync(serialNumberCode);
+        if (serialNumber is null)
+            throw new KeyNotFoundException("Serial Number not found.");
+        await PrintMFanAssyLabelWithSdkAsync(serialNumber.SerialNumberCode, cancellationToken);
     }
 }

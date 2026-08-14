@@ -17,7 +17,11 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
-    var builder = WebApplication.CreateBuilder(args);
+    var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+    {
+        Args = args,
+        WebRootPath = null
+    });
 
     builder.Services.AddWindowsService();
 
@@ -89,6 +93,23 @@ try
     var app = builder.Build();
 
     // ── Middleware pipeline ────────────────────────────────────────────────
+    app.UseMiddleware<CorrelationAndLogContextMiddleware>();
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.GetLevel = (httpContext, elapsed, ex) =>
+        {
+            if (ex is OperationCanceledException || httpContext.RequestAborted.IsCancellationRequested)
+                return Serilog.Events.LogEventLevel.Debug;
+
+            if (ex != null || httpContext.Response.StatusCode >= 500)
+                return Serilog.Events.LogEventLevel.Error;
+
+            if (httpContext.Response.StatusCode >= 400)
+                return Serilog.Events.LogEventLevel.Warning;
+
+            return Serilog.Events.LogEventLevel.Information;
+        };
+    });
     app.UseMiddleware<ExceptionMiddleware>();
 
     app.UseSwagger();
@@ -108,10 +129,31 @@ try
         });
     }
 
-    app.UseStaticFiles();
     app.UseCors("AllowAll");
-    app.UseSerilogRequestLogging();
     app.UseAuthentication();
+
+    // ── Enrich UserId after Authentication ──────────────────────────────────
+    app.Use(async (context, next) =>
+    {
+        if (context.User?.Identity?.IsAuthenticated == true)
+        {
+            var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? context.User.FindFirst("sub")?.Value
+                ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+                ?? context.User.Identity?.Name
+                ?? "Authenticated";
+
+            using (Serilog.Context.LogContext.PushProperty("UserId", userId))
+            {
+                await next();
+            }
+        }
+        else
+        {
+            await next();
+        }
+    });
+
     app.UseAuthorization();
     app.MapControllers();
 

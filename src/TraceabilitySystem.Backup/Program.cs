@@ -1,12 +1,18 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
 using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using TraceabilitySystem.Backup;
 using TraceabilitySystem.Backup.BackgroundServices;
+using TraceabilitySystem.Shared.Constants;
+
+const string outputTemplate =
+    "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] [{Service}] [{Environment}] [{Category}] [Corr:{CorrelationId}] [Req:{RequestId}] [User:{UserId}] {Message:lj}{NewLine}{Exception}";
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
+    .WriteTo.Console(outputTemplate: outputTemplate)
     .CreateBootstrapLogger();
 
 try
@@ -17,29 +23,30 @@ try
         {
             config.ReadFrom.Configuration(ctx.Configuration)
                   .ReadFrom.Services(services)
-                  .Enrich.FromLogContext();
+                  .Enrich.FromLogContext()
+                  .Enrich.WithProperty("Service", "TraceabilitySystem.Backup")
+                  .Enrich.WithProperty("Environment", ctx.HostingEnvironment.EnvironmentName)
+                  .Enrich.With(new BackupStandardFieldsEnricher())
+                  .Filter.ByExcluding(e => e.Exception is OperationCanceledException || e.Exception is TaskCanceledException);
 
             var customLogging = ctx.Configuration.GetSection("CustomLogging");
             bool debugIsTerminal = customLogging.GetValue<bool>("DebugIsTerminal", false);
-            string logFolder = customLogging.GetValue<string>("LogFolder", "logging/logs-backup")!;
+            string logFolder = customLogging.GetValue<string>("LogFolder", "D:\\trss\\traceability\\logging\\logs-backup")!;
 
             if (debugIsTerminal)
             {
-                config.WriteTo.Async(a => a.Console());
+                config.WriteTo.Async(a => a.Console(outputTemplate: outputTemplate));
             }
             else
             {
+                config.WriteTo.Async(a => a.Console(outputTemplate: outputTemplate));
+
                 config.WriteTo.Map(
                     le => le.Timestamp.ToString("yyyy-MM-dd"),
-                    (date, wt) => wt.Async(a => a.File($"{logFolder}/{date}.txt")),
+                    (date, wt) => wt.Async(a => a.File(
+                        path: $"{logFolder}/{date}.txt",
+                        outputTemplate: outputTemplate)),
                     sinkMapCountLimit: 2);
-
-                config.WriteTo.Logger(lc => lc
-                    .Filter.ByIncludingOnly(evt => evt.Level >= Serilog.Events.LogEventLevel.Error)
-                    .WriteTo.Map(
-                        le => le.Timestamp.ToString("yyyy-MM-dd"),
-                        (date, wt) => wt.Async(a => a.File($"{logFolder}/errors/error-{date}.txt")),
-                        sinkMapCountLimit: 2));
             }
         })
         .ConfigureServices((hostContext, services) =>
@@ -86,4 +93,25 @@ catch (Exception ex) when (ex is not HostAbortedException)
 finally
 {
     Log.CloseAndFlush();
+}
+
+/// <summary>
+/// Fallback standard fields untuk process background backup
+/// </summary>
+sealed class BackupStandardFieldsEnricher : ILogEventEnricher
+{
+    public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
+    {
+        if (!logEvent.Properties.ContainsKey("Category"))
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("Category", LogCategory.BackgroundJob));
+
+        if (!logEvent.Properties.ContainsKey("CorrelationId"))
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("CorrelationId", "-"));
+
+        if (!logEvent.Properties.ContainsKey("RequestId"))
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("RequestId", "-"));
+
+        if (!logEvent.Properties.ContainsKey("UserId"))
+            logEvent.AddPropertyIfAbsent(propertyFactory.CreateProperty("UserId", "System"));
+    }
 }

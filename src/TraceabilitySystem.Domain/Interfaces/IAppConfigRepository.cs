@@ -7,4 +7,5 @@ public interface IAppConfigRepository : IRepository<AppConfig>
     Task<AppConfig?> GetByKeyAsync(string key, CancellationToken cancellationToken = default);
     Task<string> GetPrinterNameClinching(CancellationToken cancellationToken = default);
     Task<string> GetPrinterNameStockIn(CancellationToken cancellationToken = default);
+    Task<string> GetPrinterNameMFanAssy(CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using TraceabilitySystem.Application.DTOs.PrintHistory;
@@ -14,6 +14,6 @@ namespace TraceabilitySystem.Application.Interfaces
         Task<PrintHistoryDto> CreateAsync(PrintHistoryCreateDto request);
         Task CreateHistoryPrintClinchingAsync(PrintHistoryCreateClinchingDto request, CancellationToken cancellation = default);
         Task CreateHistoryPrintStockInAsync(PrintHistoryCreateStockInDto request, CancellationToken cancellation = default);
-
+        Task CreateHistoryPrintMFanAssyAsync(PrintHistoryCreateMFanAssyDto request, CancellationToken cancellation = default);
     }
 }

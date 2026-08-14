@@ -1,4 +1,4 @@
-﻿
+
 using Mapster;
 using Microsoft.Extensions.Logging;
 using TraceabilitySystem.Application.DTOs.PrintHistory;
@@ -87,6 +87,21 @@ namespace TraceabilitySystem.Application.Services
             };
             await CreateAsync(dto);
 
+        }
+
+        public async Task CreateHistoryPrintMFanAssyAsync(PrintHistoryCreateMFanAssyDto request, CancellationToken cancellation = default)
+        {
+            var dto = new PrintHistoryCreateDto
+            {
+                Status = request.Status,
+                Module = PrintModule.MFanAssy,
+                ReferenceNumber = request.SerialNumberCode,
+                ErrorMessage = request.ErrorMessage,
+                PrinterName = await _appConfig.GetPrinterNameMFanAssy(cancellation),
+                RetryCount = 1,
+                CreatedAt = DateTime.UtcNow
+            };
+            await CreateAsync(dto);
         }
 
         //private async Task RePrintStockInAsync(string issueNumber)

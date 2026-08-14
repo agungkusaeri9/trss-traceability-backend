@@ -304,38 +304,6 @@ namespace TraceabilitySystem.Worker.Validator
 
             var issueNumbers = GetIssueNumbers(request.Data!);
 
-            // Validation 0: Clinching serial number must have an active ProcessLog (IsFinished=false, Status=true)
-            if (string.IsNullOrWhiteSpace(request.SerialNumberClinching))
-            {
-                validation.Errors.Add("Clinching serial number is required.");
-                return validation;
-            }
-
-            if (!request.SerialNumberClinching.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
-            {
-                validation.Errors.Add($"Clinching serial number '{request.SerialNumberClinching}' is not valid. It must start with 'CC'.");
-                return validation;
-            }
-
-            var clinchingLog = await _processLogRepository.GetLogBySerialNumberAsync(request.SerialNumberClinching);
-            if (clinchingLog == null)
-            {
-                validation.Errors.Add($"No process log found for clinching serial number '{request.SerialNumberClinching}'.");
-                return validation;
-            }
-
-            if (clinchingLog.IsFinished)
-            {
-                validation.Errors.Add($"Clinching serial number '{request.SerialNumberClinching}' is already finished (IsFinished=true). Cannot proceed with M-Fan Assy.");
-                return validation;
-            }
-
-            if (!clinchingLog.Status)
-            {
-                validation.Errors.Add($"Clinching serial number '{request.SerialNumberClinching}' has a failed status (Status=false). Cannot proceed with M-Fan Assy.");
-                return validation;
-            }
-
             // Validation 1: Issue numbers must not be empty
             if (issueNumbers == null || issueNumbers.Count == 0)
             {
@@ -551,35 +519,83 @@ namespace TraceabilitySystem.Worker.Validator
             if (!validation.IsValid)
                 return validation;
 
+            var clinchingSn = !string.IsNullOrWhiteSpace(request.SerialNumberClinching)
+                ? request.SerialNumberClinching
+                : request.SerialNumber;
+
+            var mfanSn = !string.IsNullOrWhiteSpace(request.SerialNumberMFanAssy)
+                ? request.SerialNumberMFanAssy
+                : null;
+
             // Validation 0: Clinching serial number must have an active ProcessLog (IsFinished=false, Status=true)
-            if (string.IsNullOrWhiteSpace(request.SerialNumber))
+            if (string.IsNullOrWhiteSpace(clinchingSn))
             {
-                validation.Errors.Add("Serial number (clinching) is required.");
+                validation.Errors.Add("Serial number clinching is required.");
                 return validation;
             }
 
-            if (!request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            if (!clinchingSn.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
             {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not a valid clinching serial number. It must start with 'CC'.");
+                validation.Errors.Add($"Serial number '{clinchingSn}' is not a valid clinching serial number. It must start with 'CC'.");
                 return validation;
             }
 
-            var clinchingLog = await _processLogRepository.GetLogBySerialNumberAsync(request.SerialNumber);
+            var clinchingLog = await _processLogRepository.GetLogBySerialNumberAsync(clinchingSn);
             if (clinchingLog == null)
             {
-                validation.Errors.Add($"No process log found for serial number '{request.SerialNumber}'.");
+                validation.Errors.Add($"No process log found for clinching serial number '{clinchingSn}'.");
                 return validation;
             }
 
             if (clinchingLog.IsFinished)
             {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' is already finished (IsFinished=true). Cannot proceed with ECM Assy.");
+                validation.Errors.Add($"Clinching serial number '{clinchingSn}' is already finished (IsFinished=true). Cannot proceed with ECM Assy.");
                 return validation;
             }
 
             if (!clinchingLog.Status)
             {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' has a failed status (Status=false). Cannot proceed with ECM Assy.");
+                validation.Errors.Add($"Clinching serial number '{clinchingSn}' has a failed status (Status=false). Cannot proceed with ECM Assy.");
+                return validation;
+            }
+
+            // Validation 1: M-Fan serial number must be provided and have an active ProcessLog
+            if (string.IsNullOrWhiteSpace(mfanSn))
+            {
+                validation.Errors.Add("Serial number M-Fan is required.");
+                return validation;
+            }
+
+            if (!mfanSn.StartsWith("MF", StringComparison.OrdinalIgnoreCase))
+            {
+                validation.Errors.Add($"Serial number '{mfanSn}' is not a valid M-Fan serial number. It must start with 'MF'.");
+                return validation;
+            }
+
+            var mfanLog = await _processLogRepository.GetLogBySerialNumberAsync(mfanSn);
+            if (mfanLog == null)
+            {
+                validation.Errors.Add($"No process log found for M-Fan serial number '{mfanSn}'.");
+                return validation;
+            }
+
+            if (mfanLog.IsFinished)
+            {
+                validation.Errors.Add($"M-Fan serial number '{mfanSn}' is already finished (IsFinished=true). Cannot proceed with ECM Assy.");
+                return validation;
+            }
+
+            if (!mfanLog.Status)
+            {
+                validation.Errors.Add($"M-Fan serial number '{mfanSn}' has a failed status (Status=false). Cannot proceed with ECM Assy.");
+                return validation;
+            }
+
+            // Validation 2: Ensure M-Fan is not already paired with another Clinching serial
+            var childSnEntity = await _serialNumberRepository.GetWithRelatedBySerialNumberAsync(mfanSn);
+            if (childSnEntity?.ChildRelations != null && childSnEntity.ChildRelations.Any(r => r.ParentSerialNumber?.SerialNumberCode != clinchingSn))
+            {
+                validation.Errors.Add($"M-Fan serial number '{mfanSn}' is already assembled with another unit.");
                 return validation;
             }
 

@@ -1,7 +1,13 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System;
 using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using TraceabilitySystem.Shared.Constants;
+using TraceabilitySystem.Shared.Helpers;
 
 namespace TraceabilitySystem.Backup.BackgroundServices;
 
@@ -20,7 +26,8 @@ public class DatabaseBackupService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("DatabaseBackupService started. Interval: every {IntervalHours} hour(s).", _settings.IntervalHours);
+        _logger.LogWithCategory(LogLevel.Information, LogCategory.BackgroundJob,
+            "DatabaseBackupService started. Interval: every {IntervalHours} hour(s).", _settings.IntervalHours);
 
         // Jalankan backup pertama langsung saat startup
         await RunBackupAsync(stoppingToken);
@@ -42,11 +49,11 @@ public class DatabaseBackupService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error in backup loop.");
+                _logger.LogWithCategory(LogLevel.Error, LogCategory.BackgroundJob, ex, "Unexpected error in backup loop.");
             }
         }
 
-        _logger.LogInformation("DatabaseBackupService stopped.");
+        _logger.LogWithCategory(LogLevel.Information, LogCategory.BackgroundJob, "DatabaseBackupService stopped.");
     }
 
     private async Task RunBackupAsync(CancellationToken cancellationToken)
@@ -60,7 +67,8 @@ public class DatabaseBackupService : BackgroundService
             var fileName = $"backup_{_settings.Database}_{timestamp}.sql";
             var filePath = Path.Combine(outputFolder, fileName);
 
-            _logger.LogInformation("[Backup] Starting database backup → {FilePath}", filePath);
+            _logger.LogWithCategory(LogLevel.Information, LogCategory.Database,
+                "[Backup] Starting database backup → {FilePath}", filePath);
 
             var args = BuildMysqlDumpArgs(filePath);
 
@@ -90,16 +98,19 @@ public class DatabaseBackupService : BackgroundService
             if (process.ExitCode == 0)
             {
                 var fileSize = new FileInfo(filePath).Length;
-                _logger.LogInformation("[Backup] ✓ Backup succeeded. File: {FileName} ({SizeKB} KB)", fileName, fileSize / 1024);
+                _logger.LogAudit("DatabaseBackup",
+                    "[Backup] ✓ Backup succeeded. File: {FileName} ({SizeKB} KB)", fileName, fileSize / 1024);
             }
             else
             {
-                _logger.LogError("[Backup] ✗ mysqldump exited with code {ExitCode}. stderr: {Stderr}", process.ExitCode, stderr);
+                _logger.LogWithCategory(LogLevel.Error, LogCategory.Database,
+                    "[Backup] ✗ mysqldump exited with code {ExitCode}. stderr: {Stderr}", process.ExitCode, stderr);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[Backup] ✗ Backup failed: {Message}", ex.Message);
+            _logger.LogWithCategory(LogLevel.Error, LogCategory.Database, ex,
+                "[Backup] ✗ Backup failed: {Message}", ex.Message);
         }
     }
 
@@ -120,7 +131,6 @@ public class DatabaseBackupService : BackgroundService
                 var fileName = Path.GetFileNameWithoutExtension(file);
 
                 // Format: backup_{database}_{yyyy-MM-dd}_{HH-mm-ss}
-                // Split by '_' langsung menghasilkan "2026-06-30" sebagai satu segment
                 var parts = fileName.Split('_');
 
                 DateOnly fileDate = default;
@@ -141,7 +151,8 @@ public class DatabaseBackupService : BackgroundService
 
                 if (!parsed)
                 {
-                    _logger.LogWarning("[Cleanup] Cannot parse date from filename: {File}, skipping.", Path.GetFileName(file));
+                    _logger.LogWithCategory(LogLevel.Warning, LogCategory.Database,
+                        "[Cleanup] Cannot parse date from filename: {File}, skipping.", Path.GetFileName(file));
                     continue;
                 }
 
@@ -149,18 +160,22 @@ public class DatabaseBackupService : BackgroundService
                 {
                     File.Delete(file);
                     deleted++;
-                    _logger.LogInformation("[Cleanup] Deleted old backup: {File} (date: {Date})", Path.GetFileName(file), fileDate);
+                    _logger.LogAudit("BackupCleanup",
+                        "[Cleanup] Deleted old backup: {File} (date: {Date})", Path.GetFileName(file), fileDate);
                 }
             }
 
             if (deleted > 0)
-                _logger.LogInformation("[Cleanup] Removed {Count} old backup file(s) older than {Days} day(s).", deleted, _settings.RetentionDays);
+                _logger.LogWithCategory(LogLevel.Information, LogCategory.Database,
+                    "[Cleanup] Removed {Count} old backup file(s) older than {Days} day(s).", deleted, _settings.RetentionDays);
             else
-                _logger.LogInformation("[Cleanup] No old backups to remove (retention: {Days} day(s)).", _settings.RetentionDays);
+                _logger.LogWithCategory(LogLevel.Information, LogCategory.Database,
+                    "[Cleanup] No old backups to remove (retention: {Days} day(s)).", _settings.RetentionDays);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[Cleanup] ✗ Cleanup failed: {Message}", ex.Message);
+            _logger.LogWithCategory(LogLevel.Error, LogCategory.Database, ex,
+                "[Cleanup] ✗ Cleanup failed: {Message}", ex.Message);
         }
 
         return Task.CompletedTask;
@@ -168,7 +183,6 @@ public class DatabaseBackupService : BackgroundService
 
     private string BuildMysqlDumpArgs(string outputFilePath)
     {
-        // Gunakan redirect output ke file agar tidak ada masalah encoding
         var args = $"--host={_settings.Host} --port={_settings.Port} --user={_settings.Username}";
 
         if (!string.IsNullOrWhiteSpace(_settings.Password))

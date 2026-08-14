@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using TraceabilitySystem.Application.DTOs.SerialNumber;
@@ -39,6 +39,14 @@ namespace TraceabilitySystem.Application.DTOs.PrintHistory
         public PrintStatus Status { get; set; } = PrintStatus.Failed;
         public string PrintName { get; set; } = string.Empty;
         public string IssueNumber { get; set; } = string.Empty;
+        public string? ErrorMessage { get; set; }
+    }
+
+    public class PrintHistoryCreateMFanAssyDto
+    {
+        public PrintStatus Status { get; set; } = PrintStatus.Failed;
+        public string PrintName { get; set; } = string.Empty;
+        public string SerialNumberCode { get; set; } = string.Empty;
         public string? ErrorMessage { get; set; }
     }
 }

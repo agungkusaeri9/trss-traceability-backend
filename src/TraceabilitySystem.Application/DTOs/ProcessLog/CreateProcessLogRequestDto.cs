@@ -12,10 +12,17 @@ public class CreateProcessLogRequestDto
     [JsonPropertyName("serial_number_clinching")]
     public string SerialNumberClinching { get; set; } = string.Empty;
 
-     [JsonPropertyName("serial_number_m_fan_assy")]
+    [JsonPropertyName("serial_number_m_fan_assy")]
     public string SerialNumberMFanAssy { get; set; } = string.Empty;
 
-     [JsonPropertyName("serial_number")]
+    [JsonPropertyName("serial_number_mfan")]
+    public string? SerialNumberMFanAlternative
+    {
+        get => SerialNumberMFanAssy;
+        set { if (!string.IsNullOrWhiteSpace(value)) SerialNumberMFanAssy = value; }
+    }
+
+    [JsonPropertyName("serial_number")]
     public string? SerialNumber { get; set; } = string.Empty;
 
     [JsonPropertyName("process_code")]
