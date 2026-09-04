@@ -11,6 +11,8 @@ using TraceabilitySystem.Application;
 using TraceabilitySystem.Application.Mappers;
 using TraceabilitySystem.Shared.Models;
 
+// Trigger rebuild for LogsController
+
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
@@ -23,6 +25,7 @@ try
         WebRootPath = null
     });
 
+    // API Host Configuration
     builder.Services.AddWindowsService();
 
     builder.WebHost.UseUrls(

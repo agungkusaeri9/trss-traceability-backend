@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IPrintService, PrintService>();
+        services.AddScoped<ILogService, LogService>();
 
         return services;
     }

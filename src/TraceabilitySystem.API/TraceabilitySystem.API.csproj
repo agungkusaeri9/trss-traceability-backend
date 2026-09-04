@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <!-- Trigger project rebuild -->
   <ItemGroup>
     <ProjectReference Include="..\TraceabilitySystem.Application\TraceabilitySystem.Application.csproj" />
     <ProjectReference Include="..\TraceabilitySystem.Infrastructure\TraceabilitySystem.Infrastructure.csproj" />

@@ -46,9 +46,9 @@ namespace TraceabilitySystem.Worker.Services
         }
 
 
-        public async Task HandleClinchingShortSideResultAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleClinchingShortSideResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][ClinchingShortSide] Payload: {Payload}", payload);
+            // _logger.LogInformation("[MQTT][ClinchingShortSide] Payload: {Payload}", payload);
             request.ProcessCode = "CLINCHING_SHORT_SIDE";
 
             var validation = await _validator.ClinchingShortSideValidator(request);
@@ -65,24 +65,15 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveProcessClinchingShortSideAsync(
-                    errorMessage,
-                    payload,
-                    request);
-
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][ClinchingShortSide][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][ClinchingShortSide][Validation] {Error}", error);
+                // }
 
                 return;
             }
-
-
-            await _databaseService.SaveProcessClinchingShortSideAsync(null, payload, request);
 
             using var scope = _scopeFactory.CreateScope();
             var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
@@ -105,6 +96,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -119,14 +111,14 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
 
-        public async Task HandleClinchingLongSideResultAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleClinchingLongSideResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][ClinchingLongSide] Payload: {Payload}", payload);
+            // _logger.LogInformation("[MQTT][ClinchingLongSide] Payload: {Payload}", payload);
             request.ProcessCode = "CLINCHING_LONG_SIDE";
-            
 
             var validation = await _validator.ClinchingLongSideValidator(request);
             if (!validation.IsValid)
@@ -142,27 +134,17 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveProcessClinchingLongSideAsync(errorMessage, payload, request);
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][ClinchingLongSide][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][ClinchingLongSide][Validation] {Error}", error);
+                // }
                 return;
             }
 
-            await _databaseService.SaveProcessClinchingLongSideAsync(null,payload, request);
-
             try
             {
-                if (request == null)
-                {
-                    _logger.LogWarning("[MQTT][ClinchingLongSide] Failed to deserialize payload");
-                    return;
-                }
-
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
@@ -176,6 +158,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -188,13 +171,13 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
 
-        public async Task HandleHeLeakResultAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleHeLeakResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][HeLeak] Payload: {Payload}", payload);
-
+            // _logger.LogInformation("[MQTT][HeLeak] Payload: {Payload}", payload);
             request.ProcessCode = "HE_LEAK";
 
             var validation = await _validator.HeLeakValidator(request);
@@ -211,26 +194,17 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveHeLeakAsync(errorMessage, payload, request);
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][HeLeak][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][HeLeak][Validation] {Error}", error);
+                // }
                 return;
             }
 
-            await _databaseService.SaveHeLeakAsync(null, payload, request);
             try
             {
-                if (request == null)
-                {
-                    _logger.LogWarning("[MQTT][HeLeak] Failed to deserialize payload");
-                    return;
-                }
-
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
@@ -244,6 +218,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -256,21 +231,21 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
 
-        public async Task HandleMFanAssyResultScanAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleMFanAssyResultScanAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][MFanAssyScan] Payload: {Payload}", payload);
-
+            // _logger.LogInformation("[MQTT][MFanAssyScan] Payload: {Payload}", payload);
             request.ProcessCode = "M_FAN_ASSY";
 
             var validation = await _validator.MFanAssyScanValidator(request);
             if (!validation.IsValid)
             {
                 var errorMessage = string.Join(
-               Environment.NewLine,
-               validation.Errors);
+                   Environment.NewLine,
+                   validation.Errors);
 
                 var errorPayload = new
                 {
@@ -279,19 +254,15 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveMFanAssyScanAsync(errorMessage, payload, request);
-
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][MFanAssyScan][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][MFanAssyScan][Validation] {Error}", error);
+                // }
                 return;
             }
 
-            await _databaseService.SaveMFanAssyScanAsync(null, payload, request);
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -307,6 +278,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -319,12 +291,13 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
 
-        public async Task HandleMFanAssyResultAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleMFanAssyResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][MFanAssy] Payload: {Payload}", payload);
+            // _logger.LogInformation("[MQTT][MFanAssy] Payload: {Payload}", payload);
             request.ProcessCode = "M_FAN_ASSY";
             request.SerialNumber = request.SerialNumberMFanAssy;
 
@@ -342,26 +315,17 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveMFanAssyAsync(errorMessage, payload, request);
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][MFanAssy][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][MFanAssy][Validation] {Error}", error);
+                // }
                 return;
             }
 
-            await _databaseService.SaveMFanAssyAsync(null, payload, request);
             try
             {
-                if (request == null)
-                {
-                    _logger.LogWarning("[MQTT][MFanAssy] Failed to deserialize payload");
-                    return;
-                }
-
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
 
@@ -375,6 +339,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -387,13 +352,14 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
 
 
-        public async Task HandleMFanInspectionResultAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleMFanInspectionResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][MFanInspection] Payload: {Payload}", payload);
+            // _logger.LogInformation("[MQTT][MFanInspection] Payload: {Payload}", payload);
             request.ProcessCode = "M_FAN_INSPECTION";
             request.SerialNumber = request.SerialNumberMFanAssy;
 
@@ -411,18 +377,15 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveMFanInspectionAsync(errorMessage, payload, request);
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][MFanInspection][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][MFanInspection][Validation] {Error}", error);
+                // }
                 return;
             }
 
-            await _databaseService.SaveMFanInspectionAsync(null, payload, request);
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -438,6 +401,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -450,14 +414,15 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
 
 
 
-        public async Task HandleEcmAssyResultAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleEcmAssyResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][EcmAssy] Payload: {Payload}", payload);
+            // _logger.LogInformation("[MQTT][EcmAssy] Payload: {Payload}", payload);
             request.ProcessCode = "ECM_ASSY";
 
             var validation = await _validator.EcmAssyValidator(request);
@@ -474,18 +439,15 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveEcmAssynAsync(errorMessage, payload, request);
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][EcmAssy][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][EcmAssy][Validation] {Error}", error);
+                // }
                 return;
             }
 
-            await _databaseService.SaveEcmAssynAsync(null, payload, request);
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -501,6 +463,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -513,20 +476,21 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
 
-        public async Task HandleFinalInspectionResultAsync(string payload, CreateProcessLogRequestDto request)
+        public async Task HandleFinalInspectionResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            _logger.LogInformation("[MQTT][FinalInspection] Payload: {Payload}", payload);
+            // _logger.LogInformation("[MQTT][FinalInspection] Payload: {Payload}", payload);
             request.ProcessCode = "FINAL_INSPECTION";
 
             var validation = await _validator.FinalInspectionValidator(request);
             if (!validation.IsValid)
             {
                 var errorMessage = string.Join(
-               Environment.NewLine,
-               validation.Errors);
+                   Environment.NewLine,
+                   validation.Errors);
 
                 var errorPayload = new
                 {
@@ -535,18 +499,15 @@ namespace TraceabilitySystem.Worker.Services
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
 
-                await _databaseService.SaveFinalInspectionAsync(errorMessage, payload, request);
-                foreach (var error in validation.Errors)
-                {
-                    _logger.LogWarning(
-                        "[MQTT][FinalInspection][Validation] {Error}",
-                        error);
-                }
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][FinalInspection][Validation] {Error}", error);
+                // }
                 return;
             }
 
-            await _databaseService.SaveFinalInspectionAsync(null, payload, request);
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -562,6 +523,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = (string?)null
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
             }
             catch (Exception ex)
             {
@@ -574,6 +536,7 @@ namespace TraceabilitySystem.Worker.Services
                     error = ex.Message
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
     }

@@ -33,27 +33,31 @@ documentation/
 ## 📡 Endpoint Utama
 
 ### Dashboard
-| Method | Endpoint | Deskripsi |
-| :--- | :--- | :--- |
-| `GET` | `/api/dashboard/summary` | Ringkasan jumlah produksi (Hari ini / Bulan ini / Total) |
-| `GET` | `/api/dashboard/stats` | Data chart (Pie OK/NG, Bar Top Parts, Trend 7 Hari) |
-| `GET` | `/api/dashboard/recent-logs` | Daftar log produksi terbaru |
+
+| Method | Endpoint                     | Deskripsi                                                |
+| :----- | :--------------------------- | :------------------------------------------------------- |
+| `GET`  | `/api/dashboard/summary`     | Ringkasan jumlah produksi (Hari ini / Bulan ini / Total) |
+| `GET`  | `/api/dashboard/stats`       | Data chart (Pie OK/NG, Bar Top Parts, Trend 7 Hari)      |
+| `GET`  | `/api/dashboard/recent-logs` | Daftar log produksi terbaru                              |
 
 ### Real-time Monitoring (WebSockets)
-| Type | Hub Endpoint | Event Name | Deskripsi |
-| :--- | :--- | :--- | :--- |
+
+| Type      | Hub Endpoint    | Event Name             | Deskripsi                                                   |
+| :-------- | :-------------- | :--------------------- | :---------------------------------------------------------- |
 | `SignalR` | `/hubs/printer` | `PrinterStatusUpdated` | Broadcast daftar printer yang **Offline** (setiap 10 detik) |
 
 ### Process Log
-| Method | Endpoint | Deskripsi |
-| :--- | :--- | :--- |
-| `GET` | `/api/processlogs` | Daftar semua log produksi (paginasi) |
-| `GET` | `/api/processlogs/{id}` | Detail log berdasarkan ID |
+
+| Method | Endpoint                | Deskripsi                            |
+| :----- | :---------------------- | :----------------------------------- |
+| `GET`  | `/api/processlogs`      | Daftar semua log produksi (paginasi) |
+| `GET`  | `/api/processlogs/{id}` | Detail log berdasarkan ID            |
 
 ### Config (Dev Only)
-| Method | Endpoint | Deskripsi |
-| :--- | :--- | :--- |
-| `POST` | `/api/config/seed-all` | Seed semua data dummy |
+
+| Method | Endpoint                     | Deskripsi                     |
+| :----- | :--------------------------- | :---------------------------- |
+| `POST` | `/api/config/seed-all`       | Seed semua data dummy         |
 | `POST` | `/api/config/clear-all-data` | Hapus semua data (Hati-hati!) |
 
 > ⚠️ **Endpoint `/api/config` bersifat destruktif. Nonaktifkan di Production!**
@@ -76,10 +80,12 @@ Lihat dokumentasi lengkap di [`documentation/query-sql.md`](documentation/query-
 ## 🛠️ Getting Started
 
 ### 1. Prerequisites
+
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [MySQL 8.0+](https://dev.mysql.com/downloads/)
 
 ### 2. Konfigurasi
+
 Update connection string di `src/TraceabilitySystem.API/appsettings.json`:
 
 ```json
@@ -89,12 +95,14 @@ Update connection string di `src/TraceabilitySystem.API/appsettings.json`:
 ```
 
 ### 3. Migrasi Database
+
 ```powershell
 # Update database dengan semua migrasi yang ada
 dotnet ef database update --project src/TraceabilitySystem.Infrastructure --startup-project src/TraceabilitySystem.API
 ```
 
 ### 4. Jalankan Aplikasi
+
 ```powershell
 dotnet watch run --project src/TraceabilitySystem.API
 ```
@@ -102,10 +110,13 @@ dotnet watch run --project src/TraceabilitySystem.API
 Akses Swagger UI di: `http://localhost:5039/swagger`
 
 ### 5. Seed Data Awal
+
 Setelah aplikasi berjalan, panggil endpoint berikut via Swagger atau Postman:
+
 ```
 POST /api/config/seed-all
 ```
 
 ## 📝 Lisensi
+
 This project is licensed under the MIT License.

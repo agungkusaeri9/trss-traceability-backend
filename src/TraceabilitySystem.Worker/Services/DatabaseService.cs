@@ -1,8 +1,7 @@
-﻿using System.Data;
+using System.Data;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using MySqlConnector;
-using Org.BouncyCastle.Asn1.Ocsp;
-using TraceabilitySystem.Application.DTOs.ProcessLog;
 
 namespace TraceabilitySystem.Worker.Services;
 
@@ -18,15 +17,42 @@ public class DatabaseService
         _logger = logger;
     }
 
-    public async Task SaveMqttMessageAsync(
+    /// <summary>
+    /// Menjamin payload adalah string JSON yang valid agar fungsi CAST(@payload AS JSON) pada MySQL tidak error.
+    /// </summary>
+    private static string EnsureValidJson(string payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return "{}";
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            return payload;
+        }
+        catch
+        {
+            return JsonSerializer.Serialize(new { raw = payload });
+        }
+    }
+
+    /// <summary>
+    /// Menyimpan pesan MQTT mentah ke tabel mqtt_message_logs.
+    /// </summary>
+    public async Task<string> SaveMqttMessageAsync(
+        string messageId,
         string topic,
         string payload,
-        string? operatorUsername,
-        bool? isOk,
-        string status,
+        string? operatorUsername = null,
+        bool? isOk = null,
+        string status = "RECEIVED",
         string? processName = null,
         string? errorMessage = null)
     {
+        var jsonPayload = EnsureValidJson(payload);
+
         const string sql = @"
 INSERT INTO mqtt_message_logs
 (
@@ -42,7 +68,7 @@ INSERT INTO mqtt_message_logs
 )
 VALUES
 (
-    UUID(),
+    @messageId,
     @topic,
     @processName,
     @operatorUsername,
@@ -58,27 +84,33 @@ VALUES
 
         await using var command = new MySqlCommand(sql, connection);
 
+        command.Parameters.Add("@messageId", MySqlDbType.VarChar).Value = messageId;
         command.Parameters.Add("@topic", MySqlDbType.VarChar).Value = topic;
         command.Parameters.Add("@processName", MySqlDbType.VarChar).Value = (object?)processName ?? DBNull.Value;
         command.Parameters.Add("@operatorUsername", MySqlDbType.VarChar).Value = (object?)operatorUsername ?? DBNull.Value;
         command.Parameters.Add("@isOk", MySqlDbType.Bool).Value = (object?)isOk ?? DBNull.Value;
-        command.Parameters.Add("@payload", MySqlDbType.JSON).Value = payload;
+        command.Parameters.Add("@payload", MySqlDbType.JSON).Value = jsonPayload;
         command.Parameters.Add("@status", MySqlDbType.VarChar).Value = status;
         command.Parameters.Add("@errorMessage", MySqlDbType.Text).Value = (object?)errorMessage ?? DBNull.Value;
 
         await command.ExecuteNonQueryAsync();
+        return messageId;
     }
 
+    /// <summary>
+    /// Memperbarui status pemrosesan pesan MQTT beserta pesan error dan waktu selesai (processed_at).
+    /// </summary>
     public async Task UpdateMqttMessageStatusAsync(
-    string messageId,
-    string status,
-    string? errorMessage = null)
+        string messageId,
+        string status,
+        string? errorMessage = null)
     {
         const string sql = @"
 UPDATE mqtt_message_logs
 SET
     status = @status,
     error_message = @errorMessage,
+    processed_at = NOW(3),
     updated_at = NOW(3)
 WHERE message_id = @messageId;";
 
@@ -89,193 +121,8 @@ WHERE message_id = @messageId;";
 
         command.Parameters.Add("@messageId", MySqlDbType.VarChar).Value = messageId;
         command.Parameters.Add("@status", MySqlDbType.VarChar).Value = status;
-        command.Parameters.Add("@errorMessage", MySqlDbType.Text).Value =
-            (object?)errorMessage ?? DBNull.Value;
+        command.Parameters.Add("@errorMessage", MySqlDbType.Text).Value = (object?)errorMessage ?? DBNull.Value;
 
         await command.ExecuteNonQueryAsync();
     }
-
-
-    public async Task SaveProcessClinchingShortSideAsync(string? errorMessage,string payload, CreateProcessLogRequestDto request)
-    {
-        try
-        {
-            await SaveMqttMessageAsync(
-                topic: "data/process/clinching-short-side/result",
-                processName: "Clinching Short Side",
-                payload: payload,
-                operatorUsername: request?.OperatorUsername,
-                isOk: request?.IsOk,
-                errorMessage: errorMessage,
-                status: "RECEIVED"
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save Clinching Short Side log.");
-        }
-        
-    }
-
-    public async Task SaveProcessClinchingLongSideAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
-    {
-        try
-        {
-            await SaveMqttMessageAsync(
-                  topic: "data/process/clinching-long-side/result",
-                  processName: "Clinching Long Side",
-                  payload: payload,
-                  operatorUsername: request?.OperatorUsername,
-                  isOk: request?.IsOk,
-                  errorMessage: errorMessage,
-                  status: "RECEIVED"
-              );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save Clinching long Side log.");
-        }
-
-       
-    }
-
-    public async Task SaveHeLeakAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
-    {
-        try
-        {
-            await SaveMqttMessageAsync(
-               topic: "data/process/he-leak/result",
-               processName: "He Leak",
-               payload: payload,
-               operatorUsername: request?.OperatorUsername,
-               isOk: request?.IsOk,
-               errorMessage: errorMessage,
-               status: "RECEIVED"
-           );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save he leak log.");
-        }
-
-        
-    }
-
-    public async Task SaveMFanAssyScanAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
-    {
-        
-        try
-        {
-            await SaveMqttMessageAsync(
-               topic: "data/process/m-fan-assy/result-scan",
-               processName: "M Fan Assy Scan",
-               payload: payload,
-               operatorUsername: request?.OperatorUsername,
-               isOk: request?.IsOk,
-               errorMessage: errorMessage,
-               status: "RECEIVED"
-           );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save hem fan assy scan log.");
-        }
-    }
-
-    public async Task SaveMFanAssyAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
-    {
-        try
-        {
-            await SaveMqttMessageAsync(
-               topic: "data/process/m-fan-assy/result",
-               processName: "M Fan Assy ",
-               payload: payload,
-               operatorUsername: request?.OperatorUsername,
-               isOk: request?.IsOk,
-               errorMessage:errorMessage,
-               status: "RECEIVED"
-           );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save hem fan assy log.");
-        }
-       
-    }
-
-    public async Task SaveMFanInspectionAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
-    {
-        try
-        {
-            await SaveMqttMessageAsync(
-                 topic: "data/process/m-fan-inspection/result",
-                  processName: "M Fan Inspection ",
-                  payload: payload,
-                  operatorUsername: request?.OperatorUsername,
-                  isOk: request?.IsOk,
-                  errorMessage: errorMessage,
-                  status: "RECEIVED"
-              );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save hem m fan insepction log.");
-        }
-       
-    }
-
-    public async Task SaveEcmAssynAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
-    {
-       
-        try
-        {
-            await SaveMqttMessageAsync(
-              topic: "data/process/ecm-assy/result",
-               processName: "ECM Assy",
-               payload: payload,
-               operatorUsername: request?.OperatorUsername,
-               isOk: request?.IsOk,
-               errorMessage: errorMessage,
-               status: "RECEIVED"
-           );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save hem ecm assy log.");
-        }
-    }
-
-
-    public async Task SaveFinalInspectionAsync(string? errorMessage, string payload, CreateProcessLogRequestDto request)
-    {
-        try
-        {
-            await SaveMqttMessageAsync(
-              topic: "data/process/final-inspection/result",
-              processName: "Final Inspection",
-              payload: payload,
-              operatorUsername: request?.OperatorUsername,
-              isOk: request?.IsOk,
-              errorMessage: errorMessage,
-              status: "RECEIVED"
-          );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "[MQTT][Database] Failed to save hem final inspection log.");
-        }
-       
-    }
-
-
-
-
-}
+}

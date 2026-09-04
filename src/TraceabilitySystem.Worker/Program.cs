@@ -36,7 +36,9 @@ try
 
             var customLogging = ctx.Configuration.GetSection("CustomLogging");
             bool debugIsTerminal = customLogging.GetValue<bool>("DebugIsTerminal", false);
-            string logFolder = customLogging.GetValue<string>("LogFolder", "D:\\trss\\traceability\\logging\\logs-worker")!;
+            string logFolder = customLogging.GetValue<string>("LogFolder")
+                ?? throw new InvalidOperationException("Configuration 'CustomLogging:LogFolder' is required in appsettings.json.");
+            logFolder = Path.GetFullPath(logFolder);
 
             if (debugIsTerminal)
             {

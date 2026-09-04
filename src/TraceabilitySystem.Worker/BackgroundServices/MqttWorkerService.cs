@@ -7,6 +7,7 @@ using System;
 using System.Text;
 using System.Text.Json;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
+using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Worker.Services;
 
@@ -19,9 +20,6 @@ public class MqttWorkerService : BackgroundService
     private readonly WorkerSettings _workerSettings;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly MqttClientAccessor _mqttClientAccessor;
-    private readonly DatabaseService _databaseService;
-
-    private readonly MqttSubscriptionService _mqttSubsriptionService;
 
     private IMqttClient? _mqttClient;
     private HubConnection? _hubConnection;
@@ -32,17 +30,13 @@ public class MqttWorkerService : BackgroundService
         IOptions<MqttSettings> mqttSettings,
         IOptions<WorkerSettings> workerSettings,
         IServiceScopeFactory scopeFactory,
-        MqttClientAccessor mqttClientAccessor,
-        DatabaseService databaseService,
-        MqttSubscriptionService mqttSubscriptionService)
+        MqttClientAccessor mqttClientAccessor)
     {
         _logger = logger;
         _mqttSettings = mqttSettings.Value;
         _workerSettings = workerSettings.Value;
         _scopeFactory = scopeFactory;
         _mqttClientAccessor = mqttClientAccessor;
-        _databaseService = databaseService;
-        _mqttSubsriptionService = mqttSubscriptionService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -124,29 +118,92 @@ public class MqttWorkerService : BackgroundService
         using (Serilog.Context.LogContext.PushProperty("Category", TraceabilitySystem.Shared.Constants.LogCategory.Integration))
         using (Serilog.Context.LogContext.PushProperty("UserId", "PLC/Worker"))
         {
+            var messageId = Guid.NewGuid().ToString();
             var topic = arg.ApplicationMessage.Topic;
             var payload = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment);
 
-            var options = new JsonSerializerOptions
+            _logger.LogInformation("[MQTT] Received message on topic [{Topic}] (MessageId: {MessageId})", topic, messageId);
+
+            using var scope = _scopeFactory.CreateScope();
+            var databaseService = scope.ServiceProvider.GetRequiredService<DatabaseService>();
+            var subscriptionService = scope.ServiceProvider.GetRequiredService<MqttSubscriptionService>();
+            var mqttPublisher = scope.ServiceProvider.GetRequiredService<IMqttPublisher>();
+
+            var processName = GetProcessNameFromTopic(topic);
+
+            // 1. Deserialisasi JSON secara aman
+            CreateProcessLogRequestDto? request = null;
+            string? parseError = null;
+
+            try
             {
-                PropertyNameCaseInsensitive = true
-            };
-
-            var request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
-
-            _logger.LogInformation("[MQTT] Received message on topic [{Topic}]", topic);
-
-            // Dispatch process result topics to dedicated handlers
-            var processResultTask = topic switch
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            }
+            catch (Exception ex)
             {
-                "data/process/clinching-short-side/result" => _mqttSubsriptionService.HandleClinchingShortSideResultAsync(payload, request!),
-                "data/process/clinching-long-side/result" => _mqttSubsriptionService.HandleClinchingLongSideResultAsync(payload, request!),
-                "data/process/he-leak/result" => _mqttSubsriptionService.HandleHeLeakResultAsync(payload, request!),
-                "data/process/m-fan-assy/result-scan" => _mqttSubsriptionService.HandleMFanAssyResultScanAsync(payload, request!),
-                "data/process/m-fan-assy/result" => _mqttSubsriptionService.HandleMFanAssyResultAsync(payload, request!),
-                "data/process/m-fan-inspection/result" => _mqttSubsriptionService.HandleMFanInspectionResultAsync(payload, request!),
-                "data/process/ecm-assy/result" => _mqttSubsriptionService.HandleEcmAssyResultAsync(payload, request!),
-                "data/process/final-inspection/result" => _mqttSubsriptionService.HandleFinalInspectionResultAsync(payload, request!),
+                parseError = $"Invalid JSON payload: {ex.Message}";
+                _logger.LogWarning("[MQTT] Failed to deserialize payload for topic [{Topic}]: {Error}", topic, parseError);
+            }
+
+            // 2. Selalu simpan pesan mentah MQTT ke database terlebih dahulu
+            var initialStatus = parseError == null ? "RECEIVED" : "FAILED";
+            try
+            {
+                await databaseService.SaveMqttMessageAsync(
+                    messageId: messageId,
+                    topic: topic,
+                    payload: payload,
+                    operatorUsername: request?.OperatorUsername,
+                    isOk: request?.IsOk,
+                    status: initialStatus,
+                    processName: processName,
+                    errorMessage: parseError
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[MQTT][Database] Failed to save raw MQTT message to database. Topic: {Topic}", topic);
+            }
+
+            // 3. Jika payload bukan JSON valid, beri respons error ke broker jika berupa topic result
+            if (parseError != null)
+            {
+                var processKey = GetProcessKeyFromTopic(topic);
+                if (processKey != null)
+                {
+                    var errorPayload = new
+                    {
+                        status = false,
+                        process = processKey,
+                        error = parseError
+                    };
+                    await mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                }
+                return;
+            }
+
+            if (request == null)
+            {
+                _logger.LogWarning("[MQTT] Request payload deserialized to null for topic [{Topic}]", topic);
+                await databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", "Deserialized request is null");
+                return;
+            }
+
+            // 4. Dispatch topic proses ke handler yang sesuai
+            Task? processResultTask = topic switch
+            {
+                "data/process/clinching-short-side/result" => subscriptionService.HandleClinchingShortSideResultAsync(messageId, payload, request),
+                "data/process/clinching-long-side/result" => subscriptionService.HandleClinchingLongSideResultAsync(messageId, payload, request),
+                "data/process/he-leak/result" => subscriptionService.HandleHeLeakResultAsync(messageId, payload, request),
+                "data/process/m-fan-assy/result-scan" => subscriptionService.HandleMFanAssyResultScanAsync(messageId, payload, request),
+                "data/process/m-fan-assy/result" => subscriptionService.HandleMFanAssyResultAsync(messageId, payload, request),
+                "data/process/m-fan-inspection/result" => subscriptionService.HandleMFanInspectionResultAsync(messageId, payload, request),
+                "data/process/ecm-assy/result" => subscriptionService.HandleEcmAssyResultAsync(messageId, payload, request),
+                "data/process/final-inspection/result" => subscriptionService.HandleFinalInspectionResultAsync(messageId, payload, request),
                 _ => null
             };
 
@@ -155,14 +212,39 @@ public class MqttWorkerService : BackgroundService
                 await processResultTask;
                 return;
             }
+
+            // Pesan non-process (seperti print request) telah tercatat di DB
+            _logger.LogInformation("[MQTT] Topic [{Topic}] received and recorded in database (no process result handler configured).", topic);
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Process Result Handlers (per topic)
-    // -------------------------------------------------------------------------
+    private static string GetProcessNameFromTopic(string topic) => topic switch
+    {
+        "data/process/clinching-short-side/result" => "Clinching Short Side",
+        "data/process/clinching-long-side/result" => "Clinching Long Side",
+        "data/process/he-leak/result" => "He Leak",
+        "data/process/m-fan-assy/result-scan" => "M Fan Assy Scan",
+        "data/process/m-fan-assy/result" => "M Fan Assy",
+        "data/process/m-fan-inspection/result" => "M Fan Inspection",
+        "data/process/ecm-assy/result" => "ECM Assy",
+        "data/process/final-inspection/result" => "Final Inspection",
+        "traceability/print/request/clinching-short-side" => "Print Request Clinching Short Side",
+        "traceability/print/request/m-fan-assy" => "Print Request M Fan Assy",
+        _ => topic
+    };
 
-   
+    private static string? GetProcessKeyFromTopic(string topic) => topic switch
+    {
+        "data/process/clinching-short-side/result" => "clinching-short-side",
+        "data/process/clinching-long-side/result" => "clinching-long-side",
+        "data/process/he-leak/result" => "he-leak",
+        "data/process/m-fan-assy/result-scan" => "m-fan-assy-scan",
+        "data/process/m-fan-assy/result" => "m-fan-assy",
+        "data/process/m-fan-inspection/result" => "m-fan-inspection",
+        "data/process/ecm-assy/result" => "ecm-assy",
+        "data/process/final-inspection/result" => "final-inspection",
+        _ => null
+    };
 
     private async Task OnConnectedAsync(MqttClientConnectedEventArgs arg)
     {
