@@ -19,227 +19,332 @@ namespace TraceabilitySystem.API.Controllers;
 [Route("api/[controller]")]
 public class ConfigController : ControllerBase
 {
-    //private readonly IAuthService _authService;
-    //private readonly IUserRepository _userRepository;
-    //private readonly IPartService _partService;
-    //private readonly IProcessRepository _processRepository;
-    //private readonly IParameterRepository _parameterRepository;
-    //private readonly IStockInRepository _stockInRepository;
-    //private readonly IPartRepository _partRepository;
-    //private readonly IPrinterRepository _printerRepository;
-    //private readonly IAppConfigRepository _appConfigRepository;
-    //private readonly IProcessLogRepository _processLogRepository;
-    //private readonly IIssueRepository _issueRepository;
-    //private readonly IRefreshTokenRepository _refreshTokenRepository;
-    //private readonly AppDbContext _context;
-    //private readonly ISerialNumberService _serialNumberService;
-    //private readonly IPrintService _printService;
+    private readonly IAuthService _authService;
+    private readonly IUserRepository _userRepository;
+    private readonly IPartService _partService;
+    private readonly IProcessRepository _processRepository;
+    private readonly IParameterRepository _parameterRepository;
+    private readonly IStockInRepository _stockInRepository;
+    private readonly IPartRepository _partRepository;
+    private readonly IPrinterRepository _printerRepository;
+    private readonly IAppConfigRepository _appConfigRepository;
+    private readonly IProcessLogRepository _processLogRepository;
+    private readonly IIssueRepository _issueRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly AppDbContext _context;
+    private readonly ISerialNumberService _serialNumberService;
+    private readonly IPrintService _printService;
 
-    //public ConfigController(
-    //    IAuthService authService,
-    //    IUserRepository userRepository,
-    //    IPartService partService,
-    //    IProcessRepository processRepository,
-    //    IParameterRepository parameterRepository,
-    //    IStockInRepository stockInRepository,
-    //    IPartRepository partRepository,
-    //    IPrinterRepository printerRepository,
-    //    IAppConfigRepository appConfigRepository,
-    //    IProcessLogRepository processLogRepository,
-    //    IIssueRepository issueRepository,
-    //    IRefreshTokenRepository refreshTokenRepository,
-    //    AppDbContext context,
-    //    ISerialNumberService serialNumberService,
-    //    IPrintService printService
-    //    )
-    //{
-    //    _authService = authService;
-    //    _userRepository = userRepository;
-    //    _partService = partService;
-    //    _processRepository = processRepository;
-    //    _parameterRepository = parameterRepository;
-    //    _stockInRepository = stockInRepository;
-    //    _partRepository = partRepository;
-    //    _printerRepository = printerRepository;
-    //    _appConfigRepository = appConfigRepository;
-    //    _processLogRepository = processLogRepository;
-    //    _issueRepository = issueRepository;
-    //    _refreshTokenRepository = refreshTokenRepository;
-    //    _context = context;
-    //    _serialNumberService = serialNumberService;
-    //    _printService = printService;
-    //}
+    public ConfigController(
+       IAuthService authService,
+       IUserRepository userRepository,
+       IPartService partService,
+       IProcessRepository processRepository,
+       IParameterRepository parameterRepository,
+       IStockInRepository stockInRepository,
+       IPartRepository partRepository,
+       IPrinterRepository printerRepository,
+       IAppConfigRepository appConfigRepository,
+       IProcessLogRepository processLogRepository,
+       IIssueRepository issueRepository,
+       IRefreshTokenRepository refreshTokenRepository,
+       AppDbContext context,
+       ISerialNumberService serialNumberService,
+       IPrintService printService
+       )
+    {
+       _authService = authService;
+       _userRepository = userRepository;
+       _partService = partService;
+       _processRepository = processRepository;
+       _parameterRepository = parameterRepository;
+       _stockInRepository = stockInRepository;
+       _partRepository = partRepository;
+       _printerRepository = printerRepository;
+       _appConfigRepository = appConfigRepository;
+       _processLogRepository = processLogRepository;
+       _issueRepository = issueRepository;
+       _refreshTokenRepository = refreshTokenRepository;
+       _context = context;
+       _serialNumberService = serialNumberService;
+       _printService = printService;
+    }
 
-    ///// <summary>Reset all master data (Process, Parameter, Process Log) and their relations.</summary>
-    //[HttpPost("reset-master-data")]
-    //[ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-    //public async Task<IActionResult> ResetMasterData(CancellationToken cancellationToken)
-    //{
-    //    // 1. Delete all existing process logs & details
-    //    var logs = await _processLogRepository.GetAllAsync(cancellationToken);
-    //    _processLogRepository.RemoveRange(logs);
+    /// <summary>Reset all master data (Process, Parameter, Process Log) and their relations.</summary>
+    [HttpPost("reset-master-data")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ResetMasterData(CancellationToken cancellationToken)
+    {
+       // 1. Delete all existing process logs & details
+       var logs = await _processLogRepository.GetAllAsync(cancellationToken);
+       _processLogRepository.RemoveRange(logs);
 
-    //    // 2. Delete all existing process parameters (join table)
-    //    var processParams = await _context.ProcessParameters.ToListAsync(cancellationToken);
-    //    _context.ProcessParameters.RemoveRange(processParams);
+       // 2. Delete all existing process parameters (join table)
+       var processParams = await _context.ProcessParameters.ToListAsync(cancellationToken);
+       _context.ProcessParameters.RemoveRange(processParams);
 
-    //    // 3. Delete all existing processes
-    //    var existingProcesses = await _processRepository.GetAllAsync(cancellationToken);
-    //    _processRepository.RemoveRange(existingProcesses);
+       // 3. Delete all existing processes
+       var existingProcesses = await _processRepository.GetAllAsync(cancellationToken);
+       _processRepository.RemoveRange(existingProcesses);
 
-    //    // 4. Delete all existing parameters
-    //    var existingParameters = await _parameterRepository.GetAllAsync(cancellationToken);
-    //    _parameterRepository.RemoveRange(existingParameters);
+       // 4. Delete all existing parameters
+       var existingParameters = await _parameterRepository.GetAllAsync(cancellationToken);
+       _parameterRepository.RemoveRange(existingParameters);
 
-    //    await _processRepository.SaveChangesAsync(cancellationToken);
+       await _processRepository.SaveChangesAsync(cancellationToken);
 
-    //    return ResponseFormatter.Success(message: "All master data (Process, Parameter, Process Log) and their relations have been successfully reset.");
-    //}
+       return ResponseFormatter.Success(message: "All master data (Process, Parameter, Process Log) and their relations have been successfully reset.");
+    }
 
-    ///// <summary>Seed specific processes and parameters for TRSS Traceability System.</summary>
-    //[HttpPost("seed-trss-master-data")]
-    //[ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-    //public async Task<IActionResult> SeedTrssMasterData(CancellationToken cancellationToken)
-    //{
-    //    // 1. Reset existing data first
-    //    await ResetMasterData(cancellationToken);
+    /// <summary>Seed specific processes and parameters for TRSS Traceability System.</summary>
+    [HttpPost("seed-trss-master-data")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SeedTrssMasterData(CancellationToken cancellationToken)
+    {
+       // 1. Reset existing data first
+       await ResetMasterData(cancellationToken);
 
-    //    // 2. Define the TRSS Traceability seed data
-    //    var seedData = new[]
-    //    {
-    //        new
-    //        {
-    //            ProcCode = "CLINCHING_SHORT_SIDE",
-    //            ProcName = "CLINCHING SHORT SIDE",
-    //            ProcDesc = "Process for clinching the short side of radiator.",
-    //            Params = new[]
-    //            {
-    //                new { Code = "CORE_ASM_RESULT", Name = "Core Asm", Type = "boolean" },
-    //                new { Code = "UPPER_TANK_ASM_RESULT", Name = "Upper Tank Asm Result", Type = "boolean" },
-    //                new { Code = "LOWER_TANK_ASM_RESULT", Name = "Lower Tank Asm Result", Type = "boolean" }
-    //            }
-    //        },
-    //        new
-    //        {
-    //            ProcCode = "CLINCHING_LONG_SIDE",
-    //            ProcName = "Clincing long side",
-    //            ProcDesc = "Process for clinching the long side of radiator.",
-    //            Params = new[]
-    //            {
-    //                new { Code = "CLINCHING_HEIGHT_RESULT", Name = "Clinching Height Result", Type = "boolean" },
-    //                new { Code = "CLINCHING_HEIGHT_VALUE", Name = "Clinching Height Value", Type = "number" },
-    //                new { Code = "END_PLATE_WIDTH_VALUE", Name = "End Plate Width Value", Type = "number" }
-    //            }
-    //        },
-    //        new
-    //        {
-    //            ProcCode = "HE_LEAK",
-    //            ProcName = "He Leak",
-    //            ProcDesc = "Helium leak testing process.",
-    //            Params = new[]
-    //            {
-    //                new { Code = "CAP_TYPE_POSITION_RESULT", Name = "Cap Type & Position", Type = "boolean" },
-    //                new { Code = "LEAK_RESULT", Name = "Leak Result", Type = "boolean" },
-    //                new { Code = "LEAK_LAST_LEAKAGE_VALUE", Name = "Leak Last Leakage Value", Type = "number" }
-    //            }
-    //        },
-    //        new
-    //        {
-    //            ProcCode = "M_FAN_ASSY",
-    //            ProcName = "M Fan Assy",
-    //            ProcDesc = "Main fan assembly process.",
-    //            Params = new[]
-    //            {
-    //                new { Code = "LOT_FAN_ASM_RESULT", Name = "Lot Fan Asm Result", Type = "string" },
-    //                new { Code = "LOT_MOTOR_ASM_RESULT", Name = "Lot Motor Asm Result", Type = "string" },
-    //                new { Code = "LOT_GUIDE_ASM_RESULT", Name = "Lot Guide Asm Result", Type = "string" },
-    //                new { Code = "BOLT_TIGHTEN_RESULT", Name = "Bolt tighten result", Type = "string" },
-    //                new { Code = "BOLT_TIGHTEN_VALUE", Name = "Bold Tighten Value", Type = "number" },
-    //                new { Code = "NUT_TIGHTEN_RESULT", Name = "Nut Tighten Result", Type = "boolean" }
-    //            }
-    //        },
-    //        new
-    //        {
-    //            ProcCode = "M_FAN_INSPECTION",
-    //            ProcName = "M Fan Characteristics Inspection",
-    //            ProcDesc = "Inspection of main fan operational characteristics.",
-    //            Params = new[]
-    //            {
-    //                new { Code = "M_FAN_TEST_RESULT", Name = "M Fan Test Result", Type = "boolean" },
-    //                new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_VALUE", Name = "M Fan Inspection Rotation Speed Value", Type = "number" },
-    //                new { Code = "M_FAN_INSPECTION_AMPERE_VALUE", Name = "M Fan Inspection Amperage Value", Type = "number" },
-    //                new { Code = "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", Name = "M Fan Inspection Wind Direction Value", Type = "number" }
-    //            }
-    //        },
-    //        new
-    //        {
-    //            ProcCode = "ECM_ASSY",
-    //            ProcName = "Ecm Assy",
-    //            ProcDesc = "Electronic Control Module assembly process.",
-    //            Params = new[]
-    //            {
-    //                new { Code = "RAD_CORE_ASM_NAME_LABEL_RESULT", Name = "Rad Core Asm Name Label Result", Type = "boolean" },
-    //                new { Code = "MOTOR_FAN_ASSY_LABEL_RESULT", Name = "Motor Fan Assy Label Result", Type = "boolean" },
-    //                new { Code = "ECM_ASSY_BOLT_TIGHTEN_VALUE", Name = "ECM Assy Bolt Tighten Result", Type = "number" },
-    //                new { Code = "ECM_ASSY_BOLT_TIGHTEN_RESULT", Name = "ECM Assy Nut Tighten Result", Type = "boolean" }
-    //            }
-    //        },
-    //        new
-    //        {
-    //            ProcCode = "FINAL_INSPECTION",
-    //            ProcName = "Final Inspection",
-    //            ProcDesc = "Final quality gate and inspection.",
-    //            Params = new[]
-    //            {
-    //                new { Code = "FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT", Name = "Final Inspection Rad Core Asm Name Label Result", Type = "boolean" },
-    //                new { Code = "ALL_CHECK_POINT_RESULT", Name = "All Check Point Result", Type = "boolean" }
-    //            }
-    //        }
-    //    };
+       // 2. Define the TRSS Traceability seed data
+       var seedData = new[]
+       {
+           new
+           {
+               ProcCode = "CLINCHING_SHORT_SIDE",
+               ProcName = "CLINCHING SHORT SIDE",
+               ProcDesc = "Process for clinching the short side of radiator.",
+               Params = new[]
+               {
+                   new { Code = "CORE_ASM_VALUE", Name = "Core Asm", Type = "string" },
+                   new { Code = "UPPER_TANK_ASM_VALUE", Name = "Upper Tank Asm Result", Type = "string" },
+                   new { Code = "LOWER_TANK_ASM_VALUE", Name = "Lower Tank Asm Result", Type = "string" },
+                   new { Code = "O_RING_SET_RESULT", Name = "O-Ring Set", Type = "boolean" },
+                   new { Code = "NG_BOX_SENSOR_SHORT_SIDE_VALUE", Name = "NG Box (red) Sensor Clinching Short Side", Type = "string"}
+               }
+           },
+           new
+           {
+               ProcCode = "CLINCHING_LONG_SIDE",
+               ProcName = "Clincing long side",
+               ProcDesc = "Process for clinching the long side of radiator.",
+               Params = new[]
+               {
+                   new { Code = "END_PLATE_WIDTH_1_RESULT", Name = "End Plate Width 1 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_2_RESULT", Name = "End Plate Width 2 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_3_RESULT", Name = "End Plate Width 3 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_4_RESULT", Name = "End Plate Width 4 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_5_RESULT", Name = "End Plate Width 5 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_6_RESULT", Name = "End Plate Width 6 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_7_RESULT", Name = "End Plate Width 7 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_8_RESULT", Name = "End Plate Width 8 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_9_RESULT", Name = "End Plate Width 9 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_10_RESULT", Name = "End Plate Width 10 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_11_RESULT", Name = "End Plate Width 11 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_12_RESULT", Name = "End Plate Width 12 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_13_RESULT", Name = "End Plate Width 13 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_14_RESULT", Name = "End Plate Width 14 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_15_RESULT", Name = "End Plate Width 15 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_16_RESULT", Name = "End Plate Width 16 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_17_RESULT", Name = "End Plate Width 17 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_18_RESULT", Name = "End Plate Width 18 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_19_RESULT", Name = "End Plate Width 19 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_20_RESULT", Name = "End Plate Width 20 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_21_RESULT", Name = "End Plate Width 21 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_22_RESULT", Name = "End Plate Width 22 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_23_RESULT", Name = "End Plate Width 23 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_24_RESULT", Name = "End Plate Width 24 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_25_RESULT", Name = "End Plate Width 25 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_26_RESULT", Name = "End Plate Width 26 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_27_RESULT", Name = "End Plate Width 27 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_28_RESULT", Name = "End Plate Width 28 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_29_RESULT", Name = "End Plate Width 29 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_30_RESULT", Name = "End Plate Width 30 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_31_RESULT", Name = "End Plate Width 31 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_32_RESULT", Name = "End Plate Width 32 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_33_RESULT", Name = "End Plate Width 33 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_34_RESULT", Name = "End Plate Width 34 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_35_RESULT", Name = "End Plate Width 35 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_36_RESULT", Name = "End Plate Width 36 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_37_RESULT", Name = "End Plate Width 37 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_38_RESULT", Name = "End Plate Width 38 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_39_RESULT", Name = "End Plate Width 39 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_40_RESULT", Name = "End Plate Width 40 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_41_RESULT", Name = "End Plate Width 41 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_42_RESULT", Name = "End Plate Width 42 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_43_RESULT", Name = "End Plate Width 43 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_44_RESULT", Name = "End Plate Width 44 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_45_RESULT", Name = "End Plate Width 45 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_46_RESULT", Name = "End Plate Width 46 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_47_RESULT", Name = "End Plate Width 47 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_48_RESULT", Name = "End Plate Width 48 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_49_RESULT", Name = "End Plate Width 49 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_50_RESULT", Name = "End Plate Width 50 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_51_RESULT", Name = "End Plate Width 51 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_52_RESULT", Name = "End Plate Width 52 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_53_RESULT", Name = "End Plate Width 53 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_54_RESULT", Name = "End Plate Width 54 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_55_RESULT", Name = "End Plate Width 55 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_56_RESULT", Name = "End Plate Width 56 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_57_RESULT", Name = "End Plate Width 57 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_58_RESULT", Name = "End Plate Width 58 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_59_RESULT", Name = "End Plate Width 59 Result", Type = "boolean" },
+                   new { Code = "END_PLATE_WIDTH_60_RESULT", Name = "End Plate Width 60 Result", Type = "boolean" },
+                   
+                   new { Code = "CLINCHING_HEIGHT_1_VALUE", Name = "Clinching Height 1 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_2_VALUE", Name = "Clinching Height 2 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_3_VALUE", Name = "Clinching Height 3 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_4_VALUE", Name = "Clinching Height 4 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_5_VALUE", Name = "Clinching Height 5 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_6_VALUE", Name = "Clinching Height 6 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_7_VALUE", Name = "Clinching Height 7 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_8_VALUE", Name = "Clinching Height 8 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_9_VALUE", Name = "Clinching Height 9 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_10_VALUE", Name = "Clinching Height 10 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_11_VALUE", Name = "Clinching Height 11 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_12_VALUE", Name = "Clinching Height 12 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_13_VALUE", Name = "Clinching Height 13 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_14_VALUE", Name = "Clinching Height 14 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_15_VALUE", Name = "Clinching Height 15 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_16_VALUE", Name = "Clinching Height 16 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_17_VALUE", Name = "Clinching Height 17 Result", Type = "number" },
+                   new { Code = "CLINCHING_HEIGHT_18_VALUE", Name = "Clinching Height 18 Result", Type = "number" },
+                   new { Code = "NG_BOX_SENSOR_LONG_SIDE_VALUE", Name = "NG Box (red) Sensor Clinching Long Side", Type = "string" },
+               }
+           },
+        //    new
+        //    {
+        //        ProcCode = "HE_LEAK",
+        //        ProcName = "He Leak",
+        //        ProcDesc = "Helium leak testing process.",
+        //        Params = new[]
+        //        {
+        //            new { Code = "CAP_TYPE_POSITION_RESULT", Name = "Cap Type & Position", Type = "boolean" },
+        //            new { Code = "LEAK_RESULT", Name = "Leak Result", Type = "boolean" },
+        //            new { Code = "LEAK_LAST_LEAKAGE_VALUE", Name = "Leak Last Leakage Value", Type = "number" }
+        //        }
+        //    },
+           new
+           {
+               ProcCode = "M_FAN_ASSY",
+               ProcName = "M Fan Assy",
+               ProcDesc = "Main fan assembly process.",
+               Params = new[]
+               {
+                   new { Code = "LOT_FAN_ASM_RESULT", Name = "Lot Fan Asm Result", Type = "string" },
+                   new { Code = "LOT_MOTOR_ASM_RESULT", Name = "Lot Motor Asm Result", Type = "string" },
+                   new { Code = "LOT_GUIDE_ASM_RESULT", Name = "Lot Guide Asm Result", Type = "string" },
+                   new { Code = "BOLT_TIGHTEN_VALUE", Name = "Bolt tighten result", Type = "string" },
+                   new { Code = "BOLT_TIGHTEN_QTY_VALUE", Name = "Bold Tighten Value", Type = "string" },
+                   new { Code = "NUT_TIGHTEN_VALUE", Name = "Nut Tighten Result", Type = "boolean" }
+               }
+           },
+           
+           new
+           {
+               ProcCode = "M_FAN_INSPECTION",
+               ProcName = "M Fan Characteristics Inspection",
+               ProcDesc = "Inspection of main fan operational characteristics.",
+               Params = new[]
+               {
+                   new { Code = "M_FAN_TEST_RESULT", Name = "M Fan Test Result", Type = "boolean" },
+                   new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", Name = "M Fan Inspection Rotation Speed Max Value", Type = "number" },
+                   new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", Name = "M Fan Inspection Rotation Speed Min Value", Type = "number" },
+                   new { Code = "M_FAN_INSPECTION_AMPERE_MAX_VALUE", Name = "M Fan Inspection Amperage Max Value", Type = "number" },
+                   new { Code = "M_FAN_INSPECTION_AMPERE_MIN_VALUE", Name = "M Fan Inspection Amperage Min Value", Type = "number" },
+                   new { Code = "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", Name = "M Fan Inspection Wind Direction Value", Type = "string" },
+                    new { Code = "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", Name = "NG Box (red) Sensor M Fan Inspection Value", Type = "string"}
+               }
+           },
+           new
+           {
+               ProcCode = "ECM_ASSY",
+               ProcName = "Ecm Assy",
+               ProcDesc = "Electronic Control Module assembly process.",
+               Params = new[]
+               {
+                   new { Code = "RAD_CORE_ASM_NAME_LABEL_RESULT", Name = "Rad Core Asm Name Label Result", Type = "boolean" },
+                   new { Code = "MOTOR_FAN_ASSY_LABEL_RESULT", Name = "Motor Fan Assy Label Result", Type = "boolean" },
 
-    //    var parameterCache = new Dictionary<string, Parameter>();
+                   new { Code = "ECM_ASSY_BOLT_TIGHTEN_VALUE", Name = "ECM Assy Bolt Tighten Result", Type = "number" },
+                   new { Code = "ECM_ASSY_BOLT_TIGHTEN_QTY_VALUE", Name = "ECM Assy Bolt Tighten Qty Value", Type = "number" },
+                   new { Code = "NG_BOX_SENSOR_ECM_ASSY_VALUE", Name = "NG Box (red) Sensor ECM Assy Value", Type = "string"}
+               }
+           },
+           new
+           {
+               ProcCode = "FINAL_INSPECTION",
+               ProcName = "Final Inspection",
+               ProcDesc = "Final quality gate and inspection.",
+               Params = new[]
+               {
+                   new { Code = "FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT", Name = "Final Inspection Rad Core Asm Name Label Result", Type = "boolean" },
+                   new { Code = "CHECK_POINT_1", Name = "Check Point 1", Type = "boolean" },
+                   new { Code = "CHECK_POINT_2", Name = "Check Point 2", Type = "boolean" },
+                   new { Code = "CHECK_POINT_3", Name = "Check Point 3", Type = "boolean" },
+                   new { Code = "CHECK_POINT_4", Name = "Check Point 4", Type = "boolean" },
+                   new { Code = "CHECK_POINT_5", Name = "Check Point 5", Type = "boolean" },
+                   new { Code = "CHECK_POINT_6", Name = "Check Point 6", Type = "boolean" },
+                   new { Code = "CHECK_POINT_7", Name = "Check Point 7", Type = "boolean" },
+                   new { Code = "CHECK_POINT_8", Name = "Check Point 8", Type = "boolean" },
+                   new { Code = "CHECK_POINT_9", Name = "Check Point 9", Type = "boolean" },
+                   new { Code = "CHECK_POINT_10", Name = "Check Point 10", Type = "boolean" },
+                   new { Code = "CHECK_POINT_11", Name = "Check Point 11", Type = "boolean" },
+                   new { Code = "CHECK_POINT_12", Name = "Check Point 12", Type = "boolean" },
+                   new { Code = "CHECK_POINT_13", Name = "Check Point 13", Type = "boolean" },
+                   new { Code = "CHECK_POINT_14", Name = "Check Point 14", Type = "boolean" },
+                   new { Code = "CHECK_POINT_15", Name = "Check Point 15", Type = "boolean" },
+                   new { Code = "CHECK_POINT_16", Name = "Check Point 16", Type = "boolean" },
+                   new { Code = "CHECK_POINT_17", Name = "Check Point 17", Type = "boolean" },
+                   new { Code = "CHECK_POINT_18", Name = "Check Point 18", Type = "boolean" },
+                   new { Code = "CHECK_POINT_19", Name = "Check Point 19", Type = "boolean" },
+                   new { Code = "CHECK_POINT_20", Name = "Check Point 20", Type = "boolean" },
+                   new { Code = "NG_BOX_SENSOR_FINAL_INSPECTION_VALUE", Name = "NG Box (red) Sensor Final Inspection Value", Type = "string"}
+               }
+           }
+       };
 
-    //    foreach (var data in seedData)
-    //    {
-    //        var process = new Process
-    //        {
-    //            Code = data.ProcCode,
-    //            Name = data.ProcName,
-    //            Description = data.ProcDesc,
-    //            IsActive = true,
-    //            CreatedAt = DateTime.UtcNow
-    //        };
+       var parameterCache = new Dictionary<string, Parameter>();
 
-    //        await _processRepository.AddAsync(process, cancellationToken);
+       foreach (var data in seedData)
+       {
+           var process = new Process
+           {
+               Code = data.ProcCode,
+               Name = data.ProcName,
+               Description = data.ProcDesc,
+               IsActive = true,
+               CreatedAt = DateTime.UtcNow
+           };
 
-    //        foreach (var dp in data.Params)
-    //        {
-    //            if (!parameterCache.TryGetValue(dp.Code, out var parameter))
-    //            {
-    //                parameter = new Parameter
-    //                {
-    //                    Code = dp.Code,
-    //                    Name = dp.Name,
-    //                    DataType = dp.Type,
-    //                    IsActive = true,
-    //                    CreatedAt = DateTime.UtcNow
-    //                };
-    //                await _parameterRepository.AddAsync(parameter, cancellationToken);
-    //                parameterCache[dp.Code] = parameter;
-    //            }
+           await _processRepository.AddAsync(process, cancellationToken);
 
-    //            process.ProcessParameters.Add(new ProcessParameter
-    //            {
-    //                Process = process,
-    //                Parameter = parameter
-    //            });
-    //        }
-    //    }
+           foreach (var dp in data.Params)
+           {
+               if (!parameterCache.TryGetValue(dp.Code, out var parameter))
+               {
+                   parameter = new Parameter
+                   {
+                       Code = dp.Code,
+                       Name = dp.Name,
+                       DataType = dp.Type,
+                       IsActive = true,
+                       CreatedAt = DateTime.UtcNow
+                   };
+                   await _parameterRepository.AddAsync(parameter, cancellationToken);
+                   parameterCache[dp.Code] = parameter;
+               }
 
-    //    await _processRepository.SaveChangesAsync(cancellationToken);
+               process.ProcessParameters.Add(new ProcessParameter
+               {
+                   Process = process,
+                   Parameter = parameter
+               });
+           }
+       }
 
-    //    return ResponseFormatter.Success(message: "TRSS master data (Processes and Parameters) successfully seeded.");
-    //}
+       await _processRepository.SaveChangesAsync(cancellationToken);
+
+       return ResponseFormatter.Success(message: "TRSS master data (Processes and Parameters) successfully seeded.");
+    }
 
     ///// <summary>Seed exactly 1 dummy process log with full details (all processes, many values) for TRSS.</summary>
     //[HttpPost("seed-process-logs")]
