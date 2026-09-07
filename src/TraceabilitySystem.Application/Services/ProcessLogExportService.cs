@@ -41,7 +41,7 @@ public class ProcessLogExportService : IProcessLogExportService
             var serialNumber = await _serialNumberRepository.GetWithRelatedAsync(log.SerialNumberId, cancellationToken);
             if (serialNumber == null) continue;
 
-            var issueNumbers = serialNumber.Issues?.Take(6).Select((x, i) => new { Index = i + 1, Number = x.Issue?.Number }).ToDictionary(x => x.Index, x => x.Number) ?? new Dictionary<int, string>();
+            var issueNumbers = serialNumber.Issues?.Take(6).Select((x, i) => new { Index = i + 1, Number = x.Issue?.Number }).ToDictionary(x => x.Index, x => x.Number) ?? new Dictionary<int, string?>();
 
             foreach (var detail in log.Details)
             {
