@@ -12,7 +12,8 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
         int pageSize,
         string? serialNumberCode = null,
         bool? status = null,
-        bool isFinished = true,
+        bool? isFinished = null,
+        bool clinchingOnly = false,
         CancellationToken cancellationToken = default);
 
     Task<ProcessLog?> GetLogWithDetailsAsync(long id, CancellationToken cancellationToken = default);

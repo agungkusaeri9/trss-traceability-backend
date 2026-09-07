@@ -79,8 +79,9 @@ public class PrintService : IPrintService
         string mitsubishiCode = "T A000041130";
         string trssCode = "A T011000004";
         string qrCodeString = mitsubishiCode + ";" + trssCode + ";" + serialNumberCode;
-        string printerName = await _configRepository.GetPrinterNameClinching(cancellationToken);
-
+        
+        string printerIp = await _configRepository.GetPrinterClinchingIpAsync(cancellationToken);
+        int printerPort = await _configRepository.GetPrinterClinchingPortAsync(cancellationToken);
 
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
@@ -92,10 +93,9 @@ public class PrintService : IPrintService
             throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
         }
 
-        var zpl = BuildZplLabelClinching(mitsubishiCode,trssCode,serialNumberCode,dateFormat, qrCodeString);
+        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString);
 
-        await SendViaZebraSdkAsync(printerName, zpl);
-
+        await SendViaTcpAsync(printerIp, printerPort, zpl);
     }
 
 
@@ -159,6 +159,63 @@ public class PrintService : IPrintService
             catch (Exception ex)
             {
                 _logger.LogError("Unexpected error while printing to '{PrinterName}': {Message}", printerName, ex.Message);
+                throw;
+            }
+            finally
+            {
+                connection.Close();
+            }
+        });
+    }
+
+    private Task SendViaTcpAsync(string ipAddress, int port, string zplData)
+    {
+        return Task.Run(() =>
+        {
+            // Set maxTimeoutForRead=3000ms, timeToWaitForMoreData=1000ms to avoid hanging
+            Zebra.Sdk.Comm.Connection connection = new TcpConnection(ipAddress, port, 3000, 1000);
+
+            try
+            {
+                _logger.LogInformation("Connecting to Zebra printer via TCP/IP '{IpAddress}:{Port}'...", ipAddress, port);
+
+                connection.Open();
+
+                _logger.LogInformation("Verifying Zebra printer status at '{IpAddress}:{Port}'...", ipAddress, port);
+                Zebra.Sdk.Printer.ZebraPrinter printer = Zebra.Sdk.Printer.ZebraPrinterFactory.GetInstance(connection);
+                Zebra.Sdk.Printer.PrinterStatus status = printer.GetCurrentStatus();
+
+                if (!status.isReadyToPrint)
+                {
+                    if (status.isHeadOpen)
+                        throw new InvalidOperationException($"Printer Zebra '{ipAddress}:{port}' error: Head is open.");
+                    if (status.isPaperOut)
+                        throw new InvalidOperationException($"Printer Zebra '{ipAddress}:{port}' error: Paper / Ribbon out.");
+                    if (status.isPaused)
+                        throw new InvalidOperationException($"Printer Zebra '{ipAddress}:{port}' error: Printer is paused.");
+
+                    throw new InvalidOperationException($"Printer Zebra '{ipAddress}:{port}' is not ready to print (Status: Not Ready).");
+                }
+
+                byte[] bytes = Encoding.UTF8.GetBytes(zplData);
+
+                connection.Write(bytes);
+
+                _logger.LogInformation("Print via TCP/IP completed successfully.");
+            }
+            catch (ConnectionException ex)
+            {
+                _logger.LogError("Failed to connect/communicate with printer '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
+                throw;
+            }
+            catch (Zebra.Sdk.Printer.ZebraPrinterLanguageUnknownException ex)
+            {
+                _logger.LogError("Unknown printer language for printer '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Unexpected error while printing to '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
                 throw;
             }
             finally
@@ -462,7 +519,9 @@ public class PrintService : IPrintService
         string mitsubishiCode = "T A000041130";
         string trssCode = "A T011000004";
         string qrCodeString = mitsubishiCode + ";" + trssCode + ";" + serialNumberCode;
-        string printerName = await _configRepository.GetPrinterNameMFanAssy(cancellationToken);
+        
+        string printerIp = await _configRepository.GetPrinterMFanAssyIpAsync(cancellationToken);
+        int printerPort = await _configRepository.GetPrinterMFanAssyPortAsync(cancellationToken);
 
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
@@ -476,7 +535,7 @@ public class PrintService : IPrintService
 
         var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString);
 
-        await SendViaZebraSdkAsync(printerName, zpl);
+        await SendViaTcpAsync(printerIp, printerPort, zpl);
     }
 
     public async Task PrintMFanAssyAsync(string serialNumberCode, List<string>? issueNumbers = null, CancellationToken cancellationToken = default)

@@ -46,12 +46,12 @@ namespace TraceabilitySystem.Worker.Services
         }
 
 
-        public async Task HandleClinchingShortSideResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
+        public async Task HandleClinchingShortSideResultScanAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {
-            // _logger.LogInformation("[MQTT][ClinchingShortSide] Payload: {Payload}", payload);
+            // _logger.LogInformation("[MQTT][ClinchingShortSideScan] Payload: {Payload}", payload);
             request.ProcessCode = "CLINCHING_SHORT_SIDE";
 
-            var validation = await _validator.ClinchingShortSideValidator(request);
+            var validation = await _validator.ClinchingShortSideScanValidator(request);
             if (!validation.IsValid)
             {
                 var errorMessage = string.Join(
@@ -61,7 +61,7 @@ namespace TraceabilitySystem.Worker.Services
                 var errorPayload = new
                 {
                     status = false,
-                    process = "clinching-short-side",
+                    process = "clinching-short-side-scan",
                     error = errorMessage
                 };
                 await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
@@ -69,7 +69,7 @@ namespace TraceabilitySystem.Worker.Services
 
                 // foreach (var error in validation.Errors)
                 // {
-                //     _logger.LogWarning("[MQTT][ClinchingShortSide][Validation] {Error}", error);
+                //     _logger.LogWarning("[MQTT][ClinchingShortSideScan][Validation] {Error}", error);
                 // }
 
                 return;
@@ -85,9 +85,71 @@ namespace TraceabilitySystem.Worker.Services
                     cancellationToken: default);
 
                 _logger.LogInformation(
-                    "[MQTT][ClinchingShortSide] Process log created. Id={ProcessLogId}, SN={SerialNumber}",
+                    "[MQTT][ClinchingShortSideScan] Process log created. Id={ProcessLogId}, SN={SerialNumber}",
                     result.Id,
                     result.SerialNumberCode);
+
+                var successPayload = new
+                {
+                    status = true,
+                    process = "clinching-short-side-scan",
+                    error = (string?)null
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", successPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "[MQTT][ClinchingShortSideScan] Error: {Message}",
+                    ex.Message);
+
+                var payloadError = new
+                {
+                    status = false,
+                    process = "clinching-short-side-scan",
+                    error = ex.Message
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
+            }
+        }
+
+        public async Task HandleClinchingShortSideResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
+        {
+            // _logger.LogInformation("[MQTT][ClinchingShortSide] Payload: {Payload}", payload);
+            request.ProcessCode = "CLINCHING_SHORT_SIDE";
+
+            var validation = await _validator.ClinchingShortSideValidator(request);
+            if (!validation.IsValid)
+            {
+                var errorMessage = string.Join(
+                  Environment.NewLine,
+                  validation.Errors);
+
+                var errorPayload = new
+                {
+                    status = false,
+                    process = "clinching-short-side",
+                    error = errorMessage
+                };
+                await _mqttPublisher.PublishAsync("data/process/validation", errorPayload);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMessage);
+
+                // foreach (var error in validation.Errors)
+                // {
+                //     _logger.LogWarning("[MQTT][ClinchingShortSide][Validation] {Error}", error);
+                // }
+                return;
+            }
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+
+                var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
+                _logger.LogInformation("[MQTT][ClinchingShortSide] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
 
                 var successPayload = new
                 {
@@ -100,9 +162,7 @@ namespace TraceabilitySystem.Worker.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "[MQTT][ClinchingShortSide] Error: {Message}",
-                    ex.Message);
+                _logger.LogError(ex, "[MQTT][ClinchingShortSide] Error handling process result: {Message}", ex.Message);
 
                 var payloadError = new
                 {
@@ -114,6 +174,9 @@ namespace TraceabilitySystem.Worker.Services
                 await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
         }
+
+
+
 
         public async Task HandleClinchingLongSideResultAsync(string messageId, string payload, CreateProcessLogRequestDto request)
         {

@@ -30,4 +30,36 @@ public class AppConfigRepository : BaseRepository<AppConfig>, IAppConfigReposito
         var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_NAME_M_FAN_ASSY" || x.Key == "PRINTER_NAME_MFAN_ASSY", cancellationToken);
         return config?.Value ?? string.Empty;
     }
+
+    public async Task<string> GetPrinterClinchingIpAsync(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_IP_CLINCHING", cancellationToken);
+        return config?.Value ?? "192.168.1.100";
+    }
+
+    public async Task<int> GetPrinterClinchingPortAsync(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_PORT_CLINCHING", cancellationToken);
+        if (config != null && int.TryParse(config.Value, out int port))
+        {
+            return port;
+        }
+        return 9100;
+    }
+
+    public async Task<string> GetPrinterMFanAssyIpAsync(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_IP_M_FAN_ASSY" || x.Key == "PRINTER_IP_MFAN_ASSY", cancellationToken);
+        return config?.Value ?? "192.168.1.101";
+    }
+
+    public async Task<int> GetPrinterMFanAssyPortAsync(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_PORT_M_FAN_ASSY" || x.Key == "PRINTER_PORT_MFAN_ASSY", cancellationToken);
+        if (config != null && int.TryParse(config.Value, out int port))
+        {
+            return port;
+        }
+        return 9100;
+    }
 }

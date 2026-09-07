@@ -9,19 +9,19 @@ using TraceabilitySystem.Shared.Models;
 namespace TraceabilitySystem.API.Controllers;
 
 [ApiController]
-[Route("api/process-logs")]
-public class ProcessLogsController : ControllerBase
+[Route("api/traceability-logs")]
+public class TraceabilityLogsController : ControllerBase
 {
     private readonly IProcessLogService _processLogService;
 
-    public ProcessLogsController(IProcessLogService processLogService)
+    public TraceabilityLogsController(IProcessLogService processLogService)
     {
         _processLogService = processLogService;
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(PagedApiResponse<ProcessLogListDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetProcessLogs(
+    [ProducesResponseType(typeof(PagedApiResponse<ProcessLogMockDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTraceabilityLogs(
         [FromQuery] PaginationDto pagination,
         [FromQuery] string? serialNumberCode = null,
         [FromQuery] bool? status = null,
@@ -31,36 +31,36 @@ public class ProcessLogsController : ControllerBase
         var page = pagination.Page < 1 ? 1 : pagination.Page;
         var limit = pagination.Limit < 1 ? 10 : pagination.Limit;
 
-        var result = await _processLogService.GetProcessLogsAsync(
+        var result = await _processLogService.GetTraceabilityLogsAsync(
             page, limit, serialNumberCode, status, isFinished, cancellationToken);
 
-        return ResponseFormatter.PagedSuccess(result, "Process logs retrieved successfully.");
+        return ResponseFormatter.PagedSuccess(result, "Traceability logs retrieved successfully.");
     }
 
     [HttpGet("{id:long}")]
-    [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ProcessLogMockDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProcessLog(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetTraceabilityLog(long id, CancellationToken cancellationToken)
     {
-        var result = await _processLogService.GetProcessLogByIdAsync(id, cancellationToken);
-        return ResponseFormatter.Success(result, "Process log retrieved successfully.");
+        var result = await _processLogService.GetTraceabilityLogByIdAsync(id, cancellationToken);
+        return ResponseFormatter.Success(result, "Traceability log retrieved successfully.");
     }
 
     [HttpGet("by-serial-number/{serialNumber}")]
-    [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ProcessLogMockDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProcessLogBySerialNumber(string serialNumber, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetTraceabilityLogBySerialNumber(string serialNumber, CancellationToken cancellationToken)
     {
-        var result = await _processLogService.GetProcessLogBySerialNumberAsync(serialNumber, cancellationToken);
-        return ResponseFormatter.Success(result, "Process log retrieved successfully.");
+        var result = await _processLogService.GetTraceabilityLogBySerialNumberAsync(serialNumber, cancellationToken);
+        return ResponseFormatter.Success(result, "Traceability log retrieved successfully.");
     }
 
     [HttpGet("full-values/{serialNumberCode}")]
     [ProducesResponseType(typeof(ApiResponse<ProcessLogFullValueDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetProcessLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetTraceabilityLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken)
     {
         var result = await _processLogService.GetProcessLogFullValuesAsync(serialNumberCode, cancellationToken);
-        return ResponseFormatter.Success(result, "Process log full values retrieved successfully.");
+        return ResponseFormatter.Success(result, "Traceability log full values retrieved successfully.");
     }
 }

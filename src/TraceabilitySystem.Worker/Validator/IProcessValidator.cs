@@ -8,7 +8,8 @@ namespace TraceabilitySystem.Worker.Validator
 {
     public interface IProcessValidator
     {
-        Task<ValidationResult> ClinchingShortSideValidator(CreateProcessLogRequestDto request);
+        Task<ValidationResult> ClinchingShortSideScanValidator(CreateProcessLogRequestDto request);
+         Task<ValidationResult> ClinchingShortSideValidator(CreateProcessLogRequestDto request);
         Task<ValidationResult> ClinchingLongSideValidator(CreateProcessLogRequestDto request);
         Task<ValidationResult> HeLeakValidator(CreateProcessLogRequestDto request);
         Task<ValidationResult> MFanAssyScanValidator(CreateProcessLogRequestDto request);

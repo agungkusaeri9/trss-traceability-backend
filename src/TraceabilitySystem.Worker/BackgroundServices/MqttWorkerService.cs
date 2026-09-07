@@ -196,6 +196,7 @@ public class MqttWorkerService : BackgroundService
             // 4. Dispatch topic proses ke handler yang sesuai
             Task? processResultTask = topic switch
             {
+                "data/process/clinching-short-side/result-scan" => subscriptionService.HandleClinchingShortSideResultScanAsync(messageId, payload, request),
                 "data/process/clinching-short-side/result" => subscriptionService.HandleClinchingShortSideResultAsync(messageId, payload, request),
                 "data/process/clinching-long-side/result" => subscriptionService.HandleClinchingLongSideResultAsync(messageId, payload, request),
                 "data/process/he-leak/result" => subscriptionService.HandleHeLeakResultAsync(messageId, payload, request),
@@ -220,9 +221,10 @@ public class MqttWorkerService : BackgroundService
 
     private static string GetProcessNameFromTopic(string topic) => topic switch
     {
+        "data/process/clinching-short-side/result-scan" => "Clinching Short Side Scan",
         "data/process/clinching-short-side/result" => "Clinching Short Side",
         "data/process/clinching-long-side/result" => "Clinching Long Side",
-        "data/process/he-leak/result" => "He Leak",
+        // "data/process/he-leak/result" => "He Leak",
         "data/process/m-fan-assy/result-scan" => "M Fan Assy Scan",
         "data/process/m-fan-assy/result" => "M Fan Assy",
         "data/process/m-fan-inspection/result" => "M Fan Inspection",
@@ -235,6 +237,7 @@ public class MqttWorkerService : BackgroundService
 
     private static string? GetProcessKeyFromTopic(string topic) => topic switch
     {
+        "data/process/clinching-short-side/result-scan" => "clinching-short-side-scan",
         "data/process/clinching-short-side/result" => "clinching-short-side",
         "data/process/clinching-long-side/result" => "clinching-long-side",
         "data/process/he-leak/result" => "he-leak",
@@ -257,6 +260,7 @@ public class MqttWorkerService : BackgroundService
             .WithTopicFilter("traceability/print/request/clinching-short-side")
             .WithTopicFilter("traceability/print/request/m-fan-assy")
             // Process result topics
+            .WithTopicFilter("data/process/clinching-short-side/result-scan")
             .WithTopicFilter("data/process/clinching-short-side/result")
             .WithTopicFilter("data/process/clinching-long-side/result")
             .WithTopicFilter("data/process/he-leak/result")

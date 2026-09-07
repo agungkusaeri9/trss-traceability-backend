@@ -10,8 +10,19 @@ public interface IProcessLogService
         int pageSize, 
         string? serialNumberCode = null, 
         bool? status = null,
-        bool isFinished = true,
+        bool? isFinished = null,
         CancellationToken cancellationToken = default);
+
+    Task<PagedResult<ProcessLogMockDto>> GetTraceabilityLogsAsync(
+        int page,
+        int pageSize,
+        string? serialNumberCode = null,
+        bool? status = null,
+        bool? isFinished = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ProcessLogMockDto> GetTraceabilityLogByIdAsync(long id, CancellationToken cancellationToken = default);
+    Task<ProcessLogMockDto> GetTraceabilityLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default);
 
     Task<ProcessLogDto> GetProcessLogByIdAsync(long id, CancellationToken cancellationToken = default);
     Task<ProcessLogFullValueDto> GetProcessLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken = default);

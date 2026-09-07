@@ -17,17 +17,29 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         int pageSize,
         string? serialNumberCode = null,
         bool? status = null,
-        bool isFinished = true,
+        bool? isFinished = null,
+        bool clinchingOnly = false,
         CancellationToken cancellationToken = default)
     {
         var query = _context.ProcessLogs
             .Include(x => x.SerialNumber)
-            .Where(x => x.SerialNumber.SerialNumberCode.StartsWith("CC") && x.IsFinished == isFinished)
             .AsQueryable();
+
+        if (clinchingOnly)
+        {
+            query = query.Where(x => x.SerialNumber.SerialNumberCode.StartsWith("CC"));
+        }
+
+        if (isFinished.HasValue)
+        {
+            query = query.Where(x => x.IsFinished == isFinished.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(serialNumberCode))
         {
-            query = query.Where(x => x.SerialNumber.SerialNumberCode.Contains(serialNumberCode));
+            query = query.Where(x => x.SerialNumber.SerialNumberCode.Contains(serialNumberCode) ||
+                                     x.SerialNumber.ParentRelations.Any(pr => pr.ChildSerialNumber.SerialNumberCode.Contains(serialNumberCode)) ||
+                                     x.SerialNumber.ChildRelations.Any(cr => cr.ParentSerialNumber.SerialNumberCode.Contains(serialNumberCode)));
         }
 
         if (status.HasValue)
@@ -52,6 +64,25 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                             .ThenInclude(sni => sni.Issue)
                                 .ThenInclude(i => i.StockIn)
                                     .ThenInclude(si => si.Part)
+            // Child SN process log details (process)
+            .Include(x => x.SerialNumber)
+                .ThenInclude(sn => sn.ParentRelations)
+                    .ThenInclude(r => r.ChildSerialNumber)
+                        .ThenInclude(child => child.ProcessLogs)
+                            .ThenInclude(pl => pl.Details)
+                                .ThenInclude(d => d.Process)
+            // Child SN process log details (parameter)
+            .Include(x => x.SerialNumber)
+                .ThenInclude(sn => sn.ParentRelations)
+                    .ThenInclude(r => r.ChildSerialNumber)
+                        .ThenInclude(child => child.ProcessLogs)
+                            .ThenInclude(pl => pl.Details)
+                                .ThenInclude(d => d.Parameter)
+            // Parent process log details
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Parameter)
             .OrderByDescending(x => x.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

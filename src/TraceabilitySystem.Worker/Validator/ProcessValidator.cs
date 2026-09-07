@@ -106,7 +106,7 @@ namespace TraceabilitySystem.Worker.Validator
                     $"Parameter Code '{x}' tidak ditemukan."));
         }
 
-        public async Task<ValidationResult> ClinchingShortSideValidator(CreateProcessLogRequestDto request)
+        public async Task<ValidationResult> ClinchingShortSideScanValidator(CreateProcessLogRequestDto request)
         {
             var validation = await ValidateCommonAsync(request);
 
@@ -214,6 +214,62 @@ namespace TraceabilitySystem.Worker.Validator
 
             return validation;
         }
+
+        public async Task<ValidationResult> ClinchingShortSideValidator(CreateProcessLogRequestDto request)
+        {
+            var validation = await ValidateCommonAsync(request);
+
+            if (!validation.IsValid)
+                return validation;
+
+            // Validation 0: MFan serial number must have an active ProcessLog (IsFinished=false, Status=true)
+            if (string.IsNullOrWhiteSpace(request.SerialNumber))
+            {
+                validation.Errors.Add("Serial number is required.");
+                return validation;
+            }
+
+            if (!request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            {
+                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not valid. It must start with 'CC'.");
+                return validation;
+            }
+
+            var log = await _processLogRepository.GetLogBySerialNumberAsync(request.SerialNumber);
+            if (log == null)
+            {
+                validation.Errors.Add($"No process log found for serial number '{request.SerialNumber}'.");
+                return validation;
+            }
+
+            if (log.IsFinished)
+            {
+                validation.Errors.Add($"Serial number '{request.SerialNumber}' is already finished (IsFinished=true). Cannot proceed with Clinching Short Side process.");
+                return validation;
+            }
+
+            if (!log.Status)
+            {
+                validation.Errors.Add($"Serial number '{request.SerialNumber}' has a failed status (Status=false). Cannot proceed with Clinching Short Side process.");
+                return validation;
+            }
+
+            var parameters = GetParameterCodes(request.Data!);
+
+            if (!parameters.Any())
+            {
+                validation.Errors.Add("Parameter is required.");
+                return validation;
+            }
+
+            await ValidateParametersAsync(
+                validation,
+                request.ProcessCode,
+                parameters);
+
+            return validation;
+        }
+
 
         public async Task<ValidationResult> ClinchingLongSideValidator(CreateProcessLogRequestDto request)
         {

@@ -54,13 +54,46 @@ public class ProcessLogByConceptChildDto
 public class ProcessLogListDto
 {
     public long Id { get; set; }
-
+    public string Type { get; set; } = string.Empty;
     public string SerialNumberCode { get; set; } = string.Empty;
-    //public IssueSummaryDto? Issues { get; set; }
     public bool Status { get; set; }
     public bool IsFinished { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public object? Detail { get; set; }
+}
+
+public class ProcessLogClinchingDetailDto
+{
+    public string SerialNumberClinching { get; set; } = string.Empty;
+    public string CoreAsmValue { get; set; } = string.Empty;
+    public string UpperTankAsmValue { get; set; } = string.Empty;
+    public string LowerTankAsmValue { get; set; } = string.Empty;
+    public bool ORingSetResult { get; set; } = true;
+    public string NgBoxSensorShortSideValue { get; set; } = "ON";
+    public double[] ClinchingHeightValues { get; set; } = Array.Empty<double>();
+    public double ClinchingHeightAverage { get; set; }
+    public bool[] EndPlateWidthResults { get; set; } = Array.Empty<bool>();
+    public bool EndPlateWidthStatus { get; set; } = true;
+    public string NgBoxSensorLongSideValue { get; set; } = "ON";
+}
+
+public class ProcessLogMFanDetailDto
+{
+    public string? SerialNumberMFan { get; set; }
+    public string? LotFanAsmResult { get; set; }
+    public string? LotMotorAsmResult { get; set; }
+    public string? LotGuideAsmResult { get; set; }
+    public string? BoltTightenValue { get; set; }
+    public string? BoltTightenQtyValue { get; set; }
+    public bool? NutTightenValue { get; set; }
+    public double? MFanInspectionRotationSpeedMaxValue { get; set; }
+    public double? MFanInspectionRotationSpeedMinValue { get; set; }
+    public double? MFanInspectionAmpereMaxValue { get; set; }
+    public double? MFanInspectionAmpereMinValue { get; set; }
+    public string? MFanInspectionWindDirectionValue { get; set; }
+    public bool? MFanTestResult { get; set; }
+    public string? NgBoxSensorMFanInspectionValue { get; set; } = "ON";
 }
 
 
