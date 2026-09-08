@@ -11,6 +11,8 @@ public interface IProcessLogService
         string? serialNumberCode = null, 
         bool? status = null,
         bool? isFinished = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
         CancellationToken cancellationToken = default);
 
     Task<PagedResult<ProcessLogMockDto>> GetTraceabilityLogsAsync(
@@ -19,6 +21,8 @@ public interface IProcessLogService
         string? serialNumberCode = null,
         bool? status = null,
         bool? isFinished = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
         CancellationToken cancellationToken = default);
 
     Task<ProcessLogMockDto> GetTraceabilityLogByIdAsync(long id, CancellationToken cancellationToken = default);

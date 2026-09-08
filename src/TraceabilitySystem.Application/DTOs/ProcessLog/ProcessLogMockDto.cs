@@ -80,6 +80,16 @@ public class ProcessLogMockDto
     [JsonPropertyName("NgBoxSensorLongSideValue")]
     public string NgBoxSensorLongSideValue { get; set; } = "ON";
 
+    // 2.5. HE Leak
+    [JsonPropertyName("CapTypePositionResult")]
+    public bool? CapTypePositionResult { get; set; }
+
+    [JsonPropertyName("LeakResult")]
+    public bool? LeakResult { get; set; }
+
+    [JsonPropertyName("LeakLastLeakageValue")]
+    public double? LeakLastLeakageValue { get; set; }
+
     // 3. M-Fan Assy
     [JsonPropertyName("LotFanAsmResult")]
     public string? LotFanAsmResult { get; set; }
@@ -159,7 +169,7 @@ public class ProcessLogMockDto
 
     // Overall
     [JsonPropertyName("OverallStatus")]
-    public string OverallStatus { get; set; } = "PASSED";
+    public bool OverallStatus { get; set; } = true;
 }
 
 /// <summary>

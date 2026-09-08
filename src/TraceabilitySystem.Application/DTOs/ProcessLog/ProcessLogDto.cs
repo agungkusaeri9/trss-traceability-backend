@@ -76,6 +76,9 @@ public class ProcessLogClinchingDetailDto
     public bool[] EndPlateWidthResults { get; set; } = Array.Empty<bool>();
     public bool EndPlateWidthStatus { get; set; } = true;
     public string NgBoxSensorLongSideValue { get; set; } = "ON";
+    public bool? CapTypePositionResult { get; set; }
+    public bool? LeakResult { get; set; }
+    public double? LeakLastLeakageValue { get; set; }
 }
 
 public class ProcessLogMFanDetailDto

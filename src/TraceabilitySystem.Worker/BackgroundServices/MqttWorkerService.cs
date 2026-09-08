@@ -58,6 +58,25 @@ public class MqttWorkerService : BackgroundService
             await SendStatusToHubAsync(_isConnected);
         };
 
+        _hubConnection.Closed += async (error) =>
+        {
+            while (!stoppingToken.IsCancellationRequested && _hubConnection.State == HubConnectionState.Disconnected)
+            {
+                try
+                {
+                    await Task.Delay(5000, stoppingToken);
+                    await _hubConnection.StartAsync(stoppingToken);
+                    _logger.LogInformation("SignalR connection re-established after close. Resending MQTT status: {Status}", _isConnected);
+                    await SendStatusToHubAsync(_isConnected);
+                    break;
+                }
+                catch
+                {
+                    // keep trying
+                }
+            }
+        };
+
         try
         {
             await _hubConnection.StartAsync(stoppingToken);

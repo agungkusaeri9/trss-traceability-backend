@@ -47,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<IPrinterRepository, PrinterRepository>();
         services.AddScoped<IAppConfigRepository, AppConfigRepository>();
         services.AddScoped<IProcessLogRepository, ProcessLogRepository>();
+        services.AddScoped<ITraceabilityLogRepository, TraceabilityLogRepository>();
         services.AddScoped<IMqttPrintRequestRepository, MqttPrintRequestRepository>();
         services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
         services.AddScoped<IIssueTransactionRepository, IssueTransactionRepository>();

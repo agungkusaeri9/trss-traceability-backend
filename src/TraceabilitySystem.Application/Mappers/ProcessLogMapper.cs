@@ -1,4 +1,4 @@
-﻿using Mapster;
+using Mapster;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Domain.Entities;
 
@@ -14,12 +14,10 @@ public class ProcessLogMapping : IRegister
             .Map(dest => dest.ParameterCode, src => src.Parameter.Code)
             .Map(dest => dest.ParameterName, src => src.Parameter.Name)
             .Map(dest => dest.Value, src =>
-                src.ValueText ??
-                (src.ValueNumber.HasValue
-                    ? src.ValueNumber.Value.ToString()
-                    : src.ValueBoolean.HasValue
-                        ? src.ValueBoolean.Value.ToString()
-                        : null));
+                !string.IsNullOrWhiteSpace(src.ValueText) ? src.ValueText :
+                src.ValueNumber.HasValue ? src.ValueNumber.Value.ToString() :
+                src.ValueBoolean.HasValue ? (src.ValueBoolean.Value ? "OK" : "NG") :
+                src.DisplayValue);
 
         config.NewConfig<ProcessLog, ProcessLogFullValueDto>()
             .Map(dest => dest.SerialNumberCode, src => src.SerialNumber.SerialNumberCode)

@@ -51,10 +51,12 @@ public class ProcessLogService : IProcessLogService
         string? serialNumberCode = null,
         bool? status = null,
         bool? isFinished = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
         CancellationToken cancellationToken = default)
     {
         var (logs, totalCount) = await _processLogRepository.GetPagedLogsAsync(
-            page, pageSize, serialNumberCode, status, isFinished, clinchingOnly: false, cancellationToken: cancellationToken);
+            page, pageSize, serialNumberCode, status, isFinished, startDate, endDate, clinchingOnly: false, cancellationToken: cancellationToken);
 
         var dtos = logs.Select(log => MapToListDto(log)).ToList();
 
@@ -73,10 +75,12 @@ public class ProcessLogService : IProcessLogService
         string? serialNumberCode = null,
         bool? status = null,
         bool? isFinished = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
         CancellationToken cancellationToken = default)
     {
         var (logs, totalCount) = await _processLogRepository.GetPagedLogsAsync(
-            page, pageSize, serialNumberCode, status, isFinished, clinchingOnly: true, cancellationToken: cancellationToken);
+            page, pageSize, serialNumberCode, status, isFinished, startDate, endDate, clinchingOnly: true, cancellationToken: cancellationToken);
 
         var dtos = logs.Select(log => MapToMockDto(log)).ToList();
 
@@ -182,6 +186,28 @@ public class ProcessLogService : IProcessLogService
             paramCodes.Any(pc => string.Equals(d.Parameter?.Code, pc, StringComparison.OrdinalIgnoreCase)));
     }
 
+    private static string? GetIssueNumberFromDetail(ProcessLogDetail? detail)
+    {
+        if (detail == null) return null;
+        var text = detail.ValueText?.Trim();
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        if (string.Equals(text, "OK", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "NG", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "TRUE", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "FALSE", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "PASSED", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "REJECTED", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "ON", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text, "OFF", StringComparison.OrdinalIgnoreCase) ||
+            text == "1" || text == "0")
+        {
+            return null;
+        }
+
+        return text;
+    }
+
     private static string? GetDetailText(ProcessLogDetail? detail)
     {
         if (detail == null) return null;
@@ -231,18 +257,18 @@ public class ProcessLogService : IProcessLogService
             .OrderBy(x => x.CreatedAt)
             .ToList() ?? new List<SerialNumberIssue>();
 
-        string coreAsm = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "CORE_ASM_RESULT", "CORE_ASM"))
-            ?? parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Core", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string coreAsm = parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Core", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "CORE_ASM_RESULT", "CORE_ASM", "CORE_ASM_ISSUE_NO"))
             ?? (parentIssues.Count > 0 ? parentIssues[0].Issue?.Number : null)
             ?? string.Empty;
 
-        string upperTank = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "UPPER_TANK_ASM_RESULT", "UPPER_TANK_ASM"))
-            ?? parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Upper", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string upperTank = parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Upper", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "UPPER_TANK_ASM_RESULT", "UPPER_TANK_ASM", "UPPER_TANK_ASM_ISSUE_NO"))
             ?? (parentIssues.Count > 1 ? parentIssues[1].Issue?.Number : null)
             ?? string.Empty;
 
-        string lowerTank = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "LOWER_TANK_ASM_RESULT", "LOWER_TANK_ASM"))
-            ?? parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Lower", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string lowerTank = parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Lower", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "LOWER_TANK_ASM_RESULT", "LOWER_TANK_ASM", "LOWER_TANK_ASM_ISSUE_NO"))
             ?? (parentIssues.Count > 2 ? parentIssues[2].Issue?.Number : null)
             ?? string.Empty;
 
@@ -283,6 +309,11 @@ public class ProcessLogService : IProcessLogService
         bool endPlateStatus = endPlateResults.Length > 0 ? endPlateResults.All(x => x) : true;
         string ngBoxLong = GetDetailText(FindDetail(parentDetails, "CLINCHING_LONG_SIDE", "NG_BOX_SENSOR_LONG_SIDE", "NG_BOX_LONG_SIDE", "NG_BOX")) ?? "ON";
 
+        // 2.5. HE Leak
+        bool? capTypePos = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "CAP_TYPE_POSITION_RESULT", "CAP_TYPE_POSITION", "CAP_TYPE"));
+        bool? leakResult = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "LEAK_RESULT", "LEAK_TEST_RESULT", "LEAK_STATUS"));
+        double? leakValue = GetDetailNumber(FindDetail(parentDetails, "HE_LEAK", "LEAK_LAST_LEAKAGE_VALUE", "LEAK_LAST_LEAKAGE", "LEAK_VALUE", "LEAKAGE_VALUE"));
+
         return new ProcessLogClinchingDetailDto
         {
             SerialNumberClinching = clinchingSn,
@@ -295,7 +326,10 @@ public class ProcessLogService : IProcessLogService
             ClinchingHeightAverage = clinchingAvg,
             EndPlateWidthResults = endPlateResults,
             EndPlateWidthStatus = endPlateStatus,
-            NgBoxSensorLongSideValue = ngBoxLong
+            NgBoxSensorLongSideValue = ngBoxLong,
+            CapTypePositionResult = capTypePos,
+            LeakResult = leakResult,
+            LeakLastLeakageValue = leakValue
         };
     }
 
@@ -310,29 +344,31 @@ public class ProcessLogService : IProcessLogService
             .OrderBy(x => x.CreatedAt)
             .ToList() ?? new List<SerialNumberIssue>();
 
-        string? lotFan = GetDetailText(FindDetail(details, "M_FAN_ASSY", "LOT_FAN_ASM_RESULT", "LOT_FAN_ASM", "FAN_ASM"))
-            ?? issues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Fan", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string? lotFan = issues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Fan", StringComparison.OrdinalIgnoreCase) == true &&
+                                                   i.Issue?.StockIn?.Part?.Name?.Contains("Motor", StringComparison.OrdinalIgnoreCase) != true &&
+                                                   i.Issue?.StockIn?.Part?.Name?.Contains("Guide", StringComparison.OrdinalIgnoreCase) != true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(details, "M_FAN_ASSY", "LOT_FAN_ASM_RESULT", "LOT_FAN_ASM", "FAN_ASM", "FAN_ASM_RESULT", "FAN_ASM_ISSUE_NO"))
             ?? (issues.Count > 0 ? issues[0].Issue?.Number : null);
 
-        string? lotMotor = GetDetailText(FindDetail(details, "M_FAN_ASSY", "LOT_MOTOR_ASM_RESULT", "LOT_MOTOR_ASM", "MOTOR_ASM"))
-            ?? issues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Motor", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string? lotMotor = issues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Motor", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(details, "M_FAN_ASSY", "LOT_MOTOR_ASM_RESULT", "LOT_MOTOR_ASM", "MOTOR_ASM", "MOTOR_ASM_RESULT", "FAN_MOTOR_ASM_ISSUE_NO", "MOTOR_ASM_ISSUE_NO"))
             ?? (issues.Count > 1 ? issues[1].Issue?.Number : null);
 
-        string? lotGuide = GetDetailText(FindDetail(details, "M_FAN_ASSY", "LOT_GUIDE_ASM_RESULT", "LOT_GUIDE_ASM", "GUIDE_ASM"))
-            ?? issues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Guide", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string? lotGuide = issues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Guide", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(details, "M_FAN_ASSY", "LOT_GUIDE_ASM_RESULT", "LOT_GUIDE_ASM", "GUIDE_ASM", "FUN_GUIDE_ASM_RESULT", "FAN_GUIDE_ASM_RESULT", "FAN_GUIDE_ASM_ISSUE_NO", "GUIDE_ASM_ISSUE_NO"))
             ?? (issues.Count > 2 ? issues[2].Issue?.Number : null);
 
         string? boltTighten = GetDetailText(FindDetail(details, "M_FAN_ASSY", "BOLT_TIGHTEN_VALUE", "BOLT_TIGHTEN"));
         string? boltQty = GetDetailText(FindDetail(details, "M_FAN_ASSY", "BOLT_TIGHTEN_QTY_VALUE", "BOLT_TIGHTEN_QTY", "BOLT_QTY"));
         bool? nutTighten = GetDetailBool(FindDetail(details, "M_FAN_ASSY", "NUT_TIGHTEN_VALUE", "NUT_TIGHTEN"));
 
-        double? rotMax = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
-        double? rotMin = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
-        double? ampMax = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
-        double? ampMin = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
-        string? windDir = GetDetailText(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
+        double? rotMax = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
+        double? rotMin = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
+        double? ampMax = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MAX_VALUE", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
+        double? ampMin = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MIN_VALUE", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
+        string? windDir = GetDetailText(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
         bool? mFanTest = GetDetailBool(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_TEST_RESULT", "MFAN_TEST_RESULT", "TEST_RESULT"));
-        string? ngBoxMFan = GetDetailText(FindDetail(details, "M_FAN_INSPECTION", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
+        string? ngBoxMFan = GetDetailText(FindDetail(details, "M_FAN_INSPECTION", "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
 
         return new ProcessLogMFanDetailDto
         {
@@ -373,18 +409,18 @@ public class ProcessLogService : IProcessLogService
             .OrderBy(x => x.CreatedAt)
             .ToList() ?? new List<SerialNumberIssue>();
 
-        string coreAsm = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "CORE_ASM_RESULT", "CORE_ASM"))
-            ?? parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Core", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string coreAsm = parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Core", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "CORE_ASM_RESULT", "CORE_ASM", "CORE_ASM_ISSUE_NO"))
             ?? (parentIssues.Count > 0 ? parentIssues[0].Issue?.Number : null)
             ?? string.Empty;
 
-        string upperTank = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "UPPER_TANK_ASM_RESULT", "UPPER_TANK_ASM"))
-            ?? parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Upper", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string upperTank = parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Upper", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "UPPER_TANK_ASM_RESULT", "UPPER_TANK_ASM", "UPPER_TANK_ASM_ISSUE_NO"))
             ?? (parentIssues.Count > 1 ? parentIssues[1].Issue?.Number : null)
             ?? string.Empty;
 
-        string lowerTank = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "LOWER_TANK_ASM_RESULT", "LOWER_TANK_ASM"))
-            ?? parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Lower", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string lowerTank = parentIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Lower", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "LOWER_TANK_ASM_RESULT", "LOWER_TANK_ASM", "LOWER_TANK_ASM_ISSUE_NO"))
             ?? (parentIssues.Count > 2 ? parentIssues[2].Issue?.Number : null)
             ?? string.Empty;
 
@@ -426,22 +462,29 @@ public class ProcessLogService : IProcessLogService
         bool endPlateStatus = endPlateResults.Length > 0 ? endPlateResults.All(x => x) : true;
         string ngBoxLong = GetDetailText(FindDetail(parentDetails, "CLINCHING_LONG_SIDE", "NG_BOX_SENSOR_LONG_SIDE", "NG_BOX_LONG_SIDE", "NG_BOX")) ?? "ON";
 
+        // 2.5. HE Leak
+        bool? capTypePos = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "CAP_TYPE_POSITION_RESULT", "CAP_TYPE_POSITION", "CAP_TYPE"));
+        bool? leakResult = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "LEAK_RESULT", "LEAK_TEST_RESULT", "LEAK_STATUS"));
+        double? leakValue = GetDetailNumber(FindDetail(parentDetails, "HE_LEAK", "LEAK_LAST_LEAKAGE_VALUE", "LEAK_LAST_LEAKAGE", "LEAK_VALUE", "LEAKAGE_VALUE"));
+
         // 3. M-Fan Assy Lots & Details
         var childIssues = childSn?.Issues?
             .Where(x => x.Issue != null)
             .OrderBy(x => x.CreatedAt)
             .ToList() ?? new List<SerialNumberIssue>();
 
-        string? lotFan = GetDetailText(FindDetail(childDetails, "M_FAN_ASSY", "LOT_FAN_ASM_RESULT", "LOT_FAN_ASM", "FAN_ASM"))
-            ?? childIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Fan", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string? lotFan = childIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Fan", StringComparison.OrdinalIgnoreCase) == true &&
+                                                        i.Issue?.StockIn?.Part?.Name?.Contains("Motor", StringComparison.OrdinalIgnoreCase) != true &&
+                                                        i.Issue?.StockIn?.Part?.Name?.Contains("Guide", StringComparison.OrdinalIgnoreCase) != true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(childDetails, "M_FAN_ASSY", "LOT_FAN_ASM_RESULT", "LOT_FAN_ASM", "FAN_ASM", "FAN_ASM_RESULT", "FAN_ASM_ISSUE_NO"))
             ?? (childIssues.Count > 0 ? childIssues[0].Issue?.Number : null);
 
-        string? lotMotor = GetDetailText(FindDetail(childDetails, "M_FAN_ASSY", "LOT_MOTOR_ASM_RESULT", "LOT_MOTOR_ASM", "MOTOR_ASM"))
-            ?? childIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Motor", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string? lotMotor = childIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Motor", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(childDetails, "M_FAN_ASSY", "LOT_MOTOR_ASM_RESULT", "LOT_MOTOR_ASM", "MOTOR_ASM", "MOTOR_ASM_RESULT", "FAN_MOTOR_ASM_ISSUE_NO", "MOTOR_ASM_ISSUE_NO"))
             ?? (childIssues.Count > 1 ? childIssues[1].Issue?.Number : null);
 
-        string? lotGuide = GetDetailText(FindDetail(childDetails, "M_FAN_ASSY", "LOT_GUIDE_ASM_RESULT", "LOT_GUIDE_ASM", "GUIDE_ASM"))
-            ?? childIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Guide", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+        string? lotGuide = childIssues.FirstOrDefault(i => i.Issue?.StockIn?.Part?.Name?.Contains("Guide", StringComparison.OrdinalIgnoreCase) == true)?.Issue?.Number
+            ?? GetIssueNumberFromDetail(FindDetail(childDetails, "M_FAN_ASSY", "LOT_GUIDE_ASM_RESULT", "LOT_GUIDE_ASM", "GUIDE_ASM", "FUN_GUIDE_ASM_RESULT", "FAN_GUIDE_ASM_RESULT", "FAN_GUIDE_ASM_ISSUE_NO", "GUIDE_ASM_ISSUE_NO"))
             ?? (childIssues.Count > 2 ? childIssues[2].Issue?.Number : null);
 
         string? boltTighten = GetDetailText(FindDetail(childDetails, "M_FAN_ASSY", "BOLT_TIGHTEN_VALUE", "BOLT_TIGHTEN"));
@@ -449,20 +492,20 @@ public class ProcessLogService : IProcessLogService
         bool? nutTighten = GetDetailBool(FindDetail(childDetails, "M_FAN_ASSY", "NUT_TIGHTEN_VALUE", "NUT_TIGHTEN"));
 
         // 4. M-Fan Inspection
-        double? rotMax = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
-        double? rotMin = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
-        double? ampMax = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
-        double? ampMin = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
-        string? windDir = GetDetailText(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
+        double? rotMax = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
+        double? rotMin = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
+        double? ampMax = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MAX_VALUE", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
+        double? ampMin = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MIN_VALUE", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
+        string? windDir = GetDetailText(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
         bool? mFanTest = GetDetailBool(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_TEST_RESULT", "MFAN_TEST_RESULT", "TEST_RESULT"));
-        string? ngBoxMFan = GetDetailText(FindDetail(childDetails, "M_FAN_INSPECTION", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
+        string? ngBoxMFan = GetDetailText(FindDetail(childDetails, "M_FAN_INSPECTION", "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
 
         // 5. ECM Assy
         bool? radCoreLabel = GetDetailBool(FindDetail(parentDetails, "ECM_ASSY", "RAD_CORE_ASM_NAME_LABEL_RESULT", "RAD_CORE_LABEL", "RAD_CORE_ASM_LABEL"));
         bool? motorFanLabel = GetDetailBool(FindDetail(parentDetails, "ECM_ASSY", "MOTOR_FAN_ASSY_LABEL_RESULT", "MOTOR_FAN_LABEL", "MOTOR_FAN_ASSY_LABEL"));
         double? ecmBolt = GetDetailNumber(FindDetail(parentDetails, "ECM_ASSY", "ECM_ASSY_BOLT_TIGHTEN_VALUE", "ECM_BOLT_TIGHTEN", "ECM_BOLT"));
         double? ecmBoltQty = GetDetailNumber(FindDetail(parentDetails, "ECM_ASSY", "ECM_ASSY_BOLT_TIGHTEN_QTY_VALUE", "ECM_BOLT_QTY", "ECM_ASSY_BOLT_QTY"));
-        string? ngBoxEcm = GetDetailText(FindDetail(parentDetails, "ECM_ASSY", "NG_BOX_SENSOR_ECM_ASSY", "NG_BOX_ECM", "NG_BOX")) ?? "ON";
+        string? ngBoxEcm = GetDetailText(FindDetail(parentDetails, "ECM_ASSY", "NG_BOX_SENSOR_ECM_ASSY_VALUE", "NG_BOX_SENSOR_ECM_ASSY", "NG_BOX_ECM", "NG_BOX")) ?? "ON";
 
         // 6. Final Inspection
         bool? finalRadCoreLabel = GetDetailBool(FindDetail(parentDetails, "FINAL_INSPECTION", "FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT", "FINAL_RAD_CORE_LABEL"));
@@ -479,10 +522,10 @@ public class ProcessLogService : IProcessLogService
             : null;
 
         bool? checkPointStatus = checkPoints != null && checkPoints.Length > 0 ? checkPoints.All(x => x) : null;
-        string? ngBoxFinal = GetDetailText(FindDetail(parentDetails, "FINAL_INSPECTION", "NG_BOX_SENSOR_FINAL_INSPECTION", "NG_BOX_FINAL", "NG_BOX")) ?? "ON";
+        string? ngBoxFinal = GetDetailText(FindDetail(parentDetails, "FINAL_INSPECTION", "NG_BOX_SENSOR_FINAL_INSPECTION_VALUE", "NG_BOX_SENSOR_FINAL_INSPECTION", "NG_BOX_FINAL", "NG_BOX")) ?? "ON";
 
-        // Overall status
-        string overallStatus = log.Status ? "PASSED" : "REJECTED";
+        // Overall status: Harus log.Status == true dan seluruh Checkpoint Final Inspection bernilai true
+        bool overallStatus = log.Status && (checkPointStatus == null || checkPointStatus.Value);
 
         return new ProcessLogMockDto
         {
@@ -500,6 +543,9 @@ public class ProcessLogService : IProcessLogService
             EndPlateWidthResults = endPlateResults,
             EndPlateWidthStatus = endPlateStatus,
             NgBoxSensorLongSideValue = ngBoxLong,
+            CapTypePositionResult = capTypePos,
+            LeakResult = leakResult,
+            LeakLastLeakageValue = leakValue,
             LotFanAsmResult = lotFan,
             LotMotorAsmResult = lotMotor,
             LotGuideAsmResult = lotGuide,
@@ -821,6 +867,12 @@ public class ProcessLogService : IProcessLogService
         var processLog = await _processLogRepository.FirstOrDefaultAsync(
             x => x.SerialNumberId == serialNumber.Id && x.IsActive, cancellationToken);
 
+        bool shouldFinish = request.IsOk == false || 
+                            request.IsFInihed || 
+                            string.Equals(request.ProcessCode?.Trim(), "HE_LEAK", StringComparison.OrdinalIgnoreCase) || 
+                            string.Equals(request.ProcessCode?.Trim(), "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) || 
+                            string.Equals(request.ProcessCode?.Trim(), "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase);
+
         if (processLog == null)
         {
             // If not found, create new Process Log first
@@ -829,7 +881,7 @@ public class ProcessLogService : IProcessLogService
                 SerialNumberId = serialNumber.Id,
                 IsActive = true,
                 Status = request.IsOk ?? true,
-                IsFinished = request.IsOk == false ? true : request.IsFInihed,
+                IsFinished = shouldFinish,
                 CreatedAt = DateTime.Now
             };
             await _processLogRepository.AddAsync(processLog, cancellationToken);
@@ -838,7 +890,10 @@ public class ProcessLogService : IProcessLogService
         else
         {
             processLog.UpdatedAt = DateTime.Now;
-            processLog.IsFinished = request.IsOk == false ? true : request.IsFInihed;
+            if (shouldFinish)
+            {
+                processLog.IsFinished = true;
+            }
             if (request.IsOk == false)
             {
                 processLog.Status = false;
@@ -901,6 +956,11 @@ public class ProcessLogService : IProcessLogService
                 CreatedAt = DateTime.Now
             };
             processLog.Details.Add(detail);
+        }
+
+        if (paramValues.Any(p => p.valueBoolean == false))
+        {
+            processLog.Status = false;
         }
 
         _processLogRepository.Update(processLog);

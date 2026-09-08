@@ -603,12 +603,6 @@ namespace TraceabilitySystem.Worker.Validator
                 return validation;
             }
 
-            if (clinchingLog.IsFinished)
-            {
-                validation.Errors.Add($"Clinching serial number '{clinchingSn}' is already finished (IsFinished=true). Cannot proceed with ECM Assy.");
-                return validation;
-            }
-
             if (!clinchingLog.Status)
             {
                 validation.Errors.Add($"Clinching serial number '{clinchingSn}' has a failed status (Status=false). Cannot proceed with ECM Assy.");
@@ -632,12 +626,6 @@ namespace TraceabilitySystem.Worker.Validator
             if (mfanLog == null)
             {
                 validation.Errors.Add($"No process log found for M-Fan serial number '{mfanSn}'.");
-                return validation;
-            }
-
-            if (mfanLog.IsFinished)
-            {
-                validation.Errors.Add($"M-Fan serial number '{mfanSn}' is already finished (IsFinished=true). Cannot proceed with ECM Assy.");
                 return validation;
             }
 
@@ -678,7 +666,7 @@ namespace TraceabilitySystem.Worker.Validator
             if (!validation.IsValid)
                 return validation;
 
-            // Validation 0: Clinching serial number must have an active ProcessLog (IsFinished=false, Status=true)
+            // Validation 0: Clinching serial number must have an active ProcessLog (Status=true)
             if (string.IsNullOrWhiteSpace(request.SerialNumber))
             {
                 validation.Errors.Add("Serial number (clinching) is required.");
@@ -695,12 +683,6 @@ namespace TraceabilitySystem.Worker.Validator
             if (clinchingLog == null)
             {
                 validation.Errors.Add($"No process log found for serial number '{request.SerialNumber}'.");
-                return validation;
-            }
-
-            if (clinchingLog.IsFinished)
-            {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' is already finished (IsFinished=true). Cannot proceed with Final Inspection.");
                 return validation;
             }
 

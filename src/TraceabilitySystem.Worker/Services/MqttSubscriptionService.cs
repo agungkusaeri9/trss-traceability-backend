@@ -270,7 +270,7 @@ namespace TraceabilitySystem.Worker.Services
             {
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
-
+                request.IsFInihed = true;
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][HeLeak] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
 
@@ -453,7 +453,7 @@ namespace TraceabilitySystem.Worker.Services
             {
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
-
+                request.IsFInihed = true;
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][MFanInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
 

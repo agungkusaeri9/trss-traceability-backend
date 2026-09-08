@@ -91,6 +91,7 @@ try
 
     // ── SignalR ────────────────────────────────────────────────────────────
     builder.Services.AddSignalR();
+    builder.Services.AddHostedService<TraceabilitySystem.API.BackgroundServices.PrinterMonitorService>();
 
     // ── Build ──────────────────────────────────────────────────────────────
     var app = builder.Build();
@@ -161,7 +162,7 @@ try
     app.MapControllers();
 
     // ── SignalR Hubs ───────────────────────────────────────────────────────
-    //app.MapHub<PrinterHub>("/hubs/printer");
+    app.MapHub<PrinterHub>("/hubs/printer");
     app.MapHub<MqttStatusHub>("/hubs/mqtt-status");
     // app.MapHub<TraceabilitySummaryHub>("/hubs/traceability-summary");
 

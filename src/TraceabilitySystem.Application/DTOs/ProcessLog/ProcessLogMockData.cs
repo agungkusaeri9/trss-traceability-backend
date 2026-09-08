@@ -53,7 +53,7 @@ public static class ProcessLogMockData
                 CheckPoints = Enumerable.Repeat(true, 20).ToArray(),
                 CheckPointStatus = true,
                 NgBoxSensorFinalInspectionValue = "ON",
-                OverallStatus = "PASSED"
+                OverallStatus = true
             },
 
             // Record 2: All Stations Passed
@@ -95,7 +95,7 @@ public static class ProcessLogMockData
                 CheckPoints = Enumerable.Repeat(true, 20).ToArray(),
                 CheckPointStatus = true,
                 NgBoxSensorFinalInspectionValue = "ON",
-                OverallStatus = "PASSED"
+                OverallStatus = true
             },
 
             // Record 3: Finished Line with Defects (Height, EndPlate P-03/P-15, CheckPoint CP-07)
@@ -137,7 +137,7 @@ public static class ProcessLogMockData
                 CheckPoints = Enumerable.Range(0, 20).Select(i => i != 6).ToArray(),
                 CheckPointStatus = false,
                 NgBoxSensorFinalInspectionValue = "ON",
-                OverallStatus = "REJECTED"
+                OverallStatus = false
             },
 
             // Record 4: Stopped Early at Clinching Long Side (EndPlate Defect, No Downstream MF/ECM/Final Data)
@@ -179,7 +179,7 @@ public static class ProcessLogMockData
                 CheckPoints = null,
                 CheckPointStatus = null,
                 NgBoxSensorFinalInspectionValue = null,
-                OverallStatus = "REJECTED"
+                OverallStatus = false
             }
         };
     }

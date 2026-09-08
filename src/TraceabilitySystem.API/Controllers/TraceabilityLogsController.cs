@@ -12,11 +12,11 @@ namespace TraceabilitySystem.API.Controllers;
 [Route("api/traceability-logs")]
 public class TraceabilityLogsController : ControllerBase
 {
-    private readonly IProcessLogService _processLogService;
+    private readonly ITraceabilityLogService _traceabilityLogService;
 
-    public TraceabilityLogsController(IProcessLogService processLogService)
+    public TraceabilityLogsController(ITraceabilityLogService traceabilityLogService)
     {
-        _processLogService = processLogService;
+        _traceabilityLogService = traceabilityLogService;
     }
 
     [HttpGet]
@@ -26,13 +26,15 @@ public class TraceabilityLogsController : ControllerBase
         [FromQuery] string? serialNumberCode = null,
         [FromQuery] bool? status = null,
         [FromQuery] bool? isFinished = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
         CancellationToken cancellationToken = default)
     {
         var page = pagination.Page < 1 ? 1 : pagination.Page;
         var limit = pagination.Limit < 1 ? 10 : pagination.Limit;
 
-        var result = await _processLogService.GetTraceabilityLogsAsync(
-            page, limit, serialNumberCode, status, isFinished, cancellationToken);
+        var result = await _traceabilityLogService.GetTraceabilityLogsAsync(
+            page, limit, serialNumberCode, status, isFinished, startDate, endDate, cancellationToken);
 
         return ResponseFormatter.PagedSuccess(result, "Traceability logs retrieved successfully.");
     }
@@ -42,7 +44,7 @@ public class TraceabilityLogsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTraceabilityLog(long id, CancellationToken cancellationToken)
     {
-        var result = await _processLogService.GetTraceabilityLogByIdAsync(id, cancellationToken);
+        var result = await _traceabilityLogService.GetTraceabilityLogByIdAsync(id, cancellationToken);
         return ResponseFormatter.Success(result, "Traceability log retrieved successfully.");
     }
 
@@ -51,7 +53,7 @@ public class TraceabilityLogsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTraceabilityLogBySerialNumber(string serialNumber, CancellationToken cancellationToken)
     {
-        var result = await _processLogService.GetTraceabilityLogBySerialNumberAsync(serialNumber, cancellationToken);
+        var result = await _traceabilityLogService.GetTraceabilityLogBySerialNumberAsync(serialNumber, cancellationToken);
         return ResponseFormatter.Success(result, "Traceability log retrieved successfully.");
     }
 
@@ -60,7 +62,7 @@ public class TraceabilityLogsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTraceabilityLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken)
     {
-        var result = await _processLogService.GetProcessLogFullValuesAsync(serialNumberCode, cancellationToken);
+        var result = await _traceabilityLogService.GetTraceabilityLogFullValuesAsync(serialNumberCode, cancellationToken);
         return ResponseFormatter.Success(result, "Traceability log full values retrieved successfully.");
     }
 }

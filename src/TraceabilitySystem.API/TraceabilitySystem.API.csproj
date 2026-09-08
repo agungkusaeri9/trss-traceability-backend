@@ -22,6 +22,7 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Serilog.Sinks.Map" Version="2.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Zebra.Printer.SDK" Version="5.0.3563" />
   </ItemGroup>
 
   <PropertyGroup>

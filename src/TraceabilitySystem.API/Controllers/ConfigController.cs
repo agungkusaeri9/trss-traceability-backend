@@ -210,18 +210,18 @@ public class ConfigController : ControllerBase
                    new { Code = "NG_BOX_SENSOR_LONG_SIDE_VALUE", Name = "NG Box (red) Sensor Clinching Long Side", Type = "string" },
                }
            },
-        //    new
-        //    {
-        //        ProcCode = "HE_LEAK",
-        //        ProcName = "He Leak",
-        //        ProcDesc = "Helium leak testing process.",
-        //        Params = new[]
-        //        {
-        //            new { Code = "CAP_TYPE_POSITION_RESULT", Name = "Cap Type & Position", Type = "boolean" },
-        //            new { Code = "LEAK_RESULT", Name = "Leak Result", Type = "boolean" },
-        //            new { Code = "LEAK_LAST_LEAKAGE_VALUE", Name = "Leak Last Leakage Value", Type = "number" }
-        //        }
-        //    },
+           new
+           {
+               ProcCode = "HE_LEAK",
+               ProcName = "He Leak",
+               ProcDesc = "Helium leak testing process.",
+               Params = new[]
+               {
+                   new { Code = "CAP_TYPE_POSITION_RESULT", Name = "Cap Type & Position", Type = "boolean" },
+                   new { Code = "LEAK_RESULT", Name = "Leak Result", Type = "boolean" },
+                   new { Code = "LEAK_LAST_LEAKAGE_VALUE", Name = "Leak Last Leakage Value", Type = "number" }
+               }
+           },
            new
            {
                ProcCode = "M_FAN_ASSY",
