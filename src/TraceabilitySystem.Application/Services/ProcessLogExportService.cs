@@ -32,7 +32,7 @@ public class ProcessLogExportService : IProcessLogExportService
         CancellationToken cancellationToken = default)
     {
         var logs = await _processLogRepository.GetAllAsync(cancellationToken);
-        var ccLogs = logs.Where(x => x.SerialNumber != null && x.SerialNumber.SerialNumberCode.StartsWith("CC")).ToList();
+        var ccLogs = logs.Where(x => x.SerialNumber != null && (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || x.SerialNumber.SerialNumberCode.StartsWith("CC"))).ToList();
 
         var dtos = new List<ExportProcessLogDto>();
 

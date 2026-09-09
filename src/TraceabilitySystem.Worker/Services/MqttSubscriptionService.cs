@@ -391,6 +391,7 @@ namespace TraceabilitySystem.Worker.Services
             {
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
+                request.IsFInihed = true;
 
                 var result = await processLogService.CreateProcessLogMFanAssyAsync(request, "create_without_issue_number");
                 _logger.LogInformation("[MQTT][MFanAssy] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);

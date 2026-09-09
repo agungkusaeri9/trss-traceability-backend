@@ -41,7 +41,7 @@ public class SerialNumberService : ISerialNumberService
             pageSize,
           predicate: p => (string.IsNullOrEmpty(searchTerm)
                 || p.SerialNumberCode.Contains(searchTerm))
-                && (p.SerialNumberCode.StartsWith("CC"))
+                && (p.SerialNumberCode.StartsWith("PVRA") || p.SerialNumberCode.StartsWith("CC"))
                 && p.ProcessLogs.Any(pl => pl.IsFinished == isFinished && (!status.HasValue || pl.Status == status.Value)),
             orderBy: q => q.OrderByDescending(u => u.CreatedAt),
             cancellationToken: cancellationToken);
@@ -110,7 +110,9 @@ public class SerialNumberService : ISerialNumberService
             var issuesInDb = (await _issueRepository.FindAsync(
                 i => request.IssueNumbers.Contains(i.Number), cancellationToken)).ToList();
 
-            var isClinching = request.Type.Equals("CLINCHING", StringComparison.OrdinalIgnoreCase) || request.Type.StartsWith("CC", StringComparison.OrdinalIgnoreCase);
+            var isClinching = request.Type.Equals("CLINCHING", StringComparison.OrdinalIgnoreCase) || 
+                              request.Type.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) || 
+                              request.Type.StartsWith("CC", StringComparison.OrdinalIgnoreCase);
 
             if (isClinching)
             {
@@ -202,7 +204,7 @@ public class SerialNumberService : ISerialNumberService
             type = "CLINCHING";
         }
 
-        string prefix = "CC";
+        string prefix = "PVRA";
         if (type.Equals("MFanAssy", StringComparison.OrdinalIgnoreCase) || type.Contains("MF"))
         {
             type = "MFanAssy";
@@ -211,7 +213,7 @@ public class SerialNumberService : ISerialNumberService
         else
         {
             type = "CLINCHING";
-            prefix = "CC";
+            prefix = "PVRA";
         }
 
         // Generate serial numbers menggunakan GenerateByPrefixAsync
@@ -229,8 +231,8 @@ public class SerialNumberService : ISerialNumberService
     }
 
     /// <summary>
-    /// Generate serial number Clinching otomatis dengan format CC{yyyyMMdd}{sequence:D3}.
-    /// Sequence dimulai dari 001 per hari dan bertambah sesuai data yang sudah ada di DB.
+    /// Generate serial number Clinching otomatis dengan format PVRA{sequence:D6} (contoh: PVRA000001).
+    /// Sequence dimulai dari 000001 dan bertambah sesuai data PVRA yang sudah ada di DB.
     /// Setiap serial number akan mendapatkan SEMUA issue yang diberikan.
     /// </summary>
     public async Task<IEnumerable<SerialNumberDto>> CreateByClinchingAsync(
@@ -240,37 +242,36 @@ public class SerialNumberService : ISerialNumberService
         if (request.Qty <= 0)
             throw new AppException("Jumlah serial number harus lebih dari 0.", 400);
 
-        var today = DateTime.UtcNow.ToString("yyyyMMdd");
-        var datePrefix = $"CC{today}";
+        var prefix = "PVRA";
 
-        // Ambil semua SN hari ini untuk prefix ini
-        var existingToday = await _serialNumberRepository.FindAsync(
-            s => s.SerialNumberCode.StartsWith(datePrefix), cancellationToken);
+        // Ambil semua SN dengan prefix PVRA
+        var existingCodes = await _serialNumberRepository.FindAsync(
+            s => s.SerialNumberCode.StartsWith(prefix), cancellationToken);
 
-        // Cari sequence tertinggi yang sudah ada hari ini
-        var maxSequence = existingToday
+        // Cari sequence tertinggi yang sudah ada
+        var maxSequence = existingCodes
             .Select(s =>
             {
-                var suffix = s.SerialNumberCode[datePrefix.Length..]; 
+                var suffix = s.SerialNumberCode[prefix.Length..]; 
                 return int.TryParse(suffix, out var seq) ? seq : 0;
             })
             .DefaultIfEmpty(0)
             .Max();
 
-        // Generate kode baru
+        // Generate kode baru: PVRA000001, PVRA000002, dst.
         var newCodes = Enumerable.Range(maxSequence + 1, request.Qty)
-            .Select(seq => $"{datePrefix}{seq:D3}")
+            .Select(seq => $"{prefix}{seq:D6}")
             .ToList();
 
         // Deduplicate dari request dan cek existing di DB
         var uniqueCodes = newCodes.Distinct().ToList();
-        var existingCodes = (await _serialNumberRepository.FindAsync(
+        var existingCodesInDb = (await _serialNumberRepository.FindAsync(
             s => uniqueCodes.Contains(s.SerialNumberCode), cancellationToken))
             .Select(s => s.SerialNumberCode)
             .ToHashSet();
 
         var newEntities = uniqueCodes
-            .Where(code => !existingCodes.Contains(code))
+            .Where(code => !existingCodesInDb.Contains(code))
             .Select(code => new SerialNumber
             {
                 SerialNumberCode = code,
@@ -491,7 +492,9 @@ public class SerialNumberService : ISerialNumberService
 
     /// <summary>
     /// Core logic untuk generate serial number berdasarkan prefix mesin.
-    /// Format: {prefix}{yyyyMMdd}{sequence:D3}  →  contoh: CC20260625001
+    /// Format:
+    /// - PVRA / CLINCHING: PVRA{sequence:D6}  →  contoh: PVRA000001
+    /// - MF / Lainnya: {prefix}{yyyyMMdd}{sequence:D3}  →  contoh: MF20260625001
     /// </summary>
     private async Task<IEnumerable<SerialNumberDto>> GenerateByPrefixAsync(
         string machinePrefix,
@@ -502,27 +505,51 @@ public class SerialNumberService : ISerialNumberService
         if (request.Qty <= 0)
             throw new AppException("Jumlah serial number harus lebih dari 0.", 400);
 
-        var today = DateTime.UtcNow.ToString("yyyyMMdd");
-        var datePrefix = $"{machinePrefix}{today}";   // contoh: CC20260625
+        List<string> newCodes;
 
-        // Ambil semua SN hari ini untuk prefix ini
-        var existingToday = await _serialNumberRepository.FindAsync(
-            s => s.SerialNumberCode.StartsWith(datePrefix), cancellationToken);
+        if (machinePrefix.Equals("PVRA", StringComparison.OrdinalIgnoreCase) || machinePrefix.Equals("CC", StringComparison.OrdinalIgnoreCase))
+        {
+            var prefix = "PVRA";
+            var existing = await _serialNumberRepository.FindAsync(
+                s => s.SerialNumberCode.StartsWith(prefix), cancellationToken);
 
-        // Cari sequence tertinggi yang sudah ada hari ini
-        var maxSequence = existingToday
-            .Select(s =>
-            {
-                var suffix = s.SerialNumberCode[datePrefix.Length..]; // ambil bagian setelah date prefix
-                return int.TryParse(suffix, out var seq) ? seq : 0;
-            })
-            .DefaultIfEmpty(0)
-            .Max();
+            var maxSequence = existing
+                .Select(s =>
+                {
+                    var suffix = s.SerialNumberCode[prefix.Length..];
+                    return int.TryParse(suffix, out var seq) ? seq : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
 
-        // Generate kode baru
-        var newCodes = Enumerable.Range(maxSequence + 1, request.Qty)
-            .Select(seq => $"{datePrefix}{seq:D3}")
-            .ToList();
+            newCodes = Enumerable.Range(maxSequence + 1, request.Qty)
+                .Select(seq => $"{prefix}{seq:D6}")
+                .ToList();
+        }
+        else
+        {
+            var today = DateTime.UtcNow.ToString("yyyyMMdd");
+            var datePrefix = $"{machinePrefix}{today}";
+
+            // Ambil semua SN hari ini untuk prefix ini
+            var existingToday = await _serialNumberRepository.FindAsync(
+                s => s.SerialNumberCode.StartsWith(datePrefix), cancellationToken);
+
+            // Cari sequence tertinggi yang sudah ada hari ini
+            var maxSequence = existingToday
+                .Select(s =>
+                {
+                    var suffix = s.SerialNumberCode[datePrefix.Length..]; // ambil bagian setelah date prefix
+                    return int.TryParse(suffix, out var seq) ? seq : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            // Generate kode baru
+            newCodes = Enumerable.Range(maxSequence + 1, request.Qty)
+                .Select(seq => $"{datePrefix}{seq:D3}")
+                .ToList();
+        }
 
         // Delegasikan ke CreateBatchAsync (dedup + insert + consume issue jika ada)
         return await CreateBatchAsync(new CreateBatchSerialNumberRequestDto
@@ -536,22 +563,21 @@ public class SerialNumberService : ISerialNumberService
 
     public async Task<string> GenerateSerialNumberAsync(CancellationToken cancellationToken = default)
     {
-        var today = DateTime.UtcNow.ToString("yyyyMMdd");
-        var datePrefix = $"CC{today}";
+        var prefix = "PVRA";
 
-        var existingToday = await _serialNumberRepository.FindAsync(
-            s => s.SerialNumberCode.StartsWith(datePrefix), cancellationToken);
+        var existing = await _serialNumberRepository.FindAsync(
+            s => s.SerialNumberCode.StartsWith(prefix), cancellationToken);
 
-        var maxSequence = existingToday
+        var maxSequence = existing
             .Select(s =>
             {
-                var suffix = s.SerialNumberCode[datePrefix.Length..];
+                var suffix = s.SerialNumberCode[prefix.Length..];
                 return int.TryParse(suffix, out var seq) ? seq : 0;
             })
             .DefaultIfEmpty(0)
             .Max();
 
-        var newCode = $"{datePrefix}{(maxSequence + 1):D3}";
+        var newCode = $"{prefix}{(maxSequence + 1):D6}";
 
         var entity = new SerialNumber
         {

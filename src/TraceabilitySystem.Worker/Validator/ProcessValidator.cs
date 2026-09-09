@@ -229,9 +229,9 @@ namespace TraceabilitySystem.Worker.Validator
                 return validation;
             }
 
-            if (!request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            if (!request.SerialNumber.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) && !request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
             {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not valid. It must start with 'CC'.");
+                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not valid. It must start with 'PVRA'.");
                 return validation;
             }
 
@@ -286,9 +286,9 @@ namespace TraceabilitySystem.Worker.Validator
                 return validation;
             }
 
-            if (!request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            if (!request.SerialNumber.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) && !request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
             {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not a valid clinching serial number. It must start with 'CC'.");
+                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not a valid clinching serial number. It must start with 'PVRA'.");
                 return validation;
             }
 
@@ -322,16 +322,16 @@ namespace TraceabilitySystem.Worker.Validator
             if (!validation.IsValid)
                 return validation;
 
-            // Validation 0: SerialNumber must be a clinching code (starts with 'CC')
+            // Validation 0: SerialNumber must be a clinching code (starts with 'PVRA')
             if (string.IsNullOrWhiteSpace(request.SerialNumber))
             {
                 validation.Errors.Add("Serial number is required.");
                 return validation;
             }
 
-            if (!request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            if (!request.SerialNumber.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) && !request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
             {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not a valid clinching serial number. It must start with 'CC'.");
+                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not a valid clinching serial number. It must start with 'PVRA'.");
                 return validation;
             }
 
@@ -590,9 +590,9 @@ namespace TraceabilitySystem.Worker.Validator
                 return validation;
             }
 
-            if (!clinchingSn.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            if (!clinchingSn.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) && !clinchingSn.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
             {
-                validation.Errors.Add($"Serial number '{clinchingSn}' is not a valid clinching serial number. It must start with 'CC'.");
+                validation.Errors.Add($"Serial number '{clinchingSn}' is not a valid clinching serial number. It must start with 'PVRA'.");
                 return validation;
             }
 
@@ -673,9 +673,9 @@ namespace TraceabilitySystem.Worker.Validator
                 return validation;
             }
 
-            if (!request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            if (!request.SerialNumber.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) && !request.SerialNumber.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
             {
-                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not a valid clinching serial number. It must start with 'CC'.");
+                validation.Errors.Add($"Serial number '{request.SerialNumber}' is not a valid clinching serial number. It must start with 'PVRA'.");
                 return validation;
             }
 

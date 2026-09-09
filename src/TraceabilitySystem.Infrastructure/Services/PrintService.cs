@@ -75,9 +75,9 @@ public class PrintService : IPrintService
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
 
-        string dateFormat = today.ToString("yyyyMMdd");
-        string mitsubishiCode = "T A000041130";
-        string trssCode = "A T011000004";
+        string dateFormat = today.ToString("ddMMyyyy");
+        string mitsubishiCode = "21400C000P";
+        string trssCode = "BM57100000";
         string qrCodeString = mitsubishiCode + ";" + trssCode + ";" + serialNumberCode;
         
         string printerIp = await _configRepository.GetPrinterClinchingIpAsync(cancellationToken);
@@ -111,24 +111,24 @@ public class PrintService : IPrintService
 
         return $"""
         ^XA
-            ^POI
-            ^MD25
-            ^PR2
-            ^PW{labelW}
-            ^LL{labelH}
-            ^CI28
+        ^POI
+        ^MD25
+        ^PR2
+        ^PW{labelW}
+        ^LL{labelH}
+        ^CI28
 
-            ^FO360,75^BQN,3,3^FDQA,{qrCodeString}^FS
+        ^FO360,75^BQN,3,3^FDQA,{qrCodeString}^FS
 
-            ^FO65,16^A0N,30,50^FD{mitsubishiCode}^FS
-            ^FO65,42^A0N,30,50^FD{trssCode}^FS
+        ^FO20,16^A0N,30,60^FB424,1,0,C^FD{mitsubishiCode}^FS
+        ^FO20,42^A0N,30,60^FB424,1,0,C^FD{trssCode}^FS
 
-            ^FO20,81^A0N,22,22^FD{serialNumberCode}^FS
+        ^FO20,81^A0N,22,22^FD{serialNumberCode}^FS
 
-            ^FO20,114^A0N,22,22^FD{dateFormat}^FS
-            ^FO170,115^A0N,15,15^FDMADE IN INDONESIA^FS
+        ^FO20,114^A0N,22,22^FD{dateFormat}^FS
+        ^FO170,115^A0N,15,15^FDMADE IN INDONESIA^FS
 
-            ^XZ
+        ^XZ
         """;
     }
 
@@ -515,13 +515,10 @@ public class PrintService : IPrintService
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
 
-        string dateFormat = today.ToString("yyyyMMdd");
-        string mitsubishiCode = "T A000041130";
-        string trssCode = "A T011000004";
+        string dateFormat = today.ToString("ddMMyyyy");
+        string mitsubishiCode = "21400C000P";
+        string trssCode = "BM57100000";
         string qrCodeString = mitsubishiCode + ";" + trssCode + ";" + serialNumberCode;
-        
-        string printerIp = await _configRepository.GetPrinterMFanAssyIpAsync(cancellationToken);
-        int printerPort = await _configRepository.GetPrinterMFanAssyPortAsync(cancellationToken);
 
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
@@ -533,9 +530,178 @@ public class PrintService : IPrintService
             throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
         }
 
+        // Cek apakah mode test print ke printer Stock In aktif
+        bool isTestMode = await _configRepository.GetIsTestModeMFanAssyAsync(cancellationToken);
+        if (isTestMode)
+        {
+            _logger.LogInformation("[TEST PRINT] Mode test aktif. Mengirim print label M-Fan Assy ke printer Stock In untuk SN: {SerialNumberCode}", serialNumberCode);
+            await PrintMFanAssyLabelTestWithStockInPrinterAsync(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, cancellationToken);
+            return;
+        }
+
+        // Mode normal / produksi: Kirim via TCP socket (ZPL)
+        string printerIp = await _configRepository.GetPrinterMFanAssyIpAsync(cancellationToken);
+        int printerPort = await _configRepository.GetPrinterMFanAssyPortAsync(cancellationToken);
+
         var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString);
 
         await SendViaTcpAsync(printerIp, printerPort, zpl);
+    }
+
+    /// <summary>
+    /// Desain label versi test untuk dicetak pada printer Stock In (Windows Driver / GDI PrintDocument).
+    /// </summary>
+    private async Task PrintMFanAssyLabelTestWithStockInPrinterAsync(
+        string mitsubishiCode,
+        string trssCode,
+        string serialNumberCode,
+        string dateFormat,
+        string qrCodeString,
+        CancellationToken cancellationToken = default)
+    {
+        string printerNameStockIn = await _configRepository.GetPrinterNameStockIn(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(printerNameStockIn))
+        {
+            throw new InvalidOperationException("PRINTER_NAME_STOCK_IN is not configured for test printing.");
+        }
+
+        try
+        {
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrData = qrGenerator.CreateQrCode(qrCodeString, QRCodeGenerator.ECCLevel.Q);
+            var qrCode = new PngByteQRCode(qrData);
+            var qrBytes = qrCode.GetGraphic(20);
+
+            using var qrStream = new MemoryStream(qrBytes);
+            using var qrImage = DrawingImage.FromStream(qrStream);
+
+            PrintDocument pd = new();
+            pd.PrinterSettings.PrinterName = printerNameStockIn;
+
+            if (!pd.PrinterSettings.IsValid)
+            {
+                throw new InvalidOperationException($"Printer '{printerNameStockIn}' was not found.");
+            }
+
+            ValidatePrinter(printerNameStockIn);
+
+            pd.DefaultPageSettings.Landscape = true;
+
+            // Pastikan ukuran kertas A5 (148mm x 210mm)
+            bool a5Found = false;
+            foreach (PaperSize size in pd.PrinterSettings.PaperSizes)
+            {
+                if (size.PaperName.Equals("A5", StringComparison.OrdinalIgnoreCase))
+                {
+                    pd.DefaultPageSettings.PaperSize = size;
+                    a5Found = true;
+                    break;
+                }
+            }
+
+            if (!a5Found)
+            {
+                pd.DefaultPageSettings.PaperSize = new PaperSize("A5", 583, 827);
+            }
+
+            pd.PrintPage += (sender, e) =>
+            {
+                Graphics g = e.Graphics!;
+                int pageWidth = e.PageBounds.Width;
+                int pageHeight = e.PageBounds.Height;
+
+                g.Clear(DrawingColor.White);
+                g.SmoothingMode = SmoothingMode.HighQuality;
+
+                using DrawingFont titleFont = new("Arial", 16, DrawingFontStyle.Bold);
+                using DrawingFont labelFont = new("Arial", 12, DrawingFontStyle.Bold);
+                using DrawingFont valueFont = new("Arial", 16, DrawingFontStyle.Bold);
+                using DrawingFont footerFont = new("Arial", 10, DrawingFontStyle.Italic);
+
+                Pen pen = DrawingPens.Black;
+
+                int marginHorizontal = 60;
+                int marginVertical = 60;
+                int printableWidth = pageWidth - (marginHorizontal * 2);
+                int printableHeight = pageHeight - (marginVertical * 2);
+
+                // Title header
+                g.DrawString("[TEST PRINT - M-FAN ASSEMBLY LABEL]", titleFont, DrawingBrushes.Black, marginHorizontal, marginVertical);
+
+                int contentStartY = marginVertical + 40;
+                int contentHeight = printableHeight - 70;
+                int rowCount = 5;
+                int rowHeight = contentHeight / rowCount;
+
+                int labelWidth = (int)(printableWidth * 0.35);
+                int qrWidth = (int)(printableWidth * 0.30);
+                int valueWidth = printableWidth - labelWidth - qrWidth;
+
+                StringFormat leftMiddle = new()
+                {
+                    Alignment = StringAlignment.Near,
+                    LineAlignment = StringAlignment.Center
+                };
+
+                string[] labels =
+                {
+                    "Mitsubishi Code",
+                    "TRSS Code",
+                    "Serial Number (MF)",
+                    "Date Format",
+                    "Origin"
+                };
+
+                string[] values =
+                {
+                    mitsubishiCode,
+                    trssCode,
+                    serialNumberCode,
+                    dateFormat,
+                    "MADE IN INDONESIA"
+                };
+
+                // Draw Table Grid & Data
+                for (int i = 0; i < rowCount; i++)
+                {
+                    int currentY = contentStartY + (i * rowHeight);
+
+                    // Label Column Box
+                    g.DrawRectangle(pen, marginHorizontal, currentY, labelWidth, rowHeight);
+                    g.DrawString(labels[i], labelFont, DrawingBrushes.Black, new Rectangle(marginHorizontal + 10, currentY, labelWidth - 15, rowHeight), leftMiddle);
+
+                    // Value Column Box
+                    g.DrawRectangle(pen, marginHorizontal + labelWidth, currentY, valueWidth, rowHeight);
+                    g.DrawString(values[i], valueFont, DrawingBrushes.Black, new Rectangle(marginHorizontal + labelWidth + 10, currentY, valueWidth - 15, rowHeight), leftMiddle);
+                }
+
+                // QR Code Column Box
+                g.DrawRectangle(pen, marginHorizontal + labelWidth + valueWidth, contentStartY, qrWidth, rowHeight * rowCount);
+
+                int qrSize = Math.Min(qrWidth - 30, (rowHeight * rowCount) - 30);
+                int qrX = marginHorizontal + labelWidth + valueWidth + ((qrWidth - qrSize) / 2);
+                int qrY = contentStartY + (((rowHeight * rowCount) - qrSize) / 2);
+
+                g.DrawImage(qrImage, qrX, qrY, qrSize, qrSize);
+
+                // Footer
+                int footerY = contentStartY + (rowHeight * rowCount) + 10;
+                g.DrawString($"Printed on {printerNameStockIn} (Target: Test Mode) | {DateTime.Now:yyyy-MM-dd HH:mm:ss}", footerFont, DrawingBrushes.Gray, marginHorizontal, footerY);
+            };
+
+            pd.Print();
+        }
+        catch (ConnectionException ex)
+        {
+            _logger.LogError(ex, "Failed to connect to printer '{printerNameStockIn}' during test print", printerNameStockIn);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while test printing M-Fan Assy label on printer '{printerNameStockIn}'", printerNameStockIn);
+            throw;
+        }
     }
 
     public async Task PrintMFanAssyAsync(string serialNumberCode, List<string>? issueNumbers = null, CancellationToken cancellationToken = default)

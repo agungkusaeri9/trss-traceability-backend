@@ -212,7 +212,7 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
     {
         return await _dbSet
             .Include(sn => sn.ChildRelations!)
-            .Where(sn => sn.SerialNumberCode.StartsWith("CC") || sn.SerialNumberCode.StartsWith("MF"))
+            .Where(sn => sn.SerialNumberCode.StartsWith("PVRA") || sn.SerialNumberCode.StartsWith("CC") || sn.SerialNumberCode.StartsWith("MF"))
             .ToListAsync(cancellationToken);
     }
 
@@ -235,7 +235,7 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
                         .ThenInclude(sni => sni.Issue!)
                             .ThenInclude(i => i.StockIn!)
                                 .ThenInclude(si => si.Part!)
-            .Where(sn => sn.SerialNumberCode.StartsWith("CC") || sn.SerialNumberCode.StartsWith("MF"))
+            .Where(sn => sn.SerialNumberCode.StartsWith("PVRA") || sn.SerialNumberCode.StartsWith("CC") || sn.SerialNumberCode.StartsWith("MF"))
             .ToListAsync(cancellationToken);
     }
 

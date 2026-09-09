@@ -29,7 +29,9 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
 
         if (clinchingOnly)
         {
-            query = query.Where(x => x.SerialNumber.SerialNumberCode.StartsWith("CC"));
+            query = query.Where(x => x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || 
+                                     x.SerialNumber.SerialNumberCode.StartsWith("CC") || 
+                                     x.SerialNumber.Type == "CLINCHING");
         }
 
         if (isFinished.HasValue)
@@ -205,9 +207,10 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                         .ThenInclude(parent => parent.ProcessLogs)
                             .ThenInclude(pl => pl.Details)
                                 .ThenInclude(d => d.Process)
-            // Include both parent (CC) and child (MF) serial numbers
+            // Include both parent (PVRA/CC) and child (MF) serial numbers
             .Where(x => x.SerialNumber != null && 
-                        (x.SerialNumber.SerialNumberCode.StartsWith("CC") || 
+                        (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || 
+                         x.SerialNumber.SerialNumberCode.StartsWith("CC") || 
                          x.SerialNumber.SerialNumberCode.StartsWith("MF")))
             .Include(x => x.Details)
                 .ThenInclude(d => d.Process)
@@ -217,19 +220,100 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
 
     public async Task<int> CountProductionAsync(DateTime startDate, DateTime endDate, bool? status, CancellationToken cancellationToken = default)
     {
-        var query = _context.ProcessLogs
-            .Where(x => x.SerialNumber != null && 
-                        x.SerialNumber.SerialNumberCode.StartsWith("CC") &&
-                        x.CreatedAt >= startDate && 
-                        x.CreatedAt < endDate &&
-                        x.IsFinished);
+        // Load clinching logs (PVRA/CC) with their details within date range.
+        // "Finished" = log has a HE_LEAK detail (same definition as MapToListDto).
+        var logs = await _context.ProcessLogs
+            .Include(x => x.SerialNumber)
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Parameter)
+            .Where(x =>
+                x.SerialNumber != null &&
+                (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") ||
+                 x.SerialNumber.SerialNumberCode.StartsWith("CC") ||
+                 x.SerialNumber.Type == "CLINCHING") &&
+                x.CreatedAt >= startDate &&
+                x.CreatedAt < endDate)
+            .ToListAsync(cancellationToken);
 
-        if (status.HasValue)
+        int count = 0;
+        foreach (var log in logs)
         {
-            query = query.Where(x => x.Status == status.Value);
+            var details = log.Details ?? new List<ProcessLogDetail>();
+
+            // A clinching unit is considered "finished" when HE_LEAK has been recorded
+            bool isFinished = log.IsFinished ||
+                              details.Any(d => string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase));
+
+            if (!isFinished) continue;
+
+            if (status == null)
+            {
+                // Count all finished units
+                count++;
+            }
+            else
+            {
+                // Evaluate actual status from process detail parameters (same logic as MapToListDto)
+                int? oRingSet = GetDetailInt(details, "CLINCHING_SHORT_SIDE", "O_RING_SET_RESULT", "O_RING_SET", "ORING_SET_RESULT");
+                int? capTypePos = GetDetailInt(details, "HE_LEAK", "CAP_TYPE_POSITION_RESULT", "CAP_TYPE_POSITION", "CAP_TYPE");
+                int? leakResult = GetDetailInt(details, "HE_LEAK", "LEAK_RESULT", "LEAK_TEST_RESULT", "LEAK_STATUS");
+
+                var endPlateDetails = details
+                    .Where(d => string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) &&
+                                (d.Parameter?.Code?.StartsWith("END_PLATE_WIDTH", StringComparison.OrdinalIgnoreCase) == true))
+                    .ToList();
+                int[] endPlateResults = endPlateDetails.Select(d => GetDetailIntValue(d)).ToArray();
+                bool? endPlateStatus = endPlateResults.Length > 0 ? endPlateResults.All(x => x == 1) : null;
+
+                var clinchingHeightDetails = details
+                    .Where(d => string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) &&
+                                (d.Parameter?.Code?.StartsWith("CLINCHING_HEIGHT", StringComparison.OrdinalIgnoreCase) == true))
+                    .ToList();
+                double[] clinchingHeightValues = clinchingHeightDetails.Select(d => d.ValueNumber.HasValue ? (double)d.ValueNumber.Value : 0.0).ToArray();
+                bool? clinchingHeightStatus = clinchingHeightValues.Length > 0 ? clinchingHeightValues.All(x => x == 1) : null;
+
+                var clinchingAndHeDetails = details
+                    .Where(d => string.Equals(d.Process?.Code, "CLINCHING_SHORT_SIDE", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                bool typeStatus =
+                    (oRingSet == null || oRingSet == 1) &&
+                    (clinchingHeightStatus == null || clinchingHeightStatus.Value) &&
+                    (endPlateStatus == null || endPlateStatus.Value) &&
+                    (capTypePos == null || capTypePos == 1) &&
+                    (leakResult == null || leakResult == 1) &&
+                    (clinchingAndHeDetails.Count == 0 || clinchingAndHeDetails.All(d => d.Status));
+
+                if (typeStatus == status.Value)
+                    count++;
+            }
         }
 
-        return await query.CountAsync(cancellationToken);
+        return count;
+    }
+
+    // Helper: find detail by process code + one of several parameter codes
+    private static int? GetDetailInt(IEnumerable<ProcessLogDetail> details, string processCode, params string[] paramCodes)
+    {
+        var detail = details.FirstOrDefault(d =>
+            string.Equals(d.Process?.Code, processCode, StringComparison.OrdinalIgnoreCase) &&
+            paramCodes.Any(pc => string.Equals(d.Parameter?.Code, pc, StringComparison.OrdinalIgnoreCase)));
+
+        if (detail == null) return null;
+        if (detail.ValueNumber.HasValue) return (int)detail.ValueNumber.Value;
+        if (detail.ValueBoolean.HasValue) return detail.ValueBoolean.Value ? 1 : 2;
+        return detail.Status ? 1 : 2;
+    }
+
+    private static int GetDetailIntValue(ProcessLogDetail detail)
+    {
+        if (detail.ValueNumber.HasValue) return (int)detail.ValueNumber.Value;
+        if (detail.ValueBoolean.HasValue) return detail.ValueBoolean.Value ? 1 : 2;
+        return detail.Status ? 1 : 2;
     }
 
     public async Task<ProcessLog> AddProcessLogPerProcessAsync(
@@ -356,7 +440,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
 
              .FirstOrDefaultAsync(
             x => x.SerialNumber.SerialNumberCode == serialNumberCode &&
-                 x.SerialNumber.SerialNumberCode.StartsWith("CC"),
+                 (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || x.SerialNumber.SerialNumberCode.StartsWith("CC") || x.SerialNumber.Type == "CLINCHING"),
             cancellationToken);
     }
 }

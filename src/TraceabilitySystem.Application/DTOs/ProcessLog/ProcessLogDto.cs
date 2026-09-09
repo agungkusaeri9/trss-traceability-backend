@@ -69,15 +69,15 @@ public class ProcessLogClinchingDetailDto
     public string CoreAsmValue { get; set; } = string.Empty;
     public string UpperTankAsmValue { get; set; } = string.Empty;
     public string LowerTankAsmValue { get; set; } = string.Empty;
-    public bool ORingSetResult { get; set; } = true;
+    public int? ORingSetResult { get; set; }
     public string NgBoxSensorShortSideValue { get; set; } = "ON";
     public double[] ClinchingHeightValues { get; set; } = Array.Empty<double>();
-    public double ClinchingHeightAverage { get; set; }
-    public bool[] EndPlateWidthResults { get; set; } = Array.Empty<bool>();
-    public bool EndPlateWidthStatus { get; set; } = true;
+    public bool? ClinchingHeightStatus { get; set; }
+    public int[] EndPlateWidthResults { get; set; } = Array.Empty<int>();
+    public bool? EndPlateWidthStatus { get; set; }
     public string NgBoxSensorLongSideValue { get; set; } = "ON";
-    public bool? CapTypePositionResult { get; set; }
-    public bool? LeakResult { get; set; }
+    public int? CapTypePositionResult { get; set; }
+    public int? LeakResult { get; set; }
     public double? LeakLastLeakageValue { get; set; }
 }
 
@@ -89,13 +89,13 @@ public class ProcessLogMFanDetailDto
     public string? LotGuideAsmResult { get; set; }
     public string? BoltTightenValue { get; set; }
     public string? BoltTightenQtyValue { get; set; }
-    public bool? NutTightenValue { get; set; }
+    public string? NutTightenValue { get; set; }
     public double? MFanInspectionRotationSpeedMaxValue { get; set; }
     public double? MFanInspectionRotationSpeedMinValue { get; set; }
     public double? MFanInspectionAmpereMaxValue { get; set; }
     public double? MFanInspectionAmpereMinValue { get; set; }
     public string? MFanInspectionWindDirectionValue { get; set; }
-    public bool? MFanTestResult { get; set; }
+    public int? MFanTestResult { get; set; }
     public string? NgBoxSensorMFanInspectionValue { get; set; } = "ON";
 }
 

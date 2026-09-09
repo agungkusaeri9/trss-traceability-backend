@@ -43,7 +43,7 @@ public class ProcessLogMockDto
     public string LowerTankAsmValue { get; set; } = string.Empty;
 
     [JsonPropertyName("ORingSetResult")]
-    public bool ORingSetResult { get; set; } = true;
+    public int? ORingSetResult { get; set; }
 
     [JsonPropertyName("NgBoxSensorShortSideValue")]
     public string NgBoxSensorShortSideValue { get; set; } = "ON";
@@ -53,27 +53,25 @@ public class ProcessLogMockDto
     [JsonConverter(typeof(InlineDoubleArrayConverter))]
     public double[] ClinchingHeightValues { get; set; } = Array.Empty<double>();
 
-    private double? _clinchingHeightAverage;
+    private bool? _clinchingHeightStatus;
 
-    [JsonPropertyName("ClinchingHeightAverage")]
-    public double ClinchingHeightAverage
+    [JsonPropertyName("ClinchingHeightStatus")]
+    public bool? ClinchingHeightStatus
     {
-        get => _clinchingHeightAverage ?? (ClinchingHeightValues != null && ClinchingHeightValues.Length > 0
-            ? Math.Round(ClinchingHeightValues.Average(), 2)
-            : 0.0);
-        set => _clinchingHeightAverage = value;
+        get => _clinchingHeightStatus ?? (ClinchingHeightValues != null && ClinchingHeightValues.Length > 0 ? ClinchingHeightValues.All(x => x == 1) : null);
+        set => _clinchingHeightStatus = value;
     }
 
     [JsonPropertyName("EndPlateWidthResults")]
-    [JsonConverter(typeof(InlineBoolArrayConverter))]
-    public bool[] EndPlateWidthResults { get; set; } = Array.Empty<bool>();
+    [JsonConverter(typeof(InlineIntArrayConverter))]
+    public int[] EndPlateWidthResults { get; set; } = Array.Empty<int>();
 
     private bool? _endPlateWidthStatus;
 
     [JsonPropertyName("EndPlateWidthStatus")]
-    public bool EndPlateWidthStatus
+    public bool? EndPlateWidthStatus
     {
-        get => _endPlateWidthStatus ?? (EndPlateWidthResults != null && EndPlateWidthResults.Length > 0 && EndPlateWidthResults.All(x => x));
+        get => _endPlateWidthStatus ?? (EndPlateWidthResults != null && EndPlateWidthResults.Length > 0 ? EndPlateWidthResults.All(x => x == 1) : null);
         set => _endPlateWidthStatus = value;
     }
 
@@ -82,10 +80,10 @@ public class ProcessLogMockDto
 
     // 2.5. HE Leak
     [JsonPropertyName("CapTypePositionResult")]
-    public bool? CapTypePositionResult { get; set; }
+    public int? CapTypePositionResult { get; set; }
 
     [JsonPropertyName("LeakResult")]
-    public bool? LeakResult { get; set; }
+    public int? LeakResult { get; set; }
 
     [JsonPropertyName("LeakLastLeakageValue")]
     public double? LeakLastLeakageValue { get; set; }
@@ -107,7 +105,7 @@ public class ProcessLogMockDto
     public string? BoltTightenQtyValue { get; set; }
 
     [JsonPropertyName("NutTightenValue")]
-    public bool? NutTightenValue { get; set; }
+    public string? NutTightenValue { get; set; }
 
     // 4. M-Fan Inspection
     [JsonPropertyName("MFanInspectionRotationSpeedMaxValue")]
@@ -126,17 +124,17 @@ public class ProcessLogMockDto
     public string? MFanInspectionWindDirectionValue { get; set; }
 
     [JsonPropertyName("MFanTestResult")]
-    public bool? MFanTestResult { get; set; }
+    public int? MFanTestResult { get; set; }
 
     [JsonPropertyName("NgBoxSensorMFanInspectionValue")]
     public string? NgBoxSensorMFanInspectionValue { get; set; }
 
     // 5. ECM Assy
     [JsonPropertyName("RadCoreAsmNameLabelResult")]
-    public bool? RadCoreAsmNameLabelResult { get; set; }
+    public int? RadCoreAsmNameLabelResult { get; set; }
 
     [JsonPropertyName("MotorFanAssyLabelResult")]
-    public bool? MotorFanAssyLabelResult { get; set; }
+    public int? MotorFanAssyLabelResult { get; set; }
 
     [JsonPropertyName("EcmAssyBoltTightenValue")]
     public double? EcmAssyBoltTightenValue { get; set; }
@@ -149,18 +147,18 @@ public class ProcessLogMockDto
 
     // 6. Final Inspection
     [JsonPropertyName("FinalInspectionRadCoreAsmNameLabelResult")]
-    public bool? FinalInspectionRadCoreAsmNameLabelResult { get; set; }
+    public int? FinalInspectionRadCoreAsmNameLabelResult { get; set; }
 
     [JsonPropertyName("CheckPoints")]
-    [JsonConverter(typeof(InlineBoolArrayConverter))]
-    public bool[]? CheckPoints { get; set; }
+    [JsonConverter(typeof(InlineIntArrayConverter))]
+    public int[]? CheckPoints { get; set; }
 
     private bool? _checkPointStatus;
 
     [JsonPropertyName("CheckPointStatus")]
     public bool? CheckPointStatus
     {
-        get => _checkPointStatus ?? (CheckPoints != null && CheckPoints.Length > 0 ? CheckPoints.All(x => x) : null);
+        get => _checkPointStatus ?? (CheckPoints != null && CheckPoints.Length > 0 ? CheckPoints.All(x => x == 1) : null);
         set => _checkPointStatus = value;
     }
 
@@ -200,6 +198,44 @@ public class InlineDoubleArrayConverter : JsonConverter<double[]>
         }
 
         var formatted = string.Join(", ", value.Select(v => v.ToString("0.##", CultureInfo.InvariantCulture)));
+        writer.WriteRawValue($"[{formatted}]");
+    }
+}
+
+/// <summary>
+/// Serializes integer array to a single-line horizontal string like [1, 1, 1]
+/// </summary>
+public class InlineIntArrayConverter : JsonConverter<int[]>
+{
+    public override int[]? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null) return null;
+        var list = new List<int>();
+        if (reader.TokenType != JsonTokenType.StartArray) return list.ToArray();
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.Number)
+            {
+                list.Add(reader.GetInt32());
+            }
+        }
+        return list.ToArray();
+    }
+
+    public override void Write(Utf8JsonWriter writer, int[]? value, JsonSerializerOptions options)
+    {
+        if (value == null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+        if (value.Length == 0)
+        {
+            writer.WriteRawValue("[]");
+            return;
+        }
+
+        var formatted = string.Join(", ", value);
         writer.WriteRawValue($"[{formatted}]");
     }
 }

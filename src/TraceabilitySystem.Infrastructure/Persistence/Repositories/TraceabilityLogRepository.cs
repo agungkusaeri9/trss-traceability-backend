@@ -29,7 +29,9 @@ public class TraceabilityLogRepository : BaseRepository<ProcessLog>, ITraceabili
 
         if (clinchingOnly)
         {
-            query = query.Where(x => (x.SerialNumber.SerialNumberCode.StartsWith("CC") || x.SerialNumber.Type == "CLINCHING") &&
+            query = query.Where(x => (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || 
+                                      x.SerialNumber.SerialNumberCode.StartsWith("CC") || 
+                                      x.SerialNumber.Type == "CLINCHING") &&
                                      x.SerialNumber.ParentRelations.Any(pr => pr.ChildSerialNumber != null));
         }
 
@@ -188,7 +190,7 @@ public class TraceabilityLogRepository : BaseRepository<ProcessLog>, ITraceabili
                 .ThenInclude(d => d.Process)
             .Include(x => x.Details)
                 .ThenInclude(d => d.Parameter)
-            .Where(x => (x.SerialNumber.SerialNumberCode.StartsWith("CC") || x.SerialNumber.Type == "CLINCHING") &&
+            .Where(x => (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || x.SerialNumber.SerialNumberCode.StartsWith("CC") || x.SerialNumber.Type == "CLINCHING") &&
                         (x.SerialNumber.SerialNumberCode == serialNumber ||
                          x.SerialNumber.ParentRelations.Any(pr => pr.ChildSerialNumber.SerialNumberCode == serialNumber)))
             .OrderByDescending(x => x.CreatedAt)
@@ -269,7 +271,7 @@ public class TraceabilityLogRepository : BaseRepository<ProcessLog>, ITraceabili
                         .ThenInclude(sn => sn.ProcessLogs)
                             .ThenInclude(pl => pl.Details)
                                 .ThenInclude(d => d.Parameter)
-            .Where(x => (x.SerialNumber.SerialNumberCode.StartsWith("CC") || x.SerialNumber.Type == "CLINCHING") &&
+            .Where(x => (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || x.SerialNumber.SerialNumberCode.StartsWith("CC") || x.SerialNumber.Type == "CLINCHING") &&
                         (x.SerialNumber.SerialNumberCode == serialNumberCode ||
                          x.SerialNumber.ParentRelations.Any(pr => pr.ChildSerialNumber.SerialNumberCode == serialNumberCode)))
             .OrderByDescending(x => x.CreatedAt)

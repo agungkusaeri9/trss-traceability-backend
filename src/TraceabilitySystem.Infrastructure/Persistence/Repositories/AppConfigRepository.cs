@@ -62,4 +62,12 @@ public class AppConfigRepository : BaseRepository<AppConfig>, IAppConfigReposito
         }
         return 9100;
     }
+
+    public async Task<bool> GetIsTestModeMFanAssyAsync(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "PRINTER_TEST_MODE_MFAN_ASSY" || x.Key == "IS_TEST_PRINT_MFAN_ASSY", cancellationToken);
+        if (config == null || string.IsNullOrWhiteSpace(config.Value)) return false;
+        var val = config.Value.Trim().ToLowerInvariant();
+        return val == "true" || val == "1" || val == "yes" || val == "on";
+    }
 }

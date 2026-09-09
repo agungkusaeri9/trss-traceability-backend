@@ -12,4 +12,5 @@ public interface IAppConfigRepository : IRepository<AppConfig>
     Task<int> GetPrinterClinchingPortAsync(CancellationToken cancellationToken = default);
     Task<string> GetPrinterMFanAssyIpAsync(CancellationToken cancellationToken = default);
     Task<int> GetPrinterMFanAssyPortAsync(CancellationToken cancellationToken = default);
+    Task<bool> GetIsTestModeMFanAssyAsync(CancellationToken cancellationToken = default);
 }

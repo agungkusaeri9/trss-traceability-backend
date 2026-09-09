@@ -21,6 +21,7 @@ public class DashboardService : IDashboardService
     private readonly ITraceabilitySummarySimulator _traceabilitySummarySimulator;
     private readonly ISerialNumberRepository _serialNumberRepository;
     private readonly IProcessRepository _processRepository;
+    private readonly ITraceabilityLogService _traceabilityLogService;
 
     // Process order definitions for traceability flow
     private static readonly string[] ProcessOrder = new[]
@@ -41,7 +42,8 @@ public class DashboardService : IDashboardService
         IProcessLogService processLogService,
         ITraceabilitySummarySimulator traceabilitySummarySimulator,
         ISerialNumberRepository serialNumberRepository,
-        IProcessRepository processRepository)
+        IProcessRepository processRepository,
+        ITraceabilityLogService traceabilityLogService)
     {
         _processLogRepository = processLogRepository;
         _partRepository = partRepository;
@@ -50,34 +52,65 @@ public class DashboardService : IDashboardService
         _traceabilitySummarySimulator = traceabilitySummarySimulator;
         _serialNumberRepository = serialNumberRepository;
         _processRepository = processRepository;
+        _traceabilityLogService = traceabilityLogService;
     }
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.Now;
         var todayStart = now.Date;
-        var todayEnd = todayStart.AddDays(1);
         var monthStart = new DateTime(now.Year, now.Month, 1);
-        var monthEnd = now.Month == 12 ? new DateTime(now.Year + 1, 1, 1) : monthStart.AddMonths(1);
         var yearStart = new DateTime(now.Year, 1, 1);
-        var yearEnd = new DateTime(now.Year + 1, 1, 1);
 
         var summary = new DashboardSummaryDto();
 
-        summary.Today.TotalProduction = await _processLogRepository.CountProductionAsync(todayStart, todayEnd, null, cancellationToken);
-        summary.Today.OkCount = await _processLogRepository.CountProductionAsync(todayStart, todayEnd, true, cancellationToken);
-        summary.Today.NgCount = await _processLogRepository.CountProductionAsync(todayStart, todayEnd, false, cancellationToken);
-        summary.Today.YieldRate = CalculateYield(summary.Today.TotalProduction, summary.Today.OkCount);
+        // Use the same TraceabilityLog formula as the Trac Log list page.
+        // Load all logs for the year (largest range) and filter in-memory for smaller ranges.
+        var yearResult = await _traceabilityLogService.GetTraceabilityLogsAsync(
+            page: 1, pageSize: int.MaxValue,
+            startDate: yearStart, endDate: now,
+            cancellationToken: cancellationToken);
 
-        summary.ThisMonth.TotalProduction = await _processLogRepository.CountProductionAsync(monthStart, monthEnd, null, cancellationToken);
-        summary.ThisMonth.OkCount = await _processLogRepository.CountProductionAsync(monthStart, monthEnd, true, cancellationToken);
-        summary.ThisMonth.NgCount = await _processLogRepository.CountProductionAsync(monthStart, monthEnd, false, cancellationToken);
-        summary.ThisMonth.YieldRate = CalculateYield(summary.ThisMonth.TotalProduction, summary.ThisMonth.OkCount);
+        var allLogs = yearResult.Items;
 
-        summary.Total.TotalProduction = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, null, cancellationToken);
-        summary.Total.OkCount = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, true, cancellationToken);
-        summary.Total.NgCount = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, false, cancellationToken);
-        summary.Total.YieldRate = CalculateYield(summary.Total.TotalProduction, summary.Total.OkCount);
+        // Helper: count from the already-loaded list by CreatedAt range and OverallStatus.
+        // Timestamp in DTO is stored as UTC ISO string; convert to local time for comparison.
+        static (int total, int ok, int ng) CountRange(
+            IEnumerable<ProcessLogMockDto> logs, DateTime from, DateTime to)
+        {
+            var inRange = logs.Where(l =>
+            {
+                if (string.IsNullOrEmpty(l.Timestamp)) return false;
+                if (!DateTime.TryParse(l.Timestamp, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var ts))
+                    return false;
+                // Timestamp is stored as UTC; compare against local date boundaries
+                var localTs = ts.Kind == DateTimeKind.Utc ? ts.ToLocalTime() : ts;
+                return localTs >= from && localTs < to;
+            }).ToList();
+            int ok = inRange.Count(l => l.OverallStatus);
+            int ng = inRange.Count(l => !l.OverallStatus);
+            return (inRange.Count, ok, ng);
+        }
+
+        var (tTotal, tOk, tNg) = CountRange(allLogs, todayStart, todayStart.AddDays(1));
+        summary.Today.TotalProduction = tTotal;
+        summary.Today.OkCount = tOk;
+        summary.Today.NgCount = tNg;
+        summary.Today.YieldRate = CalculateYield(tTotal, tOk);
+
+        var (mTotal, mOk, mNg) = CountRange(allLogs, monthStart,
+            now.Month == 12 ? new DateTime(now.Year + 1, 1, 1) : monthStart.AddMonths(1));
+        summary.ThisMonth.TotalProduction = mTotal;
+        summary.ThisMonth.OkCount = mOk;
+        summary.ThisMonth.NgCount = mNg;
+        summary.ThisMonth.YieldRate = CalculateYield(mTotal, mOk);
+
+        var (yTotal, yOk, yNg) = CountRange(allLogs, yearStart, new DateTime(now.Year + 1, 1, 1));
+        summary.Total.TotalProduction = yTotal;
+        summary.Total.OkCount = yOk;
+        summary.Total.NgCount = yNg;
+        summary.Total.YieldRate = CalculateYield(yTotal, yOk);
 
         return summary;
     }
@@ -90,22 +123,26 @@ public class DashboardService : IDashboardService
     public async Task<DashboardStatsDto> GetStatsAsync(int topPart, int trendDays, CancellationToken cancellationToken = default)
     {
         var stats = new DashboardStatsDto();
-
-        // 1. Quality Distribution (Pie Chart)
         var now = DateTime.Now;
-        var yearStart = new DateTime(now.Year, 1, 1);
-        var yearEnd = new DateTime(now.Year + 1, 1, 1);
 
-        int total = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, null, cancellationToken);
-        int ok = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, true, cancellationToken);
-        int ng = await _processLogRepository.CountProductionAsync(yearStart, yearEnd, false, cancellationToken);
+        // Load all trac logs for this year — same data source as Trac Log list page
+        var yearStart = new DateTime(now.Year, 1, 1);
+        var yearResult = await _traceabilityLogService.GetTraceabilityLogsAsync(
+            page: 1, pageSize: int.MaxValue,
+            startDate: yearStart, endDate: now,
+            cancellationToken: cancellationToken);
+        var allTracLogs = yearResult.Items.ToList();
+
+        // 1. Quality Distribution (Pie Chart) — based on OverallStatus
+        int ok = allTracLogs.Count(l => l.OverallStatus);
+        int ng = allTracLogs.Count(l => !l.OverallStatus);
 
         stats.QualityDistribution.Add(new ChartDataDto { Label = "OK", Value = ok });
         stats.QualityDistribution.Add(new ChartDataDto { Label = "NG", Value = ng });
 
         // 2. Top Parts Production (Bar Chart)
         var allSerialNumbers = await _serialNumberRepository.GetAllWithIssuesAndChildRelationsAsync(cancellationToken);
-        var ccSerialNumbers = allSerialNumbers.Where(x => x.SerialNumberCode.StartsWith("CC")).Take(100);
+        var ccSerialNumbers = allSerialNumbers.Where(x => x.SerialNumberCode.StartsWith("PVRA") || x.SerialNumberCode.StartsWith("CC")).Take(100);
         
         var topParts = new List<ChartDataDto>();
         var partCount = new Dictionary<string, int>();
@@ -138,22 +175,32 @@ public class DashboardService : IDashboardService
 
         stats.TopPartsProduction = topParts;
 
-        // 3. Production Trend (Last 7 Days)
+        // 3. Production Trend (Last 7 Days) — use OverallStatus from trac logs
         for (int i = 6; i >= 0; i--)
         {
-            var date = DateTime.Now.Date.AddDays(-i);
+            var date = now.Date.AddDays(-i);
             var nextDate = date.AddDays(1);
-            var count = await _processLogRepository.CountAsync(x => x.CreatedAt >= date && x.CreatedAt < nextDate && x.SerialNumber != null && x.SerialNumber.SerialNumberCode.StartsWith("CC") && x.IsFinished, cancellationToken);
+
+            // Count finished trac logs for this day using same formula
+            var dayResult = await _traceabilityLogService.GetTraceabilityLogsAsync(
+                page: 1, pageSize: int.MaxValue,
+                startDate: date, endDate: nextDate.AddSeconds(-1),
+                isFinished: true, // Only count finished logs for production trend
+                cancellationToken: cancellationToken);
             
-            stats.ProductionTrend.Add(new ChartDataDto 
-            { 
-                Label = date.ToString("dd MMM"), 
-                Value = count 
+            // Or better, if we want Total Production based on HE_LEAK logic (which is isFinished: true in GetTraceabilityLogsAsync)
+            int dayCount = dayResult.Items.Count();
+
+            stats.ProductionTrend.Add(new ChartDataDto
+            {
+                Label = date.ToString("dd MMM"),
+                Value = dayCount
             });
         }
 
         return stats;
     }
+
 
     public async Task<List<ProcessLogDto>> GetRecentLogsAsync(int count = 5, CancellationToken cancellationToken = default)
     {
@@ -301,8 +348,8 @@ public class DashboardService : IDashboardService
             var processCode = latestDetail?.Process?.Code ?? string.Empty;
             var stationIndex = GetStationIndex(processCode);
 
-            // Check if this is CC (parent) and finished at HE LEAK
-            if (serial.SerialNumberCode.StartsWith("CC") && 
+            // Check if this is PVRA/CC (parent) and finished at HE LEAK
+            if ((serial.SerialNumberCode.StartsWith("PVRA") || serial.SerialNumberCode.StartsWith("CC")) && 
                 latestLog?.IsFinished == true && 
                 stationIndex == 2) // HE LEAK is at index 2
             {

@@ -211,38 +211,41 @@ public class ProcessLogService : IProcessLogService
     private static string? GetDetailText(ProcessLogDetail? detail)
     {
         if (detail == null) return null;
-        return !string.IsNullOrWhiteSpace(detail.ValueText) ? detail.ValueText :
-               detail.ValueNumber.HasValue ? detail.ValueNumber.Value.ToString(CultureInfo.InvariantCulture) :
-               detail.ValueBoolean.HasValue ? (detail.ValueBoolean.Value ? "OK" : "NG") :
-               detail.DisplayValue;
+        return detail.ValueText ?? detail.DisplayValue;
     }
 
     private static bool? GetDetailBool(ProcessLogDetail? detail)
     {
         if (detail == null) return null;
         if (detail.ValueBoolean.HasValue) return detail.ValueBoolean.Value;
-        if (!string.IsNullOrWhiteSpace(detail.ValueText))
+        if (detail.ValueNumber.HasValue)
         {
-            if (string.Equals(detail.ValueText, "OK", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(detail.ValueText, "true", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(detail.ValueText, "ON", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(detail.ValueText, "PASSED", StringComparison.OrdinalIgnoreCase))
-                return true;
-            if (string.Equals(detail.ValueText, "NG", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(detail.ValueText, "false", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(detail.ValueText, "OFF", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(detail.ValueText, "REJECTED", StringComparison.OrdinalIgnoreCase))
-                return false;
+            if (detail.ValueNumber.Value == 1) return true;
+            if (detail.ValueNumber.Value == 0) return false;
         }
         return detail.Status;
+    }
+
+    private static int? GetDetailInt(ProcessLogDetail? detail)
+    {
+        if (detail == null) return null;
+        if (detail.ValueNumber.HasValue) return (int)detail.ValueNumber.Value;
+        if (detail.ValueBoolean.HasValue) return detail.ValueBoolean.Value ? 1 : 2;
+        if (!string.IsNullOrWhiteSpace(detail.ValueText))
+        {
+            var text = detail.ValueText.Trim().ToLowerInvariant();
+            if (text == "1" || text == "ok" || text == "true" || text == "passed" || text == "on") return 1;
+            if (text == "0" || text == "error" || text == "err" || text == "fail" || text == "failed") return 0;
+            if (text == "2" || text == "ng" || text == "false" || text == "rejected" || text == "off") return 2;
+            if (int.TryParse(detail.ValueText, out var val)) return val;
+        }
+        return detail.Status ? 1 : 2;
     }
 
     private static double? GetDetailNumber(ProcessLogDetail? detail)
     {
         if (detail == null) return null;
         if (detail.ValueNumber.HasValue) return (double)detail.ValueNumber.Value;
-        if (!string.IsNullOrWhiteSpace(detail.ValueText) && double.TryParse(detail.ValueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
-            return parsed;
         return null;
     }
 
@@ -272,7 +275,7 @@ public class ProcessLogService : IProcessLogService
             ?? (parentIssues.Count > 2 ? parentIssues[2].Issue?.Number : null)
             ?? string.Empty;
 
-        bool oRingSet = GetDetailBool(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "O_RING_SET_RESULT", "O_RING_SET", "ORING_SET_RESULT")) ?? true;
+        int? oRingSet = GetDetailInt(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "O_RING_SET_RESULT", "O_RING_SET", "ORING_SET_RESULT"));
         string ngBoxShort = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "NG_BOX_SENSOR_SHORT_SIDE", "NG_BOX_SHORT_SIDE", "NG_BOX")) ?? "ON";
 
         var clinchingHeightDetails = parentDetails
@@ -287,7 +290,6 @@ public class ProcessLogService : IProcessLogService
         {
             clinchingHeightValues = clinchingHeightDetails
                 .Select(d => GetDetailNumber(d) ?? 0.0)
-                .Where(v => v > 0)
                 .ToArray();
         }
         else
@@ -295,8 +297,7 @@ public class ProcessLogService : IProcessLogService
             clinchingHeightValues = Array.Empty<double>();
         }
 
-        var avgDetail = GetDetailNumber(FindDetail(parentDetails, "CLINCHING_LONG_SIDE", "CLINCHING_HEIGHT_AVERAGE", "CLINCHING_HEIGHT_AVG", "CLINCHING_AVG"));
-        double clinchingAvg = avgDetail ?? (clinchingHeightValues.Length > 0 ? Math.Round(clinchingHeightValues.Average(), 2) : 0.0);
+        bool? clinchingHeightStatus = clinchingHeightValues.Length > 0 ? clinchingHeightValues.All(x => x == 1) : null;
 
         var endPlateDetails = parentDetails
             .Where(d => string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) &&
@@ -305,13 +306,13 @@ public class ProcessLogService : IProcessLogService
             .OrderBy(d => d.Parameter?.Order ?? d.Id)
             .ToList();
 
-        bool[] endPlateResults = endPlateDetails.Select(d => GetDetailBool(d) ?? true).ToArray();
-        bool endPlateStatus = endPlateResults.Length > 0 ? endPlateResults.All(x => x) : true;
+        int[] endPlateResults = endPlateDetails.Select(d => GetDetailInt(d) ?? 0).ToArray();
+        bool? endPlateStatus = endPlateResults.Length > 0 ? endPlateResults.All(x => x == 1) : null;
         string ngBoxLong = GetDetailText(FindDetail(parentDetails, "CLINCHING_LONG_SIDE", "NG_BOX_SENSOR_LONG_SIDE", "NG_BOX_LONG_SIDE", "NG_BOX")) ?? "ON";
 
         // 2.5. HE Leak
-        bool? capTypePos = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "CAP_TYPE_POSITION_RESULT", "CAP_TYPE_POSITION", "CAP_TYPE"));
-        bool? leakResult = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "LEAK_RESULT", "LEAK_TEST_RESULT", "LEAK_STATUS"));
+        int? capTypePos = GetDetailInt(FindDetail(parentDetails, "HE_LEAK", "CAP_TYPE_POSITION_RESULT", "CAP_TYPE_POSITION", "CAP_TYPE"));
+        int? leakResult = GetDetailInt(FindDetail(parentDetails, "HE_LEAK", "LEAK_RESULT", "LEAK_TEST_RESULT", "LEAK_STATUS"));
         double? leakValue = GetDetailNumber(FindDetail(parentDetails, "HE_LEAK", "LEAK_LAST_LEAKAGE_VALUE", "LEAK_LAST_LEAKAGE", "LEAK_VALUE", "LEAKAGE_VALUE"));
 
         return new ProcessLogClinchingDetailDto
@@ -323,7 +324,7 @@ public class ProcessLogService : IProcessLogService
             ORingSetResult = oRingSet,
             NgBoxSensorShortSideValue = ngBoxShort,
             ClinchingHeightValues = clinchingHeightValues,
-            ClinchingHeightAverage = clinchingAvg,
+            ClinchingHeightStatus = clinchingHeightStatus,
             EndPlateWidthResults = endPlateResults,
             EndPlateWidthStatus = endPlateStatus,
             NgBoxSensorLongSideValue = ngBoxLong,
@@ -336,7 +337,7 @@ public class ProcessLogService : IProcessLogService
     public static ProcessLogMFanDetailDto MapMFanDetail(ProcessLog log)
     {
         var sn = log.SerialNumber;
-        var mFanSn = sn?.SerialNumberCode;
+        var mFanSn = sn?.SerialNumberCode ?? string.Empty;
         var details = log.Details ?? new List<ProcessLogDetail>();
 
         var issues = sn?.Issues?
@@ -360,15 +361,15 @@ public class ProcessLogService : IProcessLogService
 
         string? boltTighten = GetDetailText(FindDetail(details, "M_FAN_ASSY", "BOLT_TIGHTEN_VALUE", "BOLT_TIGHTEN"));
         string? boltQty = GetDetailText(FindDetail(details, "M_FAN_ASSY", "BOLT_TIGHTEN_QTY_VALUE", "BOLT_TIGHTEN_QTY", "BOLT_QTY"));
-        bool? nutTighten = GetDetailBool(FindDetail(details, "M_FAN_ASSY", "NUT_TIGHTEN_VALUE", "NUT_TIGHTEN"));
+        string? nutTighten = GetDetailText(FindDetail(details, "M_FAN_ASSY", "NUT_TIGHTEN_VALUE", "NUT_TIGHTEN"));
 
-        double? rotMax = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
-        double? rotMin = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
-        double? ampMax = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MAX_VALUE", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
-        double? ampMin = GetDetailNumber(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MIN_VALUE", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
-        string? windDir = GetDetailText(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
-        bool? mFanTest = GetDetailBool(FindDetail(details, "M_FAN_INSPECTION", "M_FAN_TEST_RESULT", "MFAN_TEST_RESULT", "TEST_RESULT"));
-        string? ngBoxMFan = GetDetailText(FindDetail(details, "M_FAN_INSPECTION", "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
+        double? rotMax = GetDetailNumber(FindDetail(details, null, "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
+        double? rotMin = GetDetailNumber(FindDetail(details, null, "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
+        double? ampMax = GetDetailNumber(FindDetail(details, null, "M_FAN_INSPECTION_AMPERE_MAX_VALUE", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
+        double? ampMin = GetDetailNumber(FindDetail(details, null, "M_FAN_INSPECTION_AMPERE_MIN_VALUE", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
+        string? windDir = GetDetailText(FindDetail(details, null, "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
+        int? mFanTest = GetDetailInt(FindDetail(details, null, "M_FAN_TEST_RESULT", "MFAN_TEST_RESULT", "TEST_RESULT"));
+        string? ngBoxMFan = GetDetailText(FindDetail(details, null, "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
 
         return new ProcessLogMFanDetailDto
         {
@@ -424,7 +425,7 @@ public class ProcessLogService : IProcessLogService
             ?? (parentIssues.Count > 2 ? parentIssues[2].Issue?.Number : null)
             ?? string.Empty;
 
-        bool oRingSet = GetDetailBool(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "O_RING_SET_RESULT", "O_RING_SET", "ORING_SET_RESULT")) ?? true;
+        int? oRingSet = GetDetailInt(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "O_RING_SET_RESULT", "O_RING_SET", "ORING_SET_RESULT"));
         string ngBoxShort = GetDetailText(FindDetail(parentDetails, "CLINCHING_SHORT_SIDE", "NG_BOX_SENSOR_SHORT_SIDE", "NG_BOX_SHORT_SIDE", "NG_BOX")) ?? "ON";
 
         // 2. Clinching Long Side
@@ -440,7 +441,6 @@ public class ProcessLogService : IProcessLogService
         {
             clinchingHeightValues = clinchingHeightDetails
                 .Select(d => GetDetailNumber(d) ?? 0.0)
-                .Where(v => v > 0)
                 .ToArray();
         }
         else
@@ -448,8 +448,7 @@ public class ProcessLogService : IProcessLogService
             clinchingHeightValues = Array.Empty<double>();
         }
 
-        var avgDetail = GetDetailNumber(FindDetail(parentDetails, "CLINCHING_LONG_SIDE", "CLINCHING_HEIGHT_AVERAGE", "CLINCHING_HEIGHT_AVG", "CLINCHING_AVG"));
-        double clinchingAvg = avgDetail ?? (clinchingHeightValues.Length > 0 ? Math.Round(clinchingHeightValues.Average(), 2) : 0.0);
+        bool? clinchingHeightStatus = clinchingHeightValues.Length > 0 ? clinchingHeightValues.All(x => x == 1) : null;
 
         var endPlateDetails = parentDetails
             .Where(d => string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) &&
@@ -458,13 +457,13 @@ public class ProcessLogService : IProcessLogService
             .OrderBy(d => d.Parameter?.Order ?? d.Id)
             .ToList();
 
-        bool[] endPlateResults = endPlateDetails.Select(d => GetDetailBool(d) ?? true).ToArray();
-        bool endPlateStatus = endPlateResults.Length > 0 ? endPlateResults.All(x => x) : true;
+        int[] endPlateResults = endPlateDetails.Select(d => GetDetailInt(d) ?? 0).ToArray();
+        bool? endPlateStatus = endPlateResults.Length > 0 ? endPlateResults.All(x => x == 1) : null;
         string ngBoxLong = GetDetailText(FindDetail(parentDetails, "CLINCHING_LONG_SIDE", "NG_BOX_SENSOR_LONG_SIDE", "NG_BOX_LONG_SIDE", "NG_BOX")) ?? "ON";
 
         // 2.5. HE Leak
-        bool? capTypePos = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "CAP_TYPE_POSITION_RESULT", "CAP_TYPE_POSITION", "CAP_TYPE"));
-        bool? leakResult = GetDetailBool(FindDetail(parentDetails, "HE_LEAK", "LEAK_RESULT", "LEAK_TEST_RESULT", "LEAK_STATUS"));
+        int? capTypePos = GetDetailInt(FindDetail(parentDetails, "HE_LEAK", "CAP_TYPE_POSITION_RESULT", "CAP_TYPE_POSITION", "CAP_TYPE"));
+        int? leakResult = GetDetailInt(FindDetail(parentDetails, "HE_LEAK", "LEAK_RESULT", "LEAK_TEST_RESULT", "LEAK_STATUS"));
         double? leakValue = GetDetailNumber(FindDetail(parentDetails, "HE_LEAK", "LEAK_LAST_LEAKAGE_VALUE", "LEAK_LAST_LEAKAGE", "LEAK_VALUE", "LEAKAGE_VALUE"));
 
         // 3. M-Fan Assy Lots & Details
@@ -489,26 +488,26 @@ public class ProcessLogService : IProcessLogService
 
         string? boltTighten = GetDetailText(FindDetail(childDetails, "M_FAN_ASSY", "BOLT_TIGHTEN_VALUE", "BOLT_TIGHTEN"));
         string? boltQty = GetDetailText(FindDetail(childDetails, "M_FAN_ASSY", "BOLT_TIGHTEN_QTY_VALUE", "BOLT_TIGHTEN_QTY", "BOLT_QTY"));
-        bool? nutTighten = GetDetailBool(FindDetail(childDetails, "M_FAN_ASSY", "NUT_TIGHTEN_VALUE", "NUT_TIGHTEN"));
+        string? nutTighten = GetDetailText(FindDetail(childDetails, "M_FAN_ASSY", "NUT_TIGHTEN_VALUE", "NUT_TIGHTEN"));
 
         // 4. M-Fan Inspection
-        double? rotMax = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
-        double? rotMin = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
-        double? ampMax = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MAX_VALUE", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
-        double? ampMin = GetDetailNumber(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_AMPERE_MIN_VALUE", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
-        string? windDir = GetDetailText(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
-        bool? mFanTest = GetDetailBool(FindDetail(childDetails, "M_FAN_INSPECTION", "M_FAN_TEST_RESULT", "MFAN_TEST_RESULT", "TEST_RESULT"));
-        string? ngBoxMFan = GetDetailText(FindDetail(childDetails, "M_FAN_INSPECTION", "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
+        double? rotMax = GetDetailNumber(FindDetail(childDetails, null, "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MAX", "ROTATION_SPEED_MAX", "ROT_MAX"));
+        double? rotMin = GetDetailNumber(FindDetail(childDetails, null, "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", "M_FAN_INSPECTION_ROTATION_SPEED_MIN", "ROTATION_SPEED_MIN", "ROT_MIN"));
+        double? ampMax = GetDetailNumber(FindDetail(childDetails, null, "M_FAN_INSPECTION_AMPERE_MAX_VALUE", "M_FAN_INSPECTION_AMPERE_MAX", "AMPERE_MAX", "AMP_MAX"));
+        double? ampMin = GetDetailNumber(FindDetail(childDetails, null, "M_FAN_INSPECTION_AMPERE_MIN_VALUE", "M_FAN_INSPECTION_AMPERE_MIN", "AMPERE_MIN", "AMP_MIN"));
+        string? windDir = GetDetailText(FindDetail(childDetails, null, "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", "M_FAN_INSPECTION_WIND_DIRECTION", "WIND_DIRECTION"));
+        int? mFanTest = GetDetailInt(FindDetail(childDetails, null, "M_FAN_TEST_RESULT", "MFAN_TEST_RESULT", "TEST_RESULT"));
+        string? ngBoxMFan = GetDetailText(FindDetail(childDetails, null, "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", "NG_BOX_SENSOR_M_FAN_INSPECTION", "NG_BOX_MFAN", "NG_BOX")) ?? "ON";
 
         // 5. ECM Assy
-        bool? radCoreLabel = GetDetailBool(FindDetail(parentDetails, "ECM_ASSY", "RAD_CORE_ASM_NAME_LABEL_RESULT", "RAD_CORE_LABEL", "RAD_CORE_ASM_LABEL"));
-        bool? motorFanLabel = GetDetailBool(FindDetail(parentDetails, "ECM_ASSY", "MOTOR_FAN_ASSY_LABEL_RESULT", "MOTOR_FAN_LABEL", "MOTOR_FAN_ASSY_LABEL"));
+        int? radCoreLabel = GetDetailInt(FindDetail(parentDetails, "ECM_ASSY", "RAD_CORE_ASM_NAME_LABEL_RESULT", "RAD_CORE_LABEL", "RAD_CORE_ASM_LABEL"));
+        int? motorFanLabel = GetDetailInt(FindDetail(parentDetails, "ECM_ASSY", "MOTOR_FAN_ASSY_LABEL_RESULT", "MOTOR_FAN_LABEL", "MOTOR_FAN_ASSY_LABEL"));
         double? ecmBolt = GetDetailNumber(FindDetail(parentDetails, "ECM_ASSY", "ECM_ASSY_BOLT_TIGHTEN_VALUE", "ECM_BOLT_TIGHTEN", "ECM_BOLT"));
         double? ecmBoltQty = GetDetailNumber(FindDetail(parentDetails, "ECM_ASSY", "ECM_ASSY_BOLT_TIGHTEN_QTY_VALUE", "ECM_BOLT_QTY", "ECM_ASSY_BOLT_QTY"));
         string? ngBoxEcm = GetDetailText(FindDetail(parentDetails, "ECM_ASSY", "NG_BOX_SENSOR_ECM_ASSY_VALUE", "NG_BOX_SENSOR_ECM_ASSY", "NG_BOX_ECM", "NG_BOX")) ?? "ON";
 
         // 6. Final Inspection
-        bool? finalRadCoreLabel = GetDetailBool(FindDetail(parentDetails, "FINAL_INSPECTION", "FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT", "FINAL_RAD_CORE_LABEL"));
+        int? finalRadCoreLabel = GetDetailInt(FindDetail(parentDetails, "FINAL_INSPECTION", "FINAL_INSPECTION_RAD_CORE_ASM_NAME_LABEL_RESULT", "FINAL_RAD_CORE_LABEL"));
 
         var checkPointDetails = parentDetails
             .Where(d => string.Equals(d.Process?.Code, "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase) &&
@@ -517,20 +516,61 @@ public class ProcessLogService : IProcessLogService
             .OrderBy(d => d.Parameter?.Order ?? d.Id)
             .ToList();
 
-        bool[]? checkPoints = checkPointDetails.Count > 0
-            ? checkPointDetails.Select(d => GetDetailBool(d) ?? true).ToArray()
+        int[]? checkPoints = checkPointDetails.Count > 0
+            ? checkPointDetails.Select(d => GetDetailInt(d) ?? 0).ToArray()
             : null;
 
-        bool? checkPointStatus = checkPoints != null && checkPoints.Length > 0 ? checkPoints.All(x => x) : null;
+        bool? checkPointStatus = checkPoints != null && checkPoints.Length > 0 ? checkPoints.All(x => x == 1) : null;
         string? ngBoxFinal = GetDetailText(FindDetail(parentDetails, "FINAL_INSPECTION", "NG_BOX_SENSOR_FINAL_INSPECTION_VALUE", "NG_BOX_SENSOR_FINAL_INSPECTION", "NG_BOX_FINAL", "NG_BOX")) ?? "ON";
 
-        // Overall status: Harus log.Status == true dan seluruh Checkpoint Final Inspection bernilai true
-        bool overallStatus = log.Status && (checkPointStatus == null || checkPointStatus.Value);
+        // 5. ECM Assy status check
+        var ecmDetails = parentDetails
+            .Where(d => string.Equals(d.Process?.Code, "ECM_ASSY", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        bool ecmStatus = (radCoreLabel == null || radCoreLabel == 1) &&
+                         (motorFanLabel == null || motorFanLabel == 1) &&
+                         (ecmDetails.Count == 0 || ecmDetails.All(d => d.Status));
+
+        // 6. Final Inspection status check
+        var finalDetails = parentDetails
+            .Where(d => string.Equals(d.Process?.Code, "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        bool finalInspectionStatus = (finalRadCoreLabel == null || finalRadCoreLabel == 1) &&
+                                     (checkPointStatus == null || checkPointStatus.Value) &&
+                                     (finalDetails.Count == 0 || finalDetails.All(d => d.Status));
+
+        // Overall status: Clinching, HE, M-Fan, ECM Assy, dan Final Inspection SEMUANYA harus OK (1 / true).
+        // Jika salah satu bernilai false / NG (2) / Error (0), maka OverallStatus = false.
+        var clinchingDetails = parentDetails
+            .Where(d => string.Equals(d.Process?.Code, "CLINCHING_SHORT_SIDE", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        bool clinchingStatus = (oRingSet == null || oRingSet == 1) && 
+                               (clinchingHeightStatus == null || clinchingHeightStatus.Value) &&
+                               (endPlateStatus == null || endPlateStatus.Value) &&
+                               (clinchingDetails.Count == 0 || clinchingDetails.All(d => d.Status));
+
+        var heDetails = parentDetails
+            .Where(d => string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        bool heStatus = (capTypePos == null || capTypePos == 1) && 
+                        (leakResult == null || leakResult == 1) &&
+                        (heDetails.Count == 0 || heDetails.All(d => d.Status));
+
+        bool mFanStatus = (mFanTest == null || mFanTest == 1) && 
+                          (childDetails.Count == 0 || childDetails.All(d => d.Status)) &&
+                          (childLog == null || childLog.Status);
+
+        bool overallStatus = clinchingStatus &&
+                             heStatus &&
+                             mFanStatus && 
+                             ecmStatus && 
+                             finalInspectionStatus;
 
         return new ProcessLogMockDto
         {
             Id = log.Id,
-            Timestamp = log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+            Timestamp = DateTimeHelper.FormatTimestamp(log.CreatedAt),
             SerialNumberClinching = clinchingSn,
             SerialNumberMFan = mFanSn,
             CoreAsmValue = coreAsm,
@@ -539,7 +579,7 @@ public class ProcessLogService : IProcessLogService
             ORingSetResult = oRingSet,
             NgBoxSensorShortSideValue = ngBoxShort,
             ClinchingHeightValues = clinchingHeightValues,
-            ClinchingHeightAverage = clinchingAvg,
+            ClinchingHeightStatus = clinchingHeightStatus,
             EndPlateWidthResults = endPlateResults,
             EndPlateWidthStatus = endPlateStatus,
             NgBoxSensorLongSideValue = ngBoxLong,
@@ -579,18 +619,59 @@ public class ProcessLogService : IProcessLogService
 
         bool isClinching = !string.IsNullOrWhiteSpace(sn.Type)
             ? string.Equals(sn.Type, "clinching", StringComparison.OrdinalIgnoreCase)
-            : sn.SerialNumberCode.StartsWith("CC", StringComparison.OrdinalIgnoreCase);
+            : (sn.SerialNumberCode.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) || sn.SerialNumberCode.StartsWith("CC", StringComparison.OrdinalIgnoreCase));
 
         string type = isClinching ? "clinching" : "mfan";
-        object detail = isClinching ? (object)MapClinchingDetail(log) : (object)MapMFanDetail(log);
+        var details = log.Details ?? new List<ProcessLogDetail>();
+
+        bool typeStatus;
+        bool isFinished;
+        object detail;
+
+        if (isClinching)
+        {
+            var clinchingDetail = MapClinchingDetail(log);
+            detail = clinchingDetail;
+
+            var clinchingDetails = details
+                .Where(d => string.Equals(d.Process?.Code, "CLINCHING_SHORT_SIDE", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            typeStatus = (clinchingDetail.ORingSetResult == null || clinchingDetail.ORingSetResult == 1) &&
+                         (clinchingDetail.ClinchingHeightStatus == null || clinchingDetail.ClinchingHeightStatus.Value) &&
+                         (clinchingDetail.EndPlateWidthStatus == null || clinchingDetail.EndPlateWidthStatus.Value) &&
+                         (clinchingDetail.CapTypePositionResult == null || clinchingDetail.CapTypePositionResult == 1) &&
+                         (clinchingDetail.LeakResult == null || clinchingDetail.LeakResult == 1) &&
+                         (clinchingDetails.Count == 0 || clinchingDetails.All(d => d.Status));
+
+            isFinished = log.IsFinished || details.Any(d => string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            var mfanDetail = MapMFanDetail(log);
+            detail = mfanDetail;
+
+            var mfanDetails = details
+                .Where(d => string.Equals(d.Process?.Code, "M_FAN_ASSY", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(d.Process?.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            typeStatus = (mfanDetail.MFanTestResult == null || mfanDetail.MFanTestResult == 1) &&
+                         (mfanDetails.Count == 0 || mfanDetails.All(d => d.Status));
+
+            isFinished = log.IsFinished || details.Any(d => string.Equals(d.Process?.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) ||
+                                                           string.Equals(d.Process?.Code, "M_FAN_ASSY", StringComparison.OrdinalIgnoreCase));
+        }
 
         return new ProcessLogListDto
         {
             Id               = log.Id,
             Type             = type,
             SerialNumberCode = sn.SerialNumberCode,
-            Status           = log.Status,
-            IsFinished       = log.IsFinished,
+            Status           = typeStatus,
+            IsFinished       = isFinished,
             CreatedAt        = log.CreatedAt,
             UpdatedAt        = log.UpdatedAt,
             Detail           = detail
@@ -602,7 +683,9 @@ public class ProcessLogService : IProcessLogService
         var sn = log.SerialNumber;
         if (sn == null) return new ProcessLogDto();
 
-        bool isParent = sn.SerialNumberCode.StartsWith("CC");
+        bool isParent = sn.SerialNumberCode.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) || 
+                        sn.SerialNumberCode.StartsWith("CC", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(sn.Type, "CLINCHING", StringComparison.OrdinalIgnoreCase);
 
         var issues = new List<IssueSummaryDto>();
         issues.AddRange(MapIssues(sn.Issues, isParent ? "PARENT" : "CHILD"));
@@ -934,6 +1017,10 @@ public class ProcessLogService : IProcessLogService
                 }
 
                 bool status = request.IsOk ?? true;
+                if (valBool == false || (valNum.HasValue && valNum.Value == 0))
+                {
+                    status = false;
+                }
                 paramValues.Add((kvp.Key, valNum, valText, valBool, status));
             }
         }
@@ -958,7 +1045,7 @@ public class ProcessLogService : IProcessLogService
             processLog.Details.Add(detail);
         }
 
-        if (paramValues.Any(p => p.valueBoolean == false))
+        if (request.IsOk == false || paramValues.Any(p => p.valueBoolean == false || p.status == false || (p.valueNumber.HasValue && p.valueNumber.Value == 0)))
         {
             processLog.Status = false;
         }
