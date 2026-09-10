@@ -70,30 +70,46 @@ public class ConfigController : ControllerBase
        _printService = printService;
     }
 
-    /// <summary>Reset all master data (Process, Parameter, Process Log) and their relations.</summary>
+    /// <summary>Reset all master data (Process, Parameter, Process Log, Traceability Log) and their relations.</summary>
     [HttpPost("reset-master-data")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> ResetMasterData(CancellationToken cancellationToken)
     {
-       // 1. Delete all existing process logs & details
-       var logs = await _processLogRepository.GetAllAsync(cancellationToken);
-       _processLogRepository.RemoveRange(logs);
+        _context.ChangeTracker.Clear();
 
-       // 2. Delete all existing process parameters (join table)
-       var processParams = await _context.ProcessParameters.ToListAsync(cancellationToken);
-       _context.ProcessParameters.RemoveRange(processParams);
+        await _context.Database.ExecuteSqlRawAsync(@"
+            SET FOREIGN_KEY_CHECKS = 0;
+            DELETE FROM `stock_in_reworks`;
+            DELETE FROM `issue_transactions`;
+            DELETE FROM `traceability_log_details`;
+            DELETE FROM `traceability_logs`;
+            DELETE FROM `process_log_details`;
+            DELETE FROM `process_logs`;
+            DELETE FROM `process_parameters`;
+            DELETE FROM `process_category_parts`;
+            DELETE FROM `process_categories`;
+            DELETE FROM `serial_number_relations`;
+            DELETE FROM `serial_number_issues`;
+            DELETE FROM `serial_numbers`;
+            DELETE FROM `processes`;
+            DELETE FROM `parameters`;
+            ALTER TABLE `processes` AUTO_INCREMENT = 1;
+            ALTER TABLE `parameters` AUTO_INCREMENT = 1;
+            ALTER TABLE `process_parameters` AUTO_INCREMENT = 1;
+            ALTER TABLE `process_logs` AUTO_INCREMENT = 1;
+            ALTER TABLE `process_log_details` AUTO_INCREMENT = 1;
+            ALTER TABLE `traceability_logs` AUTO_INCREMENT = 1;
+            ALTER TABLE `traceability_log_details` AUTO_INCREMENT = 1;
+            ALTER TABLE `serial_numbers` AUTO_INCREMENT = 1;
+            ALTER TABLE `stock_in_reworks` AUTO_INCREMENT = 1;
+            ALTER TABLE `process_categories` AUTO_INCREMENT = 1;
+            ALTER TABLE `process_category_parts` AUTO_INCREMENT = 1;
+            SET FOREIGN_KEY_CHECKS = 1;
+        ", cancellationToken);
 
-       // 3. Delete all existing processes
-       var existingProcesses = await _processRepository.GetAllAsync(cancellationToken);
-       _processRepository.RemoveRange(existingProcesses);
+        _context.ChangeTracker.Clear();
 
-       // 4. Delete all existing parameters
-       var existingParameters = await _parameterRepository.GetAllAsync(cancellationToken);
-       _parameterRepository.RemoveRange(existingParameters);
-
-       await _processRepository.SaveChangesAsync(cancellationToken);
-
-       return ResponseFormatter.Success(message: "All master data (Process, Parameter, Process Log) and their relations have been successfully reset.");
+        return ResponseFormatter.Success(message: "All master data (Process, Parameter, Process Log, Traceability Log) and their relations have been successfully reset.");
     }
 
     /// <summary>Seed specific processes and parameters for TRSS Traceability System.</summary>
@@ -201,7 +217,17 @@ public class ConfigController : ControllerBase
                    new { Code = "BOLT_TIGHTEN_VALUE", Name = "Bolt tighten result", Type = "string" },
                    new { Code = "BOLT_TIGHTEN_QTY_VALUE", Name = "Bold Tighten Value", Type = "string" },
                    new { Code = "NUT_TIGHTEN_VALUE", Name = "Nut Tighten Result", Type = "string" },
-                    new { Code = "M_FAN_TEST_RESULT", Name = "M Fan Test Result", Type = "number" },
+               }
+           },
+           
+           new
+           {
+               ProcCode = "M_FAN_INSPECTION",
+               ProcName = "M Fan Characteristics Inspection",
+               ProcDesc = "Inspection of main fan operational characteristics.",
+               Params = new[]
+               {
+                   new { Code = "M_FAN_TEST_RESULT", Name = "M Fan Test Result", Type = "number" },
                    new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", Name = "M Fan Inspection Rotation Speed Max Value", Type = "number" },
                    new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", Name = "M Fan Inspection Rotation Speed Min Value", Type = "number" },
                    new { Code = "M_FAN_INSPECTION_AMPERE_MAX_VALUE", Name = "M Fan Inspection Amperage Max Value", Type = "number" },
@@ -210,23 +236,6 @@ public class ConfigController : ControllerBase
                     new { Code = "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", Name = "NG Box (red) Sensor M Fan Inspection Value", Type = "string"}
                }
            },
-           
-        //    new
-        //    {
-        //        ProcCode = "M_FAN_INSPECTION",
-        //        ProcName = "M Fan Characteristics Inspection",
-        //        ProcDesc = "Inspection of main fan operational characteristics.",
-        //        Params = new[]
-        //        {
-        //            new { Code = "M_FAN_TEST_RESULT", Name = "M Fan Test Result", Type = "number" },
-        //            new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_MAX_VALUE", Name = "M Fan Inspection Rotation Speed Max Value", Type = "number" },
-        //            new { Code = "M_FAN_INSPECTION_ROTATION_SPEED_MIN_VALUE", Name = "M Fan Inspection Rotation Speed Min Value", Type = "number" },
-        //            new { Code = "M_FAN_INSPECTION_AMPERE_MAX_VALUE", Name = "M Fan Inspection Amperage Max Value", Type = "number" },
-        //            new { Code = "M_FAN_INSPECTION_AMPERE_MIN_VALUE", Name = "M Fan Inspection Amperage Min Value", Type = "number" },
-        //            new { Code = "M_FAN_INSPECTION_WIND_DIRECTION_VALUE", Name = "M Fan Inspection Wind Direction Value", Type = "string" },
-        //             new { Code = "NG_BOX_SENSOR_M_FAN_INSPECTION_VALUE", Name = "NG Box (red) Sensor M Fan Inspection Value", Type = "string"}
-        //        }
-        //    },
            new
            {
                ProcCode = "ECM_ASSY",
@@ -316,7 +325,75 @@ public class ConfigController : ControllerBase
 
        await _processRepository.SaveChangesAsync(cancellationToken);
 
-       return ResponseFormatter.Success(message: "TRSS master data (Processes and Parameters) successfully seeded.");
+       // 3. Seed Process Categories (clinching & mfan)
+       var clinchingCategory = new ProcessCategory
+       {
+           Name = "clinching",
+           CreatedAt = DateTime.UtcNow
+       };
+       var mfanCategory = new ProcessCategory
+       {
+           Name = "mfan",
+           CreatedAt = DateTime.UtcNow
+       };
+       await _context.ProcessCategories.AddRangeAsync(clinchingCategory, mfanCategory);
+       await _context.SaveChangesAsync(cancellationToken);
+
+       // 4. Seed Parts
+       var clinchingParts = new[]
+       {
+           new Part { Number = "P001", Name = "UPPER TANK", Description = "Upper Tank", SpecialCharacter = "#", CategoryProcess = "clinching", IsActive = true, CreatedAt = DateTime.UtcNow },
+           new Part { Number = "P002", Name = "LOWER TANK", Description = "Lower Tank", SpecialCharacter = "%", CategoryProcess = "clinching", IsActive = true, CreatedAt = DateTime.UtcNow },
+           new Part { Number = "P003", Name = "CORE ASM", Description = "Core Asm", SpecialCharacter = "$", CategoryProcess = "clinching", IsActive = true, CreatedAt = DateTime.UtcNow },
+       };
+
+       var mfanParts = new[]
+       {
+           new Part { Number = "P004", Name = "FAN ASM", Description = "Fan Asm", SpecialCharacter = "@", CategoryProcess = "mfan", IsActive = true, CreatedAt = DateTime.UtcNow },
+           new Part { Number = "P005", Name = "MOTOR ASM", Description = "Motor Asm", SpecialCharacter = "?", CategoryProcess = "mfan", IsActive = true, CreatedAt = DateTime.UtcNow },
+           new Part { Number = "P006", Name = "FUN GUIDE ASM", Description = "Fun Guide Asm", SpecialCharacter = "!", CategoryProcess = "mfan", IsActive = true, CreatedAt = DateTime.UtcNow },
+       };
+
+       await _context.Parts.AddRangeAsync(clinchingParts);
+       await _context.Parts.AddRangeAsync(mfanParts);
+       await _context.SaveChangesAsync(cancellationToken);
+
+       // 5. Link Parts to Process Categories
+       foreach (var cp in clinchingParts)
+       {
+           await _context.ProcessCategoryParts.AddAsync(new ProcessCategoryPart
+           {
+               ProcessCategoryId = clinchingCategory.Id,
+               PartId = cp.Id
+           }, cancellationToken);
+       }
+
+       foreach (var mp in mfanParts)
+       {
+           await _context.ProcessCategoryParts.AddAsync(new ProcessCategoryPart
+           {
+               ProcessCategoryId = mfanCategory.Id,
+               PartId = mp.Id
+           }, cancellationToken);
+       }
+       await _context.SaveChangesAsync(cancellationToken);
+
+      
+       // 7. Seed default operator user OP001 if not exists
+       var opExists = await _userRepository.ExistsAsync(u => u.Username == "op001", cancellationToken);
+       if (!opExists)
+       {
+           await _authService.RegisterAsync(new RegisterRequest
+           {
+               Name = "Operator 001",
+               Username = "OP001",
+               Role = "operator",
+               Password = "password",
+               ConfirmPassword = "password"
+           }, cancellationToken);
+       }
+
+       return ResponseFormatter.Success(message: "TRSS master data (Processes, Parameters, Process Categories, Parts, Issues, and Operator OP001) successfully seeded.");
     }
 
     ///// <summary>Seed exactly 1 dummy process log with full details (all processes, many values) for TRSS.</summary>

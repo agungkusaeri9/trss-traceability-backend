@@ -314,4 +314,190 @@ public class TraceabilityLogRepository : BaseRepository<ProcessLog>, ITraceabili
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<TraceabilityLog> CreateNewAsync(
+        TraceabilityLog traceabilityLog,
+        CancellationToken cancellationToken = default)
+    {
+        if (traceabilityLog.Id == 0)
+        {
+            await _context.TraceabilityLogs.AddAsync(traceabilityLog, cancellationToken);
+        }
+        else
+        {
+            _context.TraceabilityLogs.Update(traceabilityLog);
+        }
+        await _context.SaveChangesAsync(cancellationToken);
+        return traceabilityLog;
+    }
+
+    public async Task<TraceabilityLog?> GetTraceabilityLogByCodeAsync(
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.TraceabilityLogs
+            .Include(x => x.Details)
+            .FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
+    }
+
+    public async Task<(IEnumerable<TraceabilityLog> Items, int TotalCount)> GetAllTraceabilityNewAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        bool? status = null,
+        bool? isFinish = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.TraceabilityLogs
+            .AsNoTracking()
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Parameter)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim();
+            query = query.Where(x => x.Code.Contains(s) ||
+                                     (x.SerialNumberClinching != null && x.SerialNumberClinching.Contains(s)) ||
+                                     (x.SerialNumberMFan != null && x.SerialNumberMFan.Contains(s)));
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(x => x.Status == status.Value);
+        }
+
+        if (isFinish.HasValue)
+        {
+            query = query.Where(x => x.IsFinish == isFinish.Value);
+        }
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(x => x.CreatedAt <= endDate.Value);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
+    public async Task<TraceabilityLog?> GetBySerialNumberClinchingAsync(
+        string serialNumberClinching,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.TraceabilityLogs
+            .AsNoTracking()
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Parameter)
+            .FirstOrDefaultAsync(x => x.SerialNumberClinching == serialNumberClinching || x.Code == serialNumberClinching, cancellationToken);
+    }
+
+    public async Task<Dictionary<string, List<string>>> GetIssueNumbersBySerialNumbersAsync(
+        IEnumerable<string> serialNumberCodes,
+        CancellationToken cancellationToken = default)
+    {
+        var codes = serialNumberCodes
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct()
+            .ToList();
+
+        if (codes.Count == 0) return new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        var query = await _context.SerialNumbers
+            .AsNoTracking()
+            .Where(s => codes.Contains(s.SerialNumberCode))
+            .Include(s => s.Issues)
+                .ThenInclude(si => si.Issue)
+                    .ThenInclude(i => i.StockIn)
+                        .ThenInclude(st => st.Part)
+            .ToListAsync(cancellationToken);
+
+        var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in query)
+        {
+            var isClinching = string.Equals(s.Type, "CLINCHING", StringComparison.OrdinalIgnoreCase) ||
+                              s.SerialNumberCode.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) ||
+                              s.SerialNumberCode.StartsWith("CC", StringComparison.OrdinalIgnoreCase);
+
+            var issues = s.Issues?
+                .Where(si => si.Issue != null)
+                .OrderBy(si => si.Id)
+                .Select(si => new
+                {
+                    Number = si.Issue!.Number,
+                    PartName = si.Issue.StockIn?.Part?.Name ?? string.Empty
+                })
+                .ToList() ?? new();
+
+            List<string> issueNumbers;
+            if (isClinching)
+            {
+                var clinchingIssues = issues
+                    .Where(i => i.PartName.Contains("Core", StringComparison.OrdinalIgnoreCase) ||
+                                i.PartName.Contains("Upper", StringComparison.OrdinalIgnoreCase) ||
+                                i.PartName.Contains("Lower", StringComparison.OrdinalIgnoreCase) ||
+                                i.PartName.Contains("Tank", StringComparison.OrdinalIgnoreCase))
+                    .Select(i => i.Number)
+                    .Distinct()
+                    .ToList();
+
+                issueNumbers = clinchingIssues.Count > 0
+                    ? clinchingIssues
+                    : issues.Select(i => i.Number).Distinct().ToList();
+            }
+            else
+            {
+                var mfanIssues = issues
+                    .Where(i => i.PartName.Contains("Fan", StringComparison.OrdinalIgnoreCase) ||
+                                i.PartName.Contains("Motor", StringComparison.OrdinalIgnoreCase) ||
+                                i.PartName.Contains("Guide", StringComparison.OrdinalIgnoreCase))
+                    .Select(i => i.Number)
+                    .Distinct()
+                    .ToList();
+
+                issueNumbers = mfanIssues.Count > 0
+                    ? mfanIssues
+                    : issues.Select(i => i.Number).Distinct().ToList();
+            }
+
+            result[s.SerialNumberCode] = issueNumbers;
+        }
+
+        return result;
+    }
+
+    public async Task<IEnumerable<TraceabilityLog>> GetRecentTraceabilityLogsAsync(
+        int count = 10,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.TraceabilityLogs
+            .AsNoTracking()
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Parameter)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(count)
+            .ToListAsync(cancellationToken);
+    }
 }
+
+
+

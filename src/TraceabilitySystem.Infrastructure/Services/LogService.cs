@@ -76,10 +76,11 @@ public class LogService : ILogService
             parameters.Add(new MySqlParameter("@isOk", filter.IsOk.Value));
         }
 
-        if (filter.StartDate.HasValue)
+        var effectiveStartDate = filter.StartDate ?? (filter.EndDate.HasValue ? (DateTime?)null : DateTime.Now.Date.AddDays(-30));
+        if (effectiveStartDate.HasValue)
         {
             whereClauses.Add("received_at >= @startDate");
-            parameters.Add(new MySqlParameter("@startDate", filter.StartDate.Value));
+            parameters.Add(new MySqlParameter("@startDate", effectiveStartDate.Value));
         }
 
         if (filter.EndDate.HasValue)
@@ -451,7 +452,27 @@ LIMIT 1;";
             }
         }
 
-        return new List<string> { DateTime.Now.ToString("yyyy-MM-dd") };
+        else if (!string.IsNullOrWhiteSpace(filter.StartDate) && DateTime.TryParse(filter.StartDate, out var startOnly))
+        {
+            var end = DateTime.Now.Date;
+            if (startOnly > end) (startOnly, end) = (end, startOnly);
+            var dates = new List<string>();
+            for (var d = startOnly; d <= end; d = d.AddDays(1))
+            {
+                dates.Add(d.ToString("yyyy-MM-dd"));
+            }
+            return dates;
+        }
+
+        // By default: 30 hari terakhir dari sekarang
+        var defaultEnd = DateTime.Now.Date;
+        var defaultStart = defaultEnd.AddDays(-29);
+        var defaultDates = new List<string>();
+        for (var d = defaultStart; d <= defaultEnd; d = d.AddDays(1))
+        {
+            defaultDates.Add(d.ToString("yyyy-MM-dd"));
+        }
+        return defaultDates;
     }
 
     private static async Task<List<SystemLogDto>> ReadLogFileAsync(

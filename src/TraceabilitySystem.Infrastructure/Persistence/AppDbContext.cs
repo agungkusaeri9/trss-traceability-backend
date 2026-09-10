@@ -30,6 +30,8 @@ public class AppDbContext : DbContext
     public DbSet<PrintHistory> PrintHistories => Set<PrintHistory>();
     public DbSet<ProcessCategory> ProcessCategories => Set<ProcessCategory>();
     public DbSet<ProcessCategoryPart> ProcessCategoryParts => Set<ProcessCategoryPart>();
+    public DbSet<TraceabilityLog> TraceabilityLogs => Set<TraceabilityLog>();
+    public DbSet<TraceabilityLogDetail> TraceabilityLogDetails => Set<TraceabilityLogDetail>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -154,6 +156,16 @@ public class AppDbContext : DbContext
             {
                 if (entry.State == EntityState.Added) processCategory.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) processCategory.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is TraceabilityLog tracLog)
+            {
+                if (entry.State == EntityState.Added) tracLog.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) tracLog.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is TraceabilityLogDetail tracDetail)
+            {
+                if (entry.State == EntityState.Added) tracDetail.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) tracDetail.UpdatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

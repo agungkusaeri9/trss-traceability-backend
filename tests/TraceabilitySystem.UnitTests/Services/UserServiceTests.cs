@@ -178,6 +178,61 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task UpdateUserAsync_ShouldUpdatePassword_WhenNewPasswordIsProvided()
+    {
+        // Arrange
+        var user = new User { Id = 1, Username = "alice", PasswordHash = "old_hash" };
+        var request = new UpdateUserRequest
+        {
+            NewPassword = "new_secret_password"
+        };
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(h => h.Hash("new_secret_password"))
+            .Returns("new_hash");
+
+        // Act
+        var result = await _userService.UpdateUserAsync(1, request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("new_hash", user.PasswordHash);
+        _passwordHasherMock.Verify(h => h.Hash("new_secret_password"), Times.Once);
+        _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
+        _userRepositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateUserAsync_ShouldNotUpdatePassword_WhenNewPasswordIsEmptyOrNull()
+    {
+        // Arrange
+        var user = new User { Id = 1, Username = "alice", PasswordHash = "old_hash" };
+        var request = new UpdateUserRequest
+        {
+            Name = "Alice New Name",
+            NewPassword = "   "
+        };
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        // Act
+        var result = await _userService.UpdateUserAsync(1, request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("old_hash", user.PasswordHash);
+        _passwordHasherMock.Verify(h => h.Hash(It.IsAny<string>()), Times.Never);
+        _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
+        _userRepositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task DeleteUserAsync_ShouldDeleteUser_WhenExists()
     {
         // Arrange

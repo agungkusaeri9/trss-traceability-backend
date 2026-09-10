@@ -20,6 +20,7 @@ public class ProcessLogService : IProcessLogService
     private readonly IParameterRepository _parameterRepository;
     private readonly IProcessRepository _processRepository;
     private readonly ISerialNumberService _serialNumberService;
+    private readonly IIssueService _issueService;
     private readonly IMqttPublisher _mqttPublisher;
     private readonly IPrintService _printService;
 
@@ -31,6 +32,7 @@ public class ProcessLogService : IProcessLogService
         IParameterRepository parameterRepository,
         IProcessRepository processRepository,
         ISerialNumberService serialNumberService,
+        IIssueService issueService,
         IMqttPublisher mqttPublisher,
         IPrintService printService)
     {
@@ -41,6 +43,7 @@ public class ProcessLogService : IProcessLogService
         _parameterRepository = parameterRepository;
         _processRepository = processRepository;
         _serialNumberService = serialNumberService;
+        _issueService = issueService;
         _mqttPublisher = mqttPublisher;
         _printService = printService;
     }
@@ -788,13 +791,15 @@ public class ProcessLogService : IProcessLogService
             request.ProcessCode = "CLINCHING_SHORT_SIDE";
         }
 
-        // 5. Mapping IsOk ke parameter codes yang sesuai dengan value true, dikarenakan process log pertama dan slalu true, karena dari PLC sudah di control
+        // 5. Mapping Issue Numbers ke parameter codes via IssueService
         request.Data ??= new Dictionary<string, object>();
-        if (request.IsOk.HasValue && issueNumbers.Count >= 3)
+        if (issueNumbers.Count > 0)
         {
-            request.Data["CORE_ASM_RESULT"]       = issueNumbers[0];
-            request.Data["UPPER_TANK_ASM_RESULT"]  = issueNumbers[1];
-            request.Data["LOWER_TANK_ASM_RESULT"]  = issueNumbers[2];
+            var mappedParams = await _issueService.MapClinchingIssuesToParametersAsync(issueNumbers, cancellationToken);
+            foreach (var (key, value) in mappedParams)
+            {
+                request.Data[key] = value;
+            }
         }
 
         var result = await CreateProcessLogWithDetailsAsync(request, cancellationToken);
@@ -1110,9 +1115,11 @@ public class ProcessLogService : IProcessLogService
         var mfSerialNumberCode = generatedSns[0].SerialNumberCode;
 
         // 3. Publish MQTT ke topic data/process/m-fan-assy/process-scan
-        var fanAsmIssueNo      = issueNumbers.Count > 0 ? issueNumbers[0] : null;
-        var fanMotorAsmIssueNo = issueNumbers.Count > 1 ? issueNumbers[1] : null;
-        var fanGuideAsmIssueNo = issueNumbers.Count > 2 ? issueNumbers[2] : null;
+        var mappedMfanParams = await _issueService.MapMFanIssuesToParametersAsync(issueNumbers, cancellationToken);
+
+        var fanAsmIssueNo      = mappedMfanParams.TryGetValue("FAN_ASM_RESULT", out var f) ? f?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
+        var fanMotorAsmIssueNo = mappedMfanParams.TryGetValue("MOTOR_ASM_RESULT", out var m) ? m?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
+        var fanGuideAsmIssueNo = mappedMfanParams.TryGetValue("GUIDE_ASM_RESULT", out var g) ? g?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
 
         var fanAsmQtyRemaining      = fanAsmIssueNo      != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanAsmIssueNo,      cancellationToken) : null;
         var fanMotorAsmQtyRemaining = fanMotorAsmIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanMotorAsmIssueNo, cancellationToken) : null;
@@ -1139,11 +1146,9 @@ public class ProcessLogService : IProcessLogService
         // 4. Pastikan detail disimpan ke MF serial number
         request.Data ??= new Dictionary<string, object>();
         request.ProcessCode = "M_FAN_ASSY";
-        if (request.IsOk.HasValue && issueNumbers.Count >= 3)
+        foreach (var kvp in mappedMfanParams)
         {
-            request.Data["FAN_ASM_RESULT"] = issueNumbers[0];
-            request.Data["MOTOR_ASM_RESULT"] = issueNumbers[1];
-            request.Data["FUN_GUIDE_ASM_RESULT"] = issueNumbers[2];
+            request.Data[kvp.Key] = kvp.Value;
         }
         
         request.SerialNumber = mfSerialNumberCode;
@@ -1164,46 +1169,10 @@ public class ProcessLogService : IProcessLogService
             ? request.SerialNumberClinching
             : request.SerialNumber;
 
-        var mfanSnCode = !string.IsNullOrWhiteSpace(request.SerialNumberMFanAssy)
-            ? request.SerialNumberMFanAssy
-            : null;
-
         if (string.IsNullOrWhiteSpace(clinchingSnCode))
             throw new AppException("Serial number clinching (CC) is required.", 400);
 
-        if (string.IsNullOrWhiteSpace(mfanSnCode))
-            throw new AppException("Serial number M-Fan (MF) is required.", 400);
-
-        // 1. Ambil parent (CC) dan child (MF) dari DB
-        var parentSerialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
-            x => x.SerialNumberCode == clinchingSnCode, cancellationToken);
-        if (parentSerialNumber == null)
-            throw new AppException($"Clinching serial number '{clinchingSnCode}' tidak ditemukan.", 404);
-
-        var childSerialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
-            x => x.SerialNumberCode == mfanSnCode, cancellationToken);
-        if (childSerialNumber == null)
-            throw new AppException($"M-Fan serial number '{mfanSnCode}' tidak ditemukan.", 404);
-
-        // 2. Hubungkan relasi SerialNumberRelation jika belum ada
-        var existingRelation = parentSerialNumber.ParentRelations
-            .FirstOrDefault(r => r.ChildSerialNumberId == childSerialNumber.Id);
-
-        if (existingRelation == null)
-        {
-            var relation = new SerialNumberRelation
-            {
-                ParentSerialNumberId = parentSerialNumber.Id,
-                ChildSerialNumberId  = childSerialNumber.Id,
-                CreatedAt            = DateTime.UtcNow,
-                CreatedBy            = request.OperatorUsername ?? "MQTT_ECM_ASSY"
-            };
-            parentSerialNumber.ParentRelations.Add(relation);
-            _serialNumberRepository.Update(parentSerialNumber);
-            await _serialNumberRepository.SaveChangesAsync(cancellationToken);
-        }
-
-        // 3. Simpan process log detail untuk ECM_ASSY pada serial number CC
+        // Simpan process log detail untuk ECM_ASSY pada serial number CC
         request.SerialNumber = clinchingSnCode;
         request.ProcessCode = "ECM_ASSY";
         return await CreateProcessLogDetailOnlyAsync(request, cancellationToken);

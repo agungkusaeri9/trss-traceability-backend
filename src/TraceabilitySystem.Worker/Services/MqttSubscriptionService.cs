@@ -391,7 +391,7 @@ namespace TraceabilitySystem.Worker.Services
             {
                 using var scope = _scopeFactory.CreateScope();
                 var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
-                request.IsFInihed = true;
+                request.IsFInihed = false;
 
                 var result = await processLogService.CreateProcessLogMFanAssyAsync(request, "create_without_issue_number");
                 _logger.LogInformation("[MQTT][MFanAssy] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
@@ -520,6 +520,10 @@ namespace TraceabilitySystem.Worker.Services
                 var result = await processLogService.CreateProcessLogEcmAssyAsync(request);
                 _logger.LogInformation("[MQTT][EcmAssy] Successfully processed ECM Assy log with ID: {ProcessLogId} (Clinching: {CC}, M-Fan: {MF})", result.Id, request.SerialNumberClinching, request.SerialNumberMFanAssy);
 
+                var traceabilityLogService = scope.ServiceProvider.GetRequiredService<ITraceabilityLogService>();
+                await traceabilityLogService.CreateNewAsync(request);
+                _logger.LogInformation("[MQTT][EcmAssy] Successfully created TraceabilityLog for {Code}", request.SerialNumberClinching);
+
                 var successPayload = new
                 {
                     status = true,
@@ -579,6 +583,10 @@ namespace TraceabilitySystem.Worker.Services
                 request.IsFInihed = true;
                 var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
                 _logger.LogInformation("[MQTT][FinalInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
+
+                var traceabilityLogService = scope.ServiceProvider.GetRequiredService<ITraceabilityLogService>();
+                await traceabilityLogService.CreateNewAsync(request);
+                _logger.LogInformation("[MQTT][FinalInspection] Successfully processed TraceabilityLog (isFinish: true) for SN: {SerialNumber}", request.SerialNumber);
 
                 var successPayload = new
                 {

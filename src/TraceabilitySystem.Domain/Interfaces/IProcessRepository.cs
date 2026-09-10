@@ -8,4 +8,8 @@ public interface IProcessRepository : IRepository<Process>
        string processCode,
        IEnumerable<string> parameterCodes,
        CancellationToken cancellationToken = default);
+
+    Task<Process?> GetByCodeWithParametersAsync(
+       string processCode,
+       CancellationToken cancellationToken = default);
 }

@@ -92,7 +92,8 @@ public class ParameterServiceTests
         {
             Code = "PRM-003",
             Name = "Torque",
-            Description = "A brand new parameter"
+            Description = "A brand new parameter",
+            DataType = "number"
         };
 
         _parameterRepositoryMock

@@ -85,6 +85,11 @@ public class UserService : BaseService<User, UserDto>, IUserService
         if (!string.IsNullOrWhiteSpace(request.Name))
             user.Name = request.Name;
 
+        if (!string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        }
+
         if (request.Role is not null)
             user.Role = request.Role.ToString();
 

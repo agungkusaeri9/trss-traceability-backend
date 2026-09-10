@@ -7,7 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
+using TraceabilitySystem.Application.DTOs.TraceabilityLog;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Application.Mappers;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
@@ -25,10 +27,20 @@ public class TraceabilityLogService : ITraceabilityLogService
     };
 
     private readonly ITraceabilityLogRepository _traceabilityLogRepository;
+    private readonly IProcessRepository _processRepository;
+    private readonly IParameterRepository _parameterRepository;
+    private readonly IUserRepository _userRepository;
 
-    public TraceabilityLogService(ITraceabilityLogRepository traceabilityLogRepository)
+    public TraceabilityLogService(
+        ITraceabilityLogRepository traceabilityLogRepository,
+        IProcessRepository processRepository,
+        IParameterRepository parameterRepository,
+        IUserRepository userRepository)
     {
         _traceabilityLogRepository = traceabilityLogRepository;
+        _processRepository = processRepository;
+        _parameterRepository = parameterRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<PagedResult<ProcessLogMockDto>> GetTraceabilityLogsAsync(
@@ -522,4 +534,436 @@ public class TraceabilityLogService : ITraceabilityLogService
         if (detail.ValueNumber.HasValue) return (double)detail.ValueNumber.Value;
         return null;
     }
+
+    public async Task<TraceabilityLog> CreateNewAsync(
+        CreateProcessLogRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var clinchingSn = !string.IsNullOrWhiteSpace(request.SerialNumberClinching)
+            ? request.SerialNumberClinching
+            : request.SerialNumber ?? string.Empty;
+
+        var mfanSn = !string.IsNullOrWhiteSpace(request.SerialNumberMFanAssy)
+            ? request.SerialNumberMFanAssy
+            : request.SerialNumberMFanAlternative;
+
+        var processCode = !string.IsNullOrWhiteSpace(request.ProcessCode) ? request.ProcessCode : "ECM_ASSY";
+        bool isFinish = string.Equals(processCode, "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase) || request.IsFInihed;
+
+        var tracLog = await _traceabilityLogRepository.GetTraceabilityLogByCodeAsync(clinchingSn, cancellationToken);
+        if (tracLog == null)
+        {
+            tracLog = new TraceabilityLog
+            {
+                Code = clinchingSn,
+                SerialNumberClinching = !string.IsNullOrWhiteSpace(request.SerialNumberClinching) ? request.SerialNumberClinching : clinchingSn,
+                SerialNumberMFan = mfanSn,
+                Status = request.IsOk ?? true,
+                IsFinish = isFinish,
+                CreatedAt = request.Timestamp ?? DateTime.UtcNow
+            };
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(request.SerialNumberClinching) && string.IsNullOrWhiteSpace(tracLog.SerialNumberClinching))
+                tracLog.SerialNumberClinching = request.SerialNumberClinching;
+
+            if (!string.IsNullOrWhiteSpace(mfanSn) && string.IsNullOrWhiteSpace(tracLog.SerialNumberMFan))
+                tracLog.SerialNumberMFan = mfanSn;
+
+            if (request.IsOk == false)
+                tracLog.Status = false;
+
+            if (isFinish)
+                tracLog.IsFinish = true;
+
+            tracLog.UpdatedAt = request.Timestamp ?? DateTime.UtcNow;
+        }
+
+        // 1. Process validation with its configured parameters
+        var process = await _processRepository.GetByCodeWithParametersAsync(processCode, cancellationToken);
+
+        if (process == null)
+        {
+            process = await _processRepository.FirstOrDefaultAsync(
+                p => p.Code == processCode || p.Code.ToLower() == processCode.ToLower(), cancellationToken);
+        }
+
+        if (process == null)
+        {
+            process = new Process
+            {
+                Code = processCode,
+                Name = processCode.Replace("_", " "),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _processRepository.AddAsync(process, cancellationToken);
+            await _processRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        // 2. Operator validation
+        int? operatorId = null;
+        if (!string.IsNullOrWhiteSpace(request.OperatorUsername))
+        {
+            var opUser = await _userRepository.FirstOrDefaultAsync(
+                u => u.Username == request.OperatorUsername, cancellationToken);
+            operatorId = opUser?.Id;
+        }
+
+        // 3. Dynamic parameter extraction from MQTT sub (request.Data)
+        var mqttData = request.Data != null
+            ? new Dictionary<string, object>(request.Data, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+        // Take parameters associated with this process
+        var processParameters = process.ProcessParameters?
+            .Select(pp => pp.Parameter)
+            .Where(p => p != null)
+            .Cast<Parameter>()
+            .ToList() ?? new List<Parameter>();
+
+        // If process has no configured ProcessParameters yet in DB, look up parameters matching MQTT keys
+        if (processParameters.Count == 0 && mqttData.Count > 0)
+        {
+            var keys = mqttData.Keys.ToList();
+            processParameters = (await _parameterRepository.FindAsync(
+                p => keys.Contains(p.Code), cancellationToken)).ToList();
+        }
+
+        foreach (var param in processParameters)
+        {
+            if (param == null) continue;
+
+            string? strVal = null;
+            if (mqttData.TryGetValue(param.Code, out var rawVal))
+            {
+                strVal = FormatParamValue(rawVal);
+            }
+
+            bool status = DetermineParamStatus(strVal, tracLog.Status);
+
+            var detail = new TraceabilityLogDetail
+            {
+                TraceabilityLogId = tracLog.Id,
+                ProcessId = process.Id,
+                ParameterId = param.Id,
+                Value = strVal,
+                Status = status,
+                IsFinish = isFinish,
+                OperatorId = operatorId,
+                CreatedAt = request.Timestamp ?? DateTime.UtcNow
+            };
+
+            tracLog.Details.Add(detail);
+        }
+
+        // If there are additional parameters present in MQTT data not in ProcessParameters
+        if (mqttData.Count > 0)
+        {
+            var processedParamIds = tracLog.Details.Select(d => d.ParameterId).ToHashSet();
+            var remainingKeys = mqttData.Keys
+                .Where(k => !processParameters.Any(p => string.Equals(p.Code, k, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            if (remainingKeys.Count > 0)
+            {
+                var extraParams = (await _parameterRepository.FindAsync(
+                    p => remainingKeys.Contains(p.Code), cancellationToken)).ToList();
+
+                foreach (var extraParam in extraParams)
+                {
+                    if (processedParamIds.Contains(extraParam.Id)) continue;
+
+                    string? strVal = FormatParamValue(mqttData[extraParam.Code]);
+                    bool status = DetermineParamStatus(strVal, tracLog.Status);
+
+                    var detail = new TraceabilityLogDetail
+                    {
+                        TraceabilityLogId = tracLog.Id,
+                        ProcessId = process.Id,
+                        ParameterId = extraParam.Id,
+                        Value = strVal,
+                        Status = status,
+                        IsFinish = isFinish,
+                        OperatorId = operatorId,
+                        CreatedAt = request.Timestamp ?? DateTime.UtcNow
+                    };
+
+                    tracLog.Details.Add(detail);
+                }
+            }
+        }
+
+        return await _traceabilityLogRepository.CreateNewAsync(tracLog, cancellationToken);
+    }
+
+
+    private static string? FormatParamValue(object? val)
+    {
+        if (val == null) return null;
+        if (val is System.Text.Json.JsonElement elem)
+        {
+            return elem.ValueKind switch
+            {
+                System.Text.Json.JsonValueKind.String => elem.GetString(),
+                System.Text.Json.JsonValueKind.Number => elem.GetRawText(),
+                System.Text.Json.JsonValueKind.True => "true",
+                System.Text.Json.JsonValueKind.False => "false",
+                System.Text.Json.JsonValueKind.Null => null,
+                _ => elem.ToString()
+            };
+        }
+        return val.ToString();
+    }
+
+    private static bool DetermineParamStatus(string? value, bool defaultStatus)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return defaultStatus;
+        var trimmed = value.Trim().ToUpperInvariant();
+        if (trimmed == "0" || trimmed == "2" || trimmed == "NG" || trimmed == "FALSE" || 
+            trimmed == "REJECTED" || trimmed == "ERROR" || trimmed == "ERR" || trimmed == "FAIL" || trimmed == "FAILED")
+        {
+            return false;
+        }
+        return defaultStatus;
+    }
+
+    public async Task<PagedResult<TraceabilityLogDto>> GetAllTraceabilityNewAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        bool? status = null,
+        bool? isFinish = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (items, totalCount) = await _traceabilityLogRepository.GetAllTraceabilityNewAsync(
+            page, pageSize, search, status, isFinish, startDate, endDate, cancellationToken);
+
+        var clinchingCodes = items.Select(x => x.SerialNumberClinching).Where(s => !string.IsNullOrWhiteSpace(s));
+        var mfanCodes = items.Select(x => x.SerialNumberMFan).Where(s => !string.IsNullOrWhiteSpace(s));
+        var allCodes = clinchingCodes.Concat(mfanCodes).Where(s => !string.IsNullOrWhiteSpace(s)).Cast<string>().Distinct().ToList();
+
+        var issueMap = await _traceabilityLogRepository.GetIssueNumbersBySerialNumbersAsync(allCodes, cancellationToken);
+
+        var dtos = items.Select(x =>
+        {
+            var clinchingIssues = (!string.IsNullOrWhiteSpace(x.SerialNumberClinching) && issueMap.TryGetValue(x.SerialNumberClinching, out var cIssues))
+                ? cIssues
+                : new List<string>();
+
+            var mfanIssues = (!string.IsNullOrWhiteSpace(x.SerialNumberMFan) && issueMap.TryGetValue(x.SerialNumberMFan, out var mIssues))
+                ? mIssues
+                : new List<string>();
+
+            return new TraceabilityLogDto
+            {
+                Id = x.Id,
+                Code = x.Code,
+                SerialNumberClinching = x.SerialNumberClinching,
+                SerialNumberMFan = x.SerialNumberMFan,
+                Status = x.Status,
+                IsFinish = x.IsFinish,
+                CreatedAt = x.CreatedAt,
+                UpdatedAt = x.UpdatedAt,
+                IssueNumbersClinching = clinchingIssues,
+                IssueNumbersMfan = mfanIssues,
+                Detail = null
+            };
+        }).ToList();
+
+        return new PagedResult<TraceabilityLogDto>
+        {
+            Items = dtos,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<TraceabilityLogDto> GetBySerialNumberClinchingNewAsync(
+        string serialNumberClinching,
+        CancellationToken cancellationToken = default)
+    {
+        var x = await _traceabilityLogRepository.GetBySerialNumberClinchingAsync(serialNumberClinching, cancellationToken);
+        if (x == null)
+            throw new NotFoundException(nameof(TraceabilityLog), serialNumberClinching);
+
+        var detailCodes = new[] { x.SerialNumberClinching, x.SerialNumberMFan }
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Cast<string>()
+            .Distinct()
+            .ToList();
+
+        var issueMap = await _traceabilityLogRepository.GetIssueNumbersBySerialNumbersAsync(detailCodes, cancellationToken);
+
+        var clinchingIssues = (!string.IsNullOrWhiteSpace(x.SerialNumberClinching) && issueMap.TryGetValue(x.SerialNumberClinching, out var cIssues))
+            ? cIssues
+            : new List<string>();
+
+        var mfanIssues = (!string.IsNullOrWhiteSpace(x.SerialNumberMFan) && issueMap.TryGetValue(x.SerialNumberMFan, out var mIssues))
+            ? mIssues
+            : new List<string>();
+
+        var ecmList = (x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
+            .Where(d => (d.Process != null && (d.Process.Code.Contains("ECM", StringComparison.OrdinalIgnoreCase) ||
+                                                d.Process.Code.Equals("ECM_ASSY", StringComparison.OrdinalIgnoreCase))) ||
+                        (d.Parameter != null && (d.Parameter.Code.Contains("ECM", StringComparison.OrdinalIgnoreCase) ||
+                                                 d.Parameter.Code.Contains("MOTOR_FAN", StringComparison.OrdinalIgnoreCase) ||
+                                                 d.Parameter.Code.StartsWith("RAD_CORE", StringComparison.OrdinalIgnoreCase))))
+            .OrderBy(d => d.Parameter?.Order ?? d.Id)
+            .Select(d => new TraceabilityLogParameterDto
+            {
+                Parameter = d.Parameter?.Code ?? $"PARAM_{d.ParameterId}",
+                Value = d.Value,
+                Status = d.Status
+            })
+            .ToList();
+
+        var allFinalDetails = (x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
+            .Where(d => (d.Process != null && (d.Process.Code.Contains("FINAL", StringComparison.OrdinalIgnoreCase) ||
+                                                d.Process.Code.Equals("FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase))) ||
+                        (d.Parameter != null && (d.Parameter.Code.Contains("FINAL", StringComparison.OrdinalIgnoreCase) ||
+                                                 d.Parameter.Code.StartsWith("CHECK_POINT", StringComparison.OrdinalIgnoreCase))))
+            .OrderBy(d => d.Parameter?.Order ?? d.Id)
+            .ToList();
+
+        var checkPoints = allFinalDetails
+            .Where(IsCheckPointParameter)
+            .OrderBy(cp => cp.Parameter?.Order ?? ExtractNumberSuffix(cp.Parameter?.Code))
+            .ThenBy(cp => cp.Id)
+            .ToList();
+
+        var finalList = new List<TraceabilityLogParameterDto>();
+        bool checkPointAllAdded = false;
+
+        foreach (var d in allFinalDetails)
+        {
+            if (IsCheckPointParameter(d))
+            {
+                if (!checkPointAllAdded)
+                {
+                    var cpValues = checkPoints.Select(cp => cp.Value).ToList();
+                    bool? cpStatus;
+                    if (cpValues.Count == 0 || checkPoints.All(cp => string.IsNullOrWhiteSpace(cp.Value)))
+                    {
+                        cpStatus = null;
+                    }
+                    else if (checkPoints.Any(cp => cp.Status == false))
+                    {
+                        cpStatus = false;
+                    }
+                    else
+                    {
+                        cpStatus = true;
+                    }
+
+                    finalList.Add(new TraceabilityLogParameterDto
+                    {
+                        Parameter = "CHECK_POINT_ALL",
+                        Value = cpValues,
+                        Status = cpStatus
+                    });
+
+                    checkPointAllAdded = true;
+                }
+            }
+            else
+            {
+                finalList.Add(new TraceabilityLogParameterDto
+                {
+                    Parameter = d.Parameter?.Code ?? $"PARAM_{d.ParameterId}",
+                    Value = d.Value,
+                    Status = d.Status
+                });
+            }
+        }
+
+        if (!checkPointAllAdded && allFinalDetails.Count > 0)
+        {
+            finalList.Add(new TraceabilityLogParameterDto
+            {
+                Parameter = "CHECK_POINT_ALL",
+                Value = new List<string>(),
+                Status = null
+            });
+        }
+
+        return new TraceabilityLogDto
+        {
+            Id = x.Id,
+            Code = x.Code,
+            SerialNumberClinching = x.SerialNumberClinching,
+            SerialNumberMFan = x.SerialNumberMFan,
+            Status = x.Status,
+            IsFinish = x.IsFinish,
+            CreatedAt = x.CreatedAt,
+            UpdatedAt = x.UpdatedAt,
+            IssueNumbersClinching = clinchingIssues,
+            IssueNumbersMfan = mfanIssues,
+            Detail = new TraceabilityLogProcessGroupDto
+            {
+                Ecm = ecmList,
+                Final = finalList
+            }
+        };
+    }
+
+    public async Task<List<TraceabilityLogDto>> GetRecentTraceabilityLogsAsync(
+        int count = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var items = (await _traceabilityLogRepository.GetRecentTraceabilityLogsAsync(count, cancellationToken)).ToList();
+
+        var clinchingCodes = items.Select(x => x.SerialNumberClinching).Where(s => !string.IsNullOrWhiteSpace(s));
+        var mfanCodes = items.Select(x => x.SerialNumberMFan).Where(s => !string.IsNullOrWhiteSpace(s));
+        var allCodes = clinchingCodes.Concat(mfanCodes).Where(s => !string.IsNullOrWhiteSpace(s)).Cast<string>().Distinct().ToList();
+
+        var issueMap = await _traceabilityLogRepository.GetIssueNumbersBySerialNumbersAsync(allCodes, cancellationToken);
+
+        var dtos = items.Select(x =>
+        {
+            var clinchingIssues = (!string.IsNullOrWhiteSpace(x.SerialNumberClinching) && issueMap.TryGetValue(x.SerialNumberClinching, out var cIssues))
+                ? cIssues
+                : new List<string>();
+
+            var mfanIssues = (!string.IsNullOrWhiteSpace(x.SerialNumberMFan) && issueMap.TryGetValue(x.SerialNumberMFan, out var mIssues))
+                ? mIssues
+                : new List<string>();
+
+            return new TraceabilityLogDto
+            {
+                Id = x.Id,
+                Code = x.Code,
+                SerialNumberClinching = x.SerialNumberClinching,
+                SerialNumberMFan = x.SerialNumberMFan,
+                Status = x.Status,
+                IsFinish = x.IsFinish,
+                CreatedAt = x.CreatedAt,
+                UpdatedAt = x.UpdatedAt,
+                IssueNumbersClinching = clinchingIssues,
+                IssueNumbersMfan = mfanIssues,
+                Detail = null
+            };
+        }).ToList();
+
+        return dtos;
+    }
+
+    private static int ExtractNumberSuffix(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return int.MaxValue;
+        var match = System.Text.RegularExpressions.Regex.Match(text, @"\d+");
+        return match.Success && int.TryParse(match.Value, out var n) ? n : int.MaxValue;
+    }
+
+    private static bool IsCheckPointParameter(TraceabilityLogDetail d)
+    {
+        var code = d.Parameter?.Code;
+        if (string.IsNullOrWhiteSpace(code)) return false;
+        return System.Text.RegularExpressions.Regex.IsMatch(code, @"^CHECK_?POINT_?\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
 }
+

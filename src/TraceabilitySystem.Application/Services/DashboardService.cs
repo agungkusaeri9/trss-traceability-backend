@@ -22,6 +22,7 @@ public class DashboardService : IDashboardService
     private readonly ISerialNumberRepository _serialNumberRepository;
     private readonly IProcessRepository _processRepository;
     private readonly ITraceabilityLogService _traceabilityLogService;
+    private readonly ITraceabilityLogRepository _traceabilityLogRepository;
 
     // Process order definitions for traceability flow
     private static readonly string[] ProcessOrder = new[]
@@ -43,7 +44,8 @@ public class DashboardService : IDashboardService
         ITraceabilitySummarySimulator traceabilitySummarySimulator,
         ISerialNumberRepository serialNumberRepository,
         IProcessRepository processRepository,
-        ITraceabilityLogService traceabilityLogService)
+        ITraceabilityLogService traceabilityLogService,
+        ITraceabilityLogRepository traceabilityLogRepository)
     {
         _processLogRepository = processLogRepository;
         _partRepository = partRepository;
@@ -53,6 +55,7 @@ public class DashboardService : IDashboardService
         _serialNumberRepository = serialNumberRepository;
         _processRepository = processRepository;
         _traceabilityLogService = traceabilityLogService;
+        _traceabilityLogRepository = traceabilityLogRepository;
     }
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
@@ -64,32 +67,26 @@ public class DashboardService : IDashboardService
 
         var summary = new DashboardSummaryDto();
 
-        // Use the same TraceabilityLog formula as the Trac Log list page.
-        // Load all logs for the year (largest range) and filter in-memory for smaller ranges.
-        var yearResult = await _traceabilityLogService.GetTraceabilityLogsAsync(
+        // Query directly from TraceabilityLogs table
+        var yearResult = await _traceabilityLogRepository.GetAllTraceabilityNewAsync(
             page: 1, pageSize: int.MaxValue,
-            startDate: yearStart, endDate: now,
+            startDate: yearStart, endDate: now.AddDays(1),
             cancellationToken: cancellationToken);
 
-        var allLogs = yearResult.Items;
+        var allLogs = yearResult.Items.ToList();
 
-        // Helper: count from the already-loaded list by CreatedAt range and OverallStatus.
-        // Timestamp in DTO is stored as UTC ISO string; convert to local time for comparison.
+        // Helper: count only finished logs (IsFinish == true) by CreatedAt range and Status.
         static (int total, int ok, int ng) CountRange(
-            IEnumerable<ProcessLogMockDto> logs, DateTime from, DateTime to)
+            IEnumerable<TraceabilityLog> logs, DateTime from, DateTime to)
         {
             var inRange = logs.Where(l =>
             {
-                if (string.IsNullOrEmpty(l.Timestamp)) return false;
-                if (!DateTime.TryParse(l.Timestamp, null,
-                    System.Globalization.DateTimeStyles.RoundtripKind, out var ts))
-                    return false;
-                // Timestamp is stored as UTC; compare against local date boundaries
-                var localTs = ts.Kind == DateTimeKind.Utc ? ts.ToLocalTime() : ts;
-                return localTs >= from && localTs < to;
+                if (!l.IsFinish) return false;
+                var localCreatedAt = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                return localCreatedAt >= from && localCreatedAt < to;
             }).ToList();
-            int ok = inRange.Count(l => l.OverallStatus);
-            int ng = inRange.Count(l => !l.OverallStatus);
+            int ok = inRange.Count(l => l.Status);
+            int ng = inRange.Count(l => !l.Status);
             return (inRange.Count, ok, ng);
         }
 
@@ -125,17 +122,17 @@ public class DashboardService : IDashboardService
         var stats = new DashboardStatsDto();
         var now = DateTime.Now;
 
-        // Load all trac logs for this year — same data source as Trac Log list page
+        // Load all trac logs for this year directly from TraceabilityLogs table
         var yearStart = new DateTime(now.Year, 1, 1);
-        var yearResult = await _traceabilityLogService.GetTraceabilityLogsAsync(
+        var yearResult = await _traceabilityLogRepository.GetAllTraceabilityNewAsync(
             page: 1, pageSize: int.MaxValue,
-            startDate: yearStart, endDate: now,
+            startDate: yearStart, endDate: now.AddDays(1),
             cancellationToken: cancellationToken);
         var allTracLogs = yearResult.Items.ToList();
 
-        // 1. Quality Distribution (Pie Chart) — based on OverallStatus
-        int ok = allTracLogs.Count(l => l.OverallStatus);
-        int ng = allTracLogs.Count(l => !l.OverallStatus);
+        // 1. Quality Distribution (Pie Chart) — only finished logs (IsFinish == true)
+        int ok = allTracLogs.Count(l => l.IsFinish && l.Status);
+        int ng = allTracLogs.Count(l => l.IsFinish && !l.Status);
 
         stats.QualityDistribution.Add(new ChartDataDto { Label = "OK", Value = ok });
         stats.QualityDistribution.Add(new ChartDataDto { Label = "NG", Value = ng });
@@ -175,21 +172,18 @@ public class DashboardService : IDashboardService
 
         stats.TopPartsProduction = topParts;
 
-        // 3. Production Trend (Last 7 Days) — use OverallStatus from trac logs
+        // 3. Production Trend (Last 7 Days) — based on finished TraceabilityLogs CreatedAt
         for (int i = 6; i >= 0; i--)
         {
             var date = now.Date.AddDays(-i);
             var nextDate = date.AddDays(1);
 
-            // Count finished trac logs for this day using same formula
-            var dayResult = await _traceabilityLogService.GetTraceabilityLogsAsync(
-                page: 1, pageSize: int.MaxValue,
-                startDate: date, endDate: nextDate.AddSeconds(-1),
-                isFinished: true, // Only count finished logs for production trend
-                cancellationToken: cancellationToken);
-            
-            // Or better, if we want Total Production based on HE_LEAK logic (which is isFinished: true in GetTraceabilityLogsAsync)
-            int dayCount = dayResult.Items.Count();
+            int dayCount = allTracLogs.Count(l =>
+            {
+                if (!l.IsFinish) return false;
+                var localCreatedAt = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                return localCreatedAt >= date && localCreatedAt < nextDate;
+            });
 
             stats.ProductionTrend.Add(new ChartDataDto
             {

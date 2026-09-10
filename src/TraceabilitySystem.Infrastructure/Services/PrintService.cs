@@ -78,7 +78,7 @@ public class PrintService : IPrintService
         string dateFormat = today.ToString("ddMMyyyy");
         string mitsubishiCode = "21400C000P";
         string trssCode = "BM57100000";
-        string qrCodeString = mitsubishiCode + ";" + trssCode + ";" + serialNumberCode;
+        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
         
         string printerIp = await _configRepository.GetPrinterClinchingIpAsync(cancellationToken);
         int printerPort = await _configRepository.GetPrinterClinchingPortAsync(cancellationToken);
@@ -120,13 +120,13 @@ public class PrintService : IPrintService
 
         ^FO360,75^BQN,3,3^FDQA,{qrCodeString}^FS
 
-        ^FO20,16^A0N,30,60^FB424,1,0,C^FD{mitsubishiCode}^FS
-        ^FO20,42^A0N,30,60^FB424,1,0,C^FD{trssCode}^FS
+        ^FO20,16^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
+        ^FO20,42^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS
 
         ^FO20,81^A0N,22,22^FD{serialNumberCode}^FS
 
         ^FO20,114^A0N,22,22^FD{dateFormat}^FS
-        ^FO170,115^A0N,15,15^FDMADE IN INDONESIA^FS
+        ^FO170,115^A0N,17,17^FDMADE IN INDONESIA^FS
 
         ^XZ
         """;
@@ -368,11 +368,26 @@ public class PrintService : IPrintService
 
             pd.PrinterSettings.PrinterName = printerNameStockIn;
 
-
             pd.DefaultPageSettings.Landscape = true;
+            pd.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
-            // A5
-            pd.DefaultPageSettings.PaperSize = new PaperSize("A5", 583, 827);
+            // A6 (105mm x 148mm -> 413 x 583)
+            bool a6Found = false;
+            foreach (PaperSize size in pd.PrinterSettings.PaperSizes)
+            {
+                if (size.PaperName.Equals("A6", StringComparison.OrdinalIgnoreCase) ||
+                    size.RawKind == (int)PaperKind.A6)
+                {
+                    pd.DefaultPageSettings.PaperSize = size;
+                    a6Found = true;
+                    break;
+                }
+            }
+
+            if (!a6Found)
+            {
+                pd.DefaultPageSettings.PaperSize = new PaperSize("A6", 413, 583);
+            }
 
             pd.PrintPage += (sender, e) =>
             {
@@ -383,14 +398,14 @@ public class PrintService : IPrintService
                 g.Clear(DrawingColor.White);
                 g.SmoothingMode = SmoothingMode.HighQuality;
 
-                using DrawingFont labelFont = new("Arial", 12, DrawingFontStyle.Bold);
-                using DrawingFont valueFont = new("Arial", 18, DrawingFontStyle.Bold);
+                using DrawingFont labelFont = new("Arial", 9.5f, DrawingFontStyle.Bold);
+                using DrawingFont valueFont = new("Arial", 13f, DrawingFontStyle.Bold);
 
                 Pen pen = Pens.Black;
 
-                // Margin lebih besar
-                int marginHorizontal = 80;
-                int marginVertical = 80;
+                // Margin minimal
+                int marginHorizontal = 10;
+                int marginVertical = 10;
 
                 int printableWidth = pageWidth - (marginHorizontal * 2);
                 int printableHeight = pageHeight - (marginVertical * 2);
@@ -414,13 +429,13 @@ public class PrintService : IPrintService
 
                 string[] labels =
                 {
-                "Issue No / 発行No.",
-                "Parts No / 品番",
-                "Parts Name / 品名",
-                "Supply Qty / 供給数",
-                "Supply Date / 供給日",
-                "Receipt Date / 入荷日"
-            };
+                    "Issue No / 発行No.",
+                    "Parts No / 品番",
+                    "Parts Name / 品名",
+                    "Supply Qty / 供給数",
+                    "Supply Date / 供給日",
+                    "Receipt Date / 入荷日"
+                };
 
                 string[] values =
                 {
@@ -453,41 +468,41 @@ public class PrintService : IPrintService
                         rowHeight);
 
                     g.DrawString(
-                     labels[i],
-                     labelFont,
-                     Brushes.Black,
-                     new RectangleF(
-                         startX + 12,
-                         y,
-                         labelWidth - 20,
-                         rowHeight),
-                     leftMiddle);
+                        labels[i],
+                        labelFont,
+                        Brushes.Black,
+                        new RectangleF(
+                            startX + 6,
+                            y,
+                            labelWidth - 10,
+                            rowHeight),
+                        leftMiddle);
 
                     g.DrawString(
                         values[i],
                         valueFont,
                         Brushes.Black,
                         new RectangleF(
-                            startX + labelWidth + 12,
+                            startX + labelWidth + 6,
                             y,
-                            valueWidth - 20,
+                            valueWidth - 10,
                             rowHeight),
                         leftMiddle);
                 }
 
                 // QR Area
+                int totalTableHeight = rowHeight * 6;
                 g.DrawRectangle(
                     pen,
                     startX + labelWidth + valueWidth,
                     startY,
                     qrWidth,
-                    rowHeight * 6);
+                    totalTableHeight);
 
-                int qrSize = 150;
+                int qrSize = Math.Min(qrWidth - 16, totalTableHeight - 16);
 
                 int qrX = startX + labelWidth + valueWidth + ((qrWidth - qrSize) / 2);
-
-                int qrY = startY + ((rowHeight * 6 - qrSize) / 2);
+                int qrY = startY + ((totalTableHeight - qrSize) / 2);
 
                 g.DrawImage(
                     qrImage,
@@ -518,7 +533,7 @@ public class PrintService : IPrintService
         string dateFormat = today.ToString("ddMMyyyy");
         string mitsubishiCode = "21400C000P";
         string trssCode = "BM57100000";
-        string qrCodeString = mitsubishiCode + ";" + trssCode + ";" + serialNumberCode;
+        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
 
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();

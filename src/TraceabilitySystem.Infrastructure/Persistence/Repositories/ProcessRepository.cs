@@ -69,4 +69,15 @@ public class ProcessRepository : BaseRepository<Process>, IProcessRepository
             parameterCode => parameterCode,
             parameterCode => existingSet.Contains(parameterCode));
     }
+
+    public async Task<Process?> GetByCodeWithParametersAsync(
+        string processCode,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(p => p.ProcessParameters)
+                .ThenInclude(pp => pp.Parameter)
+            .FirstOrDefaultAsync(p => p.Code == processCode || p.Code.ToLower() == processCode.ToLower(), cancellationToken);
+    }
 }
+

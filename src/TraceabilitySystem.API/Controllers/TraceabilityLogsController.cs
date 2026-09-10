@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TraceabilitySystem.Application.DTOs.Pagination;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
+using TraceabilitySystem.Application.DTOs.TraceabilityLog;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
@@ -65,4 +66,52 @@ public class TraceabilityLogsController : ControllerBase
         var result = await _traceabilityLogService.GetTraceabilityLogFullValuesAsync(serialNumberCode, cancellationToken);
         return ResponseFormatter.Success(result, "Traceability log full values retrieved successfully.");
     }
+
+    [HttpGet("/api/v2/traceability-logs")]
+    [ProducesResponseType(typeof(PagedApiResponse<TraceabilityLogDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllTraceabilityV2(
+        [FromQuery] PaginationDto pagination,
+        [FromQuery] string? search = null,
+        [FromQuery] bool? status = null,
+        [FromQuery] bool? isFinish = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var page = pagination.Page < 1 ? 1 : pagination.Page;
+        var limit = pagination.Limit < 1 ? 10 : pagination.Limit;
+
+        var result = await _traceabilityLogService.GetAllTraceabilityNewAsync(
+            page, limit, search, status, isFinish, startDate, endDate, cancellationToken);
+
+        return ResponseFormatter.PagedSuccess(result, "Traceability logs retrieved successfully.");
+    }
+
+    [HttpGet("/api/v2/traceability-logs/by-serial-number/{serialNumber}")]
+    [ProducesResponseType(typeof(ApiResponse<TraceabilityLogDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBySerialNumberClinchingV2(
+        string serialNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _traceabilityLogService.GetBySerialNumberClinchingNewAsync(
+            serialNumber, cancellationToken);
+
+        return ResponseFormatter.Success(result, "Traceability log retrieved successfully.");
+    }
+
+    [HttpGet("/api/v2/traceability-logs/recents")]
+    [ProducesResponseType(typeof(ApiResponse<List<TraceabilityLogDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRecentTraceabilityLogs(
+        [FromQuery] int count = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var limit = count <= 0 ? 10 : count;
+
+        var result = await _traceabilityLogService.GetRecentTraceabilityLogsAsync(
+            limit, cancellationToken);
+
+        return ResponseFormatter.Success(result, "Recent traceability logs retrieved successfully.");
+    }
 }
+

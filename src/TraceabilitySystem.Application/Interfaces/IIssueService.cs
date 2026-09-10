@@ -24,4 +24,22 @@ public interface IIssueService
         int qty = 1,
         string? remark = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Memetakan issue numbers ke dictionary parameter untuk proses Clinching
+    /// berdasarkan nama Part atau kode Part dari database.
+    /// Contoh parameter: CORE_ASM_VALUE, UPPER_TANK_ASM_VALUE, LOWER_TANK_ASM_VALUE.
+    /// </summary>
+    Task<Dictionary<string, object>> MapClinchingIssuesToParametersAsync(
+        IEnumerable<string> issueNumbers,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Memetakan issue numbers ke dictionary parameter untuk proses M-Fan
+    /// berdasarkan nama Part atau kode Part dari database.
+    /// Contoh parameter: LOT_FAN_ASM_RESULT, LOT_MOTOR_ASM_RESULT, LOT_GUIDE_ASM_RESULT.
+    /// </summary>
+    Task<Dictionary<string, object>> MapMFanIssuesToParametersAsync(
+        IEnumerable<string> issueNumbers,
+        CancellationToken cancellationToken = default);
 }
