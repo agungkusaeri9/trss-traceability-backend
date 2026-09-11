@@ -41,7 +41,7 @@ public static class JwtExtensions
                 {
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey         = signingKeys[0],
-                    IssuerSigningKeys        = signingKeys,
+                    IssuerSigningKeyResolver = (token, securityToken, kid, validationParameters) => signingKeys,
                     ValidateIssuer           = true,
                     ValidIssuer              = jwtSettings.Issuer,
                     ValidateAudience         = true,

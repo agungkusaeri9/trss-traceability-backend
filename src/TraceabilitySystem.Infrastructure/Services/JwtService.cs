@@ -29,7 +29,10 @@ public class JwtService : IJwtService
 
     public string GenerateAccessToken(User user)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey))
+        {
+            KeyId = "default"
+        };
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>
@@ -78,7 +81,7 @@ public class JwtService : IJwtService
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = signingKeys[0],
-                IssuerSigningKeys = signingKeys,
+                IssuerSigningKeyResolver = (t, st, kid, vp) => signingKeys,
                 ValidateIssuer = true,
                 ValidIssuer = _settings.Issuer,
                 ValidateAudience = true,

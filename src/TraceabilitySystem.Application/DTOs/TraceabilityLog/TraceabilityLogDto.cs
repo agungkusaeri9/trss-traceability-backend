@@ -36,11 +36,23 @@ public class TraceabilityLogDto
 
 public class TraceabilityLogProcessGroupDto
 {
+    [JsonPropertyName("clinching")]
+    public List<TraceabilityLogParameterDto> Clinching { get; set; } = new();
+
+    [JsonPropertyName("mfan")]
+    public List<TraceabilityLogParameterDto> MFan { get; set; } = new();
+
     [JsonPropertyName("ecm")]
     public List<TraceabilityLogParameterDto> Ecm { get; set; } = new();
 
     [JsonPropertyName("final")]
     public List<TraceabilityLogParameterDto> Final { get; set; } = new();
+
+    [JsonIgnore]
+    public List<TraceabilityLogParameterDto> ClinchingProcess => Clinching;
+
+    [JsonIgnore]
+    public List<TraceabilityLogParameterDto> MFanProcess => MFan;
 
     [JsonIgnore]
     public List<TraceabilityLogParameterDto> EcmAssy => Ecm;
@@ -53,6 +65,9 @@ public class TraceabilityLogParameterDto
 {
     [JsonPropertyName("parameter")]
     public string? Parameter { get; set; }
+
+    [JsonPropertyName("parameterDesc")]
+    public string? ParameterDesc { get; set; }
 
     [JsonPropertyName("value")]
     public object? Value { get; set; }
