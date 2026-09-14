@@ -22,7 +22,8 @@ public class UserRepository : BaseRepository<User>, IUserRepository
             predicate: u => (string.IsNullOrEmpty(searchTerm)
                 || u.Name.Contains(searchTerm)
                 || u.Username.Contains(searchTerm))
-                && (!isActive.HasValue || u.IsActive == isActive.Value),
+                && (!isActive.HasValue || u.IsActive == isActive.Value)
+                && u.Role != "superadmin",
             orderBy: q => q.OrderByDescending(u => u.CreatedAt),
             cancellationToken: cancellationToken);
     }

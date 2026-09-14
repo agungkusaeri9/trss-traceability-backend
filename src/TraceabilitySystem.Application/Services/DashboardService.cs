@@ -150,39 +150,39 @@ public class DashboardService : IDashboardService
         stats.QualityDistribution.Add(new ChartDataDto { Label = "NG", Value = ng });
 
         // 2. Top Parts Production (Bar Chart)
-        var allSerialNumbers = await _serialNumberRepository.GetAllWithIssuesAndChildRelationsAsync(cancellationToken);
-        var ccSerialNumbers = allSerialNumbers.Where(x => x.SerialNumberCode.StartsWith("PVRA") || x.SerialNumberCode.StartsWith("CC")).Take(100);
-        
-        var topParts = new List<ChartDataDto>();
-        var partCount = new Dictionary<string, int>();
+        // Ambil SerialNumberClinching dari traceability logs yang sudah terfilter
+        var clinchingCodes = allTracLogs
+            .Where(l => l.IsFinish && !string.IsNullOrWhiteSpace(l.SerialNumberClinching))
+            .Select(l => l.SerialNumberClinching!)
+            .Distinct()
+            .ToList();
 
-        foreach (var serialNumber in ccSerialNumbers)
+        // Query part dari SerialNumbers berdasarkan clinching codes
+        var partCount = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        if (clinchingCodes.Count > 0)
         {
-            if (serialNumber.Issues != null && serialNumber.Issues.Any())
+            var serialNumbersWithParts = await _serialNumberRepository.GetAllWithIssuesAndChildRelationsAsync(cancellationToken);
+            var filtered = serialNumbersWithParts
+                .Where(sn => clinchingCodes.Contains(sn.SerialNumberCode, StringComparer.OrdinalIgnoreCase));
+
+            foreach (var sn in filtered)
             {
-                var firstIssue = serialNumber.Issues.FirstOrDefault();
-                if (firstIssue?.Issue != null && firstIssue.Issue.StockIn != null && firstIssue.Issue.StockIn.Part != null)
+                var firstIssue = sn.Issues?.FirstOrDefault(si => si.Issue?.StockIn?.Part != null);
+                if (firstIssue?.Issue?.StockIn?.Part != null)
                 {
                     string partNumber = firstIssue.Issue.StockIn.Part.Number;
-                    if (partCount.ContainsKey(partNumber))
-                    {
-                        partCount[partNumber]++;
-                    }
-                    else
-                    {
-                        partCount[partNumber] = 1;
-                    }
+                    partCount[partNumber] = partCount.GetValueOrDefault(partNumber) + 1;
                 }
             }
         }
 
-        topParts = partCount
+        stats.TopPartsProduction = partCount
             .Select(kvp => new ChartDataDto { Label = kvp.Key, Value = kvp.Value })
             .OrderByDescending(x => x.Value)
-            .Take(5)
+            .Take(topPart)
             .ToList();
 
-        stats.TopPartsProduction = topParts;
 
         // 3. Production Trend — granularitas menyesuaikan period
         switch (period?.ToLowerInvariant())

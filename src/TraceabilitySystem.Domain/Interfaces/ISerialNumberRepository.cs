@@ -18,6 +18,8 @@ public interface ISerialNumberRepository : IRepository<SerialNumber>
         CancellationToken cancellationToken = default);
 
     Task<bool> CheckByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default);
+    Task<SerialNumber?> GetByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default);
+
     Task<(IEnumerable<SerialNumber> Items, int TotalCount)> GetPagedWithRelatedAsync(
      int page,
      int pageSize,

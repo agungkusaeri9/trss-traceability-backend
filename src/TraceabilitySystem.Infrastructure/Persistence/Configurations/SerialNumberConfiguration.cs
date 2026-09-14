@@ -14,8 +14,12 @@ public class SerialNumberConfiguration : IEntityTypeConfiguration<SerialNumber>
             .HasMaxLength(100)
             .IsRequired();
 
-        builder.HasIndex(x => x.SerialNumberCode)
-            .IsUnique();
+        builder.HasIndex(x => x.SerialNumberCode);
+            // Tidak unique — serial number bisa di-reset dan dipakai ulang
+
+        builder.Property(x => x.Date)
+            .IsRequired()
+            .HasColumnType("date");
 
         builder.Property(x => x.Type)
             .HasMaxLength(50)

@@ -54,7 +54,7 @@ public class StockInsController : ControllerBase
         return ResponseFormatter.Success(result, "Stock-in retrieved successfully.");
     }
 
-    [Authorize(Roles = "admin,user")]
+    [Authorize(Roles = "superadmin,admin")]
     [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<StockInDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -64,7 +64,7 @@ public class StockInsController : ControllerBase
         return ResponseFormatter.Success(result, "Stock-in updated successfully.");
     }
 
-    [Authorize(Roles = "admin,user")]
+    [Authorize(Roles = "superadmin,admin")]
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<StockInDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
@@ -77,7 +77,7 @@ public class StockInsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "admin,user")]
+    [Authorize(Roles = "superadmin,admin")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteStockIn(int id, CancellationToken cancellationToken)

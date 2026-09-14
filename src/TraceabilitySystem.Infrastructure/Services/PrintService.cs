@@ -73,25 +73,25 @@ public class PrintService : IPrintService
     
     private async Task PrintClinchingLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
-        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
-
-        string dateFormat = today.ToString("ddMMyyyy");
-        string mitsubishiCode = "21400C000P";
-        string trssCode = "BM57100000";
-        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
-        
         string printerIp = await _configRepository.GetPrinterClinchingIpAsync(cancellationToken);
         int printerPort = await _configRepository.GetPrinterClinchingPortAsync(cancellationToken);
 
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
 
-        var serialNumberCheck = await serialNumberRepository.CheckByCodeAsync(serialNumberCode, cancellationToken);
-        if (serialNumberCheck == false)
+        // Ambil serial number entity untuk mendapatkan Date yang sudah tersimpan saat create
+        var serialNumber = await serialNumberRepository.GetByCodeAsync(serialNumberCode, cancellationToken);
+        if (serialNumber == null)
         {
             _logger.LogWarning("Serial number [{SerialNumberCode}] not found. Skipping print job.", serialNumberCode);
             throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
         }
+
+        // Gunakan Date dari SerialNumber (bukan DateTime.Today)
+        string dateFormat = serialNumber.Date.ToString("ddMMyyyy");
+        string mitsubishiCode = "21400C000P";
+        string trssCode = "BM57100000";
+        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
 
         var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString);
 
@@ -402,8 +402,6 @@ public class PrintService : IPrintService
 
                 g.Clear(DrawingColor.White);
                 g.SmoothingMode = SmoothingMode.HighQuality;
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
                 using DrawingFont labelFont = new("Arial", 9f, DrawingFontStyle.Bold);
                 using DrawingFont valueFont = new("Arial", 11.5f, DrawingFontStyle.Bold);
@@ -517,15 +515,12 @@ public class PrintService : IPrintService
                 int qrX = qrBoxX + ((qrWidth - qrSize) / 2);
                 int qrY = startY + ((totalTableHeight - qrSize) / 2);
 
-                // Gambar QR Code secara presisi menggunakan source pixel rectangle
                 g.DrawImage(
                     qrImage,
-                    new Rectangle(qrX, qrY, qrSize, qrSize),
-                    0,
-                    0,
-                    qrImage.Width,
-                    qrImage.Height,
-                    GraphicsUnit.Pixel);
+                    qrX,
+                    qrY,
+                    qrSize,
+                    qrSize);
             };
 
             pd.Print();
@@ -544,22 +539,20 @@ public class PrintService : IPrintService
 
     private async Task PrintMFanAssyLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
-        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
-
-        string dateFormat = today.ToString("ddMMyyyy");
-        string mitsubishiCode = "21400C000P";
-        string trssCode = "BM57100000";
-        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
-
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
 
-        var serialNumberCheck = await serialNumberRepository.CheckByCodeAsync(serialNumberCode, cancellationToken);
-        if (serialNumberCheck == false)
+        var serialNumber = await serialNumberRepository.GetByCodeAsync(serialNumberCode, cancellationToken);
+        if (serialNumber == null)
         {
             _logger.LogWarning("Serial number [{SerialNumberCode}] not found. Skipping print job.", serialNumberCode);
             throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
         }
+
+        string dateFormat = serialNumber.Date.ToString("ddMMyyyy");
+        string mitsubishiCode = "21400C000P";
+        string trssCode = "BM57100000";
+        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
 
         // Cek apakah mode test print ke printer Stock In aktif
         bool isTestMode = await _configRepository.GetIsTestModeMFanAssyAsync(cancellationToken);
@@ -618,22 +611,23 @@ public class PrintService : IPrintService
             ValidatePrinter(printerNameStockIn);
 
             pd.DefaultPageSettings.Landscape = true;
+            pd.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
-            // Pastikan ukuran kertas A5 (148mm x 210mm)
-            bool a5Found = false;
+            // 4x6 inch label / 110mm x 150mm (Lebar +1cm: 440 x 640 in hundredths of an inch)
+            bool paperFound = false;
             foreach (PaperSize size in pd.PrinterSettings.PaperSizes)
             {
-                if (size.PaperName.Equals("A5", StringComparison.OrdinalIgnoreCase))
+                string name = size.PaperName.ToLowerInvariant();
+                if (name.Contains("4x6") || name.Contains("4 x 6") || name.Contains("4.00 x 6.00") ||
+                    name.Contains("100x150") || name.Contains("100 x 150") ||
+                    name.Contains("110x150") || name.Contains("110 x 150") ||
+                    (size.Width >= 400 && size.Width <= 450 && size.Height >= 580 && size.Height <= 650) ||
+                    (size.Width >= 580 && size.Width <= 650 && size.Height >= 400 && size.Height <= 450))
                 {
                     pd.DefaultPageSettings.PaperSize = size;
-                    a5Found = true;
+                    paperFound = true;
                     break;
                 }
-            }
-
-            if (!a5Found)
-            {
-                pd.DefaultPageSettings.PaperSize = new PaperSize("A5", 583, 827);
             }
 
             pd.PrintPage += (sender, e) =>
@@ -645,29 +639,28 @@ public class PrintService : IPrintService
                 g.Clear(DrawingColor.White);
                 g.SmoothingMode = SmoothingMode.HighQuality;
 
-                using DrawingFont titleFont = new("Arial", 16, DrawingFontStyle.Bold);
-                using DrawingFont labelFont = new("Arial", 12, DrawingFontStyle.Bold);
-                using DrawingFont valueFont = new("Arial", 16, DrawingFontStyle.Bold);
-                using DrawingFont footerFont = new("Arial", 10, DrawingFontStyle.Italic);
+                using DrawingFont labelFont = new("Arial", 9f, DrawingFontStyle.Bold);
+                using DrawingFont valueFont = new("Arial", 11.5f, DrawingFontStyle.Bold);
 
-                Pen pen = DrawingPens.Black;
+                using Pen pen = new(DrawingColor.Black, 1.5f);
 
-                int marginHorizontal = 60;
-                int marginVertical = 60;
-                int printableWidth = pageWidth - (marginHorizontal * 2);
-                int printableHeight = pageHeight - (marginVertical * 2);
+                // Margin luar: dikurangi 0.5 cm (~20 units) di setiap sisi (kiri, kanan, atas, bawah)
+                int startX = 45;
+                int marginRight = 90;
+                int startY = 58;
 
-                // Title header
-                g.DrawString("[TEST PRINT - M-FAN ASSEMBLY LABEL]", titleFont, DrawingBrushes.Black, marginHorizontal, marginVertical);
+                int printableWidth = pageWidth - startX - marginRight;
+                int printableHeight = pageHeight - (startY * 2);
 
-                int contentStartY = marginVertical + 40;
-                int contentHeight = printableHeight - 70;
+                // Tinggi tiap row (5 baris data untuk M-Fan Assy)
                 int rowCount = 5;
-                int rowHeight = contentHeight / rowCount;
+                int rowHeight = printableHeight / rowCount;
 
-                int labelWidth = (int)(printableWidth * 0.35);
-                int qrWidth = (int)(printableWidth * 0.30);
-                int valueWidth = printableWidth - labelWidth - qrWidth;
+                // Penyesuaian lebar kolom:
+                // Kolom Key (24%), Value (36%), dan QR Code (40%)
+                int labelWidth = (int)(printableWidth * 0.24);
+                int valueWidth = (int)(printableWidth * 0.36);
+                int qrWidth = printableWidth - labelWidth - valueWidth;
 
                 StringFormat leftMiddle = new()
                 {
@@ -679,8 +672,8 @@ public class PrintService : IPrintService
                 {
                     "Mitsubishi Code",
                     "TRSS Code",
-                    "Serial Number (MF)",
-                    "Date Format",
+                    "Serial Number",
+                    "Date",
                     "Origin"
                 };
 
@@ -693,32 +686,76 @@ public class PrintService : IPrintService
                     "MADE IN INDONESIA"
                 };
 
-                // Draw Table Grid & Data
-                for (int i = 0; i < rowCount; i++)
+                for (int i = 0; i < labels.Length; i++)
                 {
-                    int currentY = contentStartY + (i * rowHeight);
+                    int y = startY + (i * rowHeight);
 
-                    // Label Column Box
-                    g.DrawRectangle(pen, marginHorizontal, currentY, labelWidth, rowHeight);
-                    g.DrawString(labels[i], labelFont, DrawingBrushes.Black, new Rectangle(marginHorizontal + 10, currentY, labelWidth - 15, rowHeight), leftMiddle);
+                    // Label Box
+                    g.DrawRectangle(
+                        pen,
+                        startX,
+                        y,
+                        labelWidth,
+                        rowHeight);
 
-                    // Value Column Box
-                    g.DrawRectangle(pen, marginHorizontal + labelWidth, currentY, valueWidth, rowHeight);
-                    g.DrawString(values[i], valueFont, DrawingBrushes.Black, new Rectangle(marginHorizontal + labelWidth + 10, currentY, valueWidth - 15, rowHeight), leftMiddle);
+                    // Value Box
+                    g.DrawRectangle(
+                        pen,
+                        startX + labelWidth,
+                        y,
+                        valueWidth,
+                        rowHeight);
+
+                    // Label text with internal padding
+                    g.DrawString(
+                        labels[i],
+                        labelFont,
+                        DrawingBrushes.Black,
+                        new RectangleF(
+                            startX + 6,
+                            y + 2,
+                            labelWidth - 10,
+                            rowHeight - 4),
+                        leftMiddle);
+
+                    // Value text with internal padding
+                    g.DrawString(
+                        values[i],
+                        valueFont,
+                        DrawingBrushes.Black,
+                        new RectangleF(
+                            startX + labelWidth + 6,
+                            y + 2,
+                            valueWidth - 10,
+                            rowHeight - 4),
+                        leftMiddle);
                 }
 
-                // QR Code Column Box
-                g.DrawRectangle(pen, marginHorizontal + labelWidth + valueWidth, contentStartY, qrWidth, rowHeight * rowCount);
+                // QR Area
+                int totalTableHeight = rowHeight * rowCount;
+                int qrBoxX = startX + labelWidth + valueWidth;
+                g.DrawRectangle(
+                    pen,
+                    qrBoxX,
+                    startY,
+                    qrWidth,
+                    totalTableHeight);
 
-                int qrSize = Math.Min(qrWidth - 30, (rowHeight * rowCount) - 30);
-                int qrX = marginHorizontal + labelWidth + valueWidth + ((qrWidth - qrSize) / 2);
-                int qrY = contentStartY + (((rowHeight * rowCount) - qrSize) / 2);
+                // Padding internal QR dibuat pas (10px) agar QR tidak terlalu kecil dan tidak menabrak border
+                int qrPadding = 10;
+                int maxQrWidth = qrWidth - (qrPadding * 2);
+                int maxQrHeight = totalTableHeight - (qrPadding * 2);
+                int qrSize = Math.Min(maxQrWidth, maxQrHeight);
 
-                g.DrawImage(qrImage, qrX, qrY, qrSize, qrSize);
+                int qrX = qrBoxX + ((qrWidth - qrSize) / 2);
+                int qrY = startY + ((totalTableHeight - qrSize) / 2);
 
-                // Footer
-                int footerY = contentStartY + (rowHeight * rowCount) + 10;
-                g.DrawString($"Printed on {printerNameStockIn} (Target: Test Mode) | {DateTime.Now:yyyy-MM-dd HH:mm:ss}", footerFont, DrawingBrushes.Gray, marginHorizontal, footerY);
+                g.DrawImage(
+                    qrImage,
+                    qrX,
+                    qrY,
+                    qrSize,
+                    qrSize);
             };
 
             pd.Print();

@@ -8,6 +8,7 @@ using TraceabilitySystem.Application.Mappers;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
+using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.Application.Services;
@@ -59,13 +60,18 @@ public class SerialNumberService : ISerialNumberService
         CreateSerialNumberRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        var today = DateTimeHelper.GetJakartaToday();
+        var startOfYear = new DateOnly(today.Year, 1, 1);
+        var endOfYear = new DateOnly(today.Year, 12, 31);
+
         var exists = await _serialNumberRepository.ExistsAsync(
-            s => s.SerialNumberCode == request.SerialNumberCode, cancellationToken);
+            s => s.SerialNumberCode == request.SerialNumberCode && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken);
 
         if (exists)
-            throw new AppException("Serial number sudah terdaftar.", 409);
+            throw new AppException("Serial number sudah terdaftar untuk tahun ini.", 409);
 
         var serialNumber = request.Adapt<SerialNumber>();
+        serialNumber.Date = today;
         await _serialNumberRepository.AddAsync(serialNumber, cancellationToken);
         await _serialNumberRepository.SaveChangesAsync(cancellationToken);
 
@@ -79,12 +85,16 @@ public class SerialNumberService : ISerialNumberService
         if (request.SerialNumberCodes == null || request.SerialNumberCodes.Count == 0)
             throw new AppException("Daftar serial number tidak boleh kosong.", 400);
 
+        var today = DateTimeHelper.GetJakartaToday();
+        var startOfYear = new DateOnly(today.Year, 1, 1);
+        var endOfYear = new DateOnly(today.Year, 12, 31);
+
         // Deduplicate dari request
         var uniqueCodes = request.SerialNumberCodes.Distinct().ToList();
 
-        // Cek serial number yang sudah ada di DB
+        // Cek serial number yang sudah ada di DB pada tahun ini
         var existingCodes = (await _serialNumberRepository.FindAsync(
-            s => uniqueCodes.Contains(s.SerialNumberCode), cancellationToken))
+            s => uniqueCodes.Contains(s.SerialNumberCode) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken))
             .Select(s => s.SerialNumberCode)
             .ToHashSet();
 
@@ -94,6 +104,7 @@ public class SerialNumberService : ISerialNumberService
             {
                 SerialNumberCode = code,
                 Type = request.Type,
+                Date = today,
                 CreatedBy = request.CreatedBy
             })
             .ToList();
@@ -243,12 +254,15 @@ public class SerialNumberService : ISerialNumberService
             throw new AppException("Jumlah serial number harus lebih dari 0.", 400);
 
         var prefix = "PVRA";
+        var today = DateTimeHelper.GetJakartaToday();
+        var startOfYear = new DateOnly(today.Year, 1, 1);
+        var endOfYear = new DateOnly(today.Year, 12, 31);
 
-        // Ambil semua SN dengan prefix PVRA
+        // Ambil semua SN dengan prefix PVRA pada tahun berjalan
         var existingCodes = await _serialNumberRepository.FindAsync(
-            s => s.SerialNumberCode.StartsWith(prefix), cancellationToken);
+            s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken);
 
-        // Cari sequence tertinggi yang sudah ada
+        // Cari sequence tertinggi yang sudah ada pada tahun berjalan (restart ke 0 jika tahun baru)
         var maxSequence = existingCodes
             .Select(s =>
             {
@@ -258,15 +272,15 @@ public class SerialNumberService : ISerialNumberService
             .DefaultIfEmpty(0)
             .Max();
 
-        // Generate kode baru: PVRA000001, PVRA000002, dst.
+        // Generate kode baru: PVRA000001, PVRA000002, dst. (restart ke 000001 saat ganti tahun)
         var newCodes = Enumerable.Range(maxSequence + 1, request.Qty)
             .Select(seq => $"{prefix}{seq:D6}")
             .ToList();
 
-        // Deduplicate dari request dan cek existing di DB
+        // Deduplicate dari request dan cek existing di DB pada tahun berjalan
         var uniqueCodes = newCodes.Distinct().ToList();
         var existingCodesInDb = (await _serialNumberRepository.FindAsync(
-            s => uniqueCodes.Contains(s.SerialNumberCode), cancellationToken))
+            s => uniqueCodes.Contains(s.SerialNumberCode) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken))
             .Select(s => s.SerialNumberCode)
             .ToHashSet();
 
@@ -276,12 +290,13 @@ public class SerialNumberService : ISerialNumberService
             {
                 SerialNumberCode = code,
                 Type = "CLINCHING",
+                Date = today,
                 CreatedBy = request.CreatedBy
             })
             .ToList();
 
         if (newEntities.Count == 0)
-            throw new AppException("Semua serial number sudah terdaftar.", 409);
+            throw new AppException("Semua serial number sudah terdaftar pada tahun ini.", 409);
 
         // Create serial numbers with issue relations in repository using raw SQL query
         await _serialNumberRepository.CreateWithIssuesAsync(newEntities, request.IssueNumbers ?? new List<string>(), cancellationToken);
@@ -369,8 +384,8 @@ public class SerialNumberService : ISerialNumberService
         if (request.Qty <= 0)
             throw new AppException("Jumlah serial number harus lebih dari 0.", 400);
 
-        var today = DateTime.UtcNow.ToString("yyyyMMdd");
-        var datePrefix = $"MF{today}";
+        var today = DateTimeHelper.GetJakartaToday();
+        var datePrefix = $"MF{today:yyyyMMdd}";
 
         // Ambil semua SN hari ini untuk prefix ini
         var existingToday = await _serialNumberRepository.FindAsync(
@@ -391,10 +406,10 @@ public class SerialNumberService : ISerialNumberService
             .Select(seq => $"{datePrefix}{seq:D3}")
             .ToList();
 
-        // Deduplicate dan cek existing di DB
+        // Deduplicate dan cek existing di DB untuk hari ini
         var uniqueCodes = newCodes.Distinct().ToList();
         var existingCodes = (await _serialNumberRepository.FindAsync(
-            s => uniqueCodes.Contains(s.SerialNumberCode), cancellationToken))
+            s => uniqueCodes.Contains(s.SerialNumberCode) && s.Date == today, cancellationToken))
             .Select(s => s.SerialNumberCode)
             .ToHashSet();
 
@@ -404,12 +419,13 @@ public class SerialNumberService : ISerialNumberService
             {
                 SerialNumberCode = code,
                 Type = "MFanAssy",
+                Date = today,
                 CreatedBy = request.CreatedBy
             })
             .ToList();
 
         if (newEntities.Count == 0)
-            throw new AppException("Semua serial number sudah terdaftar.", 409);
+            throw new AppException("Semua serial number sudah terdaftar untuk hari ini.", 409);
 
         await _serialNumberRepository.AddRangeAsync(newEntities, cancellationToken);
         await _serialNumberRepository.SaveChangesAsync(cancellationToken);
@@ -506,12 +522,15 @@ public class SerialNumberService : ISerialNumberService
             throw new AppException("Jumlah serial number harus lebih dari 0.", 400);
 
         List<string> newCodes;
+        var today = DateTimeHelper.GetJakartaToday();
+        var startOfYear = new DateOnly(today.Year, 1, 1);
+        var endOfYear = new DateOnly(today.Year, 12, 31);
 
         if (machinePrefix.Equals("PVRA", StringComparison.OrdinalIgnoreCase) || machinePrefix.Equals("CC", StringComparison.OrdinalIgnoreCase))
         {
             var prefix = "PVRA";
             var existing = await _serialNumberRepository.FindAsync(
-                s => s.SerialNumberCode.StartsWith(prefix), cancellationToken);
+                s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken);
 
             var maxSequence = existing
                 .Select(s =>
@@ -528,8 +547,7 @@ public class SerialNumberService : ISerialNumberService
         }
         else
         {
-            var today = DateTime.UtcNow.ToString("yyyyMMdd");
-            var datePrefix = $"{machinePrefix}{today}";
+            var datePrefix = $"{machinePrefix}{today:yyyyMMdd}";
 
             // Ambil semua SN hari ini untuk prefix ini
             var existingToday = await _serialNumberRepository.FindAsync(
@@ -564,9 +582,12 @@ public class SerialNumberService : ISerialNumberService
     public async Task<string> GenerateSerialNumberAsync(CancellationToken cancellationToken = default)
     {
         var prefix = "PVRA";
+        var today = DateTimeHelper.GetJakartaToday();
+        var startOfYear = new DateOnly(today.Year, 1, 1);
+        var endOfYear = new DateOnly(today.Year, 12, 31);
 
         var existing = await _serialNumberRepository.FindAsync(
-            s => s.SerialNumberCode.StartsWith(prefix), cancellationToken);
+            s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken);
 
         var maxSequence = existing
             .Select(s =>
@@ -583,6 +604,7 @@ public class SerialNumberService : ISerialNumberService
         {
             SerialNumberCode = newCode,
             Type = "CLINCHING",
+            Date = today,
             CreatedBy = "SYSTEM"
         };
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TraceabilitySystem.Shared.Helpers;
 
 namespace TraceabilitySystem.Domain.Entities;
 
@@ -10,6 +11,9 @@ public class SerialNumber
     public string SerialNumberCode { get; set; } = string.Empty;
 
     public string Type { get; set; } = string.Empty; // CLINCHING or MFanAssy
+
+    /// <summary>Tanggal serial number dibuat (WIB / UTC+7)</summary>
+    public DateOnly Date { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

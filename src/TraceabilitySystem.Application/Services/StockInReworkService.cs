@@ -15,18 +15,21 @@ public class StockInReworkService : IStockInReworkService
     private readonly IStockInReworkRepository _repository;
     private readonly ISerialNumberRepository _serialNumberRepository;
     private readonly IProcessLogService _processLogService;
-    private readonly IStockInService _stockInService;
+    private readonly IIssueRepository _issueRepository;
+    private readonly IPrintService _printService;
 
     public StockInReworkService(
         IStockInReworkRepository repository,
         ISerialNumberRepository serialNumberRepository,
         IProcessLogService processLogService,
-        IStockInService stockInService)
+        IIssueRepository issueRepository,
+        IPrintService printService)
     {
         _repository = repository;
         _serialNumberRepository = serialNumberRepository;
         _processLogService = processLogService;
-        _stockInService = stockInService;
+        _issueRepository = issueRepository;
+        _printService = printService;
     }
 
     public async Task<PagedResult<StockInReworkDto>> GetPagedAsync(
@@ -226,18 +229,44 @@ public class StockInReworkService : IStockInReworkService
 
         if (dto.Disposition == DispositionType.STOCK_IN.ToString())
         {
-            var originalStockIn = await _stockInService.GetStockInByIssueNumberAsync(entity.IssueNumberBefore, cancellationToken);
-            
-            var createRequest = new CreateStockInRequestDto
-            {
-                PartId = originalStockIn.PartId,
-                SupplyQty = originalStockIn.SupplyQty,
-                SupplyDate = originalStockIn.SupplyDate,
-                ReceiptQty = entity.Qty,
-                ReceiptDate = originalStockIn.ReceiptDate
-            };
+            var issues = await _issueRepository.GetByNumbersWithPartAsync(
+                new[] { entity.IssueNumberBefore }, cancellationToken);
+            var issue = issues.FirstOrDefault();
 
-            await _stockInService.CreateStockInWithSpecificIssueAsync(createRequest, entity.IssueNumberAfter, cancellationToken);
+            if (issue == null)
+            {
+                throw new AppException($"Issue '{entity.IssueNumberBefore}' tidak ditemukan.", 404);
+            }
+
+            var newIssueNumber = entity.IssueNumberAfter.EndsWith("-R", StringComparison.OrdinalIgnoreCase)
+                ? entity.IssueNumberAfter
+                : $"{entity.IssueNumberBefore}-R";
+
+            issue.Number = newIssueNumber;
+            issue.RemainingQty = entity.Qty;
+            issue.UpdatedAt = DateTime.UtcNow;
+
+            _issueRepository.Update(issue);
+            await _issueRepository.SaveChangesAsync(cancellationToken);
+
+            if (issue.StockIn != null)
+            {
+                var stockInDto = issue.StockIn.Adapt<StockInDto>();
+                stockInDto.Issues = new List<IssueDto>
+                {
+                    new IssueDto
+                    {
+                        Id = issue.Id,
+                        Number = newIssueNumber,
+                        StockInId = issue.StockInId,
+                        RemainingQty = issue.RemainingQty,
+                        CreatedAt = issue.CreatedAt,
+                        UpdatedAt = issue.UpdatedAt
+                    }
+                };
+
+                await _printService.PrintStockInAsync(stockInDto, cancellationToken);
+            }
         }
 
         return entity.Adapt<StockInReworkDto>();

@@ -66,8 +66,8 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
                 using var cmd = connection.CreateCommand();
                 cmd.Transaction = dbTransaction;
                 cmd.CommandText = @"
-                    INSERT INTO serial_numbers (serial_number_code, type, created_at, created_by)
-                    VALUES (@serial_number_code, @type, @created_at, @created_by);
+                    INSERT INTO serial_numbers (serial_number_code, type, date, created_at, created_by)
+                    VALUES (@serial_number_code, @type, @date, @created_at, @created_by);
                     SELECT LAST_INSERT_ID();";
 
                 var pCode = cmd.CreateParameter();
@@ -79,6 +79,12 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
                 pType.ParameterName = "@type";
                 pType.Value = sn.Type;
                 cmd.Parameters.Add(pType);
+
+                var dateVal = sn.Date != default ? sn.Date : TraceabilitySystem.Shared.Helpers.DateTimeHelper.GetJakartaToday();
+                var pDate = cmd.CreateParameter();
+                pDate.ParameterName = "@date";
+                pDate.Value = dateVal.ToDateTime(TimeOnly.MinValue);
+                cmd.Parameters.Add(pDate);
 
                 var pCreatedAt = cmd.CreateParameter();
                 pCreatedAt.ParameterName = "@created_at";
@@ -92,6 +98,7 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
 
                 var insertedIdObj = await cmd.ExecuteScalarAsync(cancellationToken);
                 sn.Id = Convert.ToInt32(insertedIdObj);
+                sn.Date = dateVal;
                 sn.CreatedAt = (DateTime)pCreatedAt.Value;
                 
                 logLines.Add($"Inserted Serial Number: {sn.SerialNumberCode} with generated ID: {sn.Id}");
@@ -242,6 +249,16 @@ public class SerialNumberRepository : BaseRepository<SerialNumber>, ISerialNumbe
     public async Task<bool> CheckByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
         return await _dbSet.AnyAsync(sn => sn.SerialNumberCode == serialNumberCode, cancellationToken);
+    }
+
+    public async Task<SerialNumber?> GetByCodeAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    {
+        // Ambil yang paling baru karena SerialNumberCode tidak unique (bisa di-reset)
+        return await _dbSet
+            .AsNoTracking()
+            .Where(sn => sn.SerialNumberCode == serialNumberCode)
+            .OrderByDescending(sn => sn.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<SerialNumber?> GetWithRelatedBySerialNumberAsync(

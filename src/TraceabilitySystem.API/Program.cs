@@ -11,7 +11,7 @@ using TraceabilitySystem.Application;
 using TraceabilitySystem.Application.Mappers;
 using TraceabilitySystem.Shared.Models;
 
-// Trigger rebuild for LogsController
+// Trigger rebuild with latest DateTimeHelper
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()

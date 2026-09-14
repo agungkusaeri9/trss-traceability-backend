@@ -43,7 +43,7 @@ public class DashboardController : ControllerBase
     public async Task<IActionResult> GetStats(
         [FromQuery] int topParts = 5,
         [FromQuery] int trendDays = 7,
-        [FromQuery] string? period = null,
+        [FromQuery] string? period = "week",
         CancellationToken cancellationToken = default)
     {
         var result = await _dashboardService.GetStatsAsync(topParts, trendDays, period, cancellationToken);
