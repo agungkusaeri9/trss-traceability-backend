@@ -9,6 +9,7 @@ using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
+using TraceabilitySystem.Shared.Helpers;
 
 namespace TraceabilitySystem.Application.Services;
 
@@ -60,50 +61,53 @@ public class DashboardService : IDashboardService
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var now = DateTime.Now;
-        var todayStart = now.Date;
-        var monthStart = new DateTime(now.Year, now.Month, 1);
-        var yearStart = new DateTime(now.Year, 1, 1);
+        var nowJakarta = DateTimeHelper.GetJakartaNow();
+        var todayStartJakarta = nowJakarta.Date;
+        var monthStartJakarta = new DateTime(nowJakarta.Year, nowJakarta.Month, 1);
+        var yearStartJakarta = new DateTime(nowJakarta.Year, 1, 1);
 
         var summary = new DashboardSummaryDto();
 
-        // Query directly from TraceabilityLogs table
+        // Query directly from TraceabilityLogs table using UTC range corresponding to Jakarta year start to now
+        var yearStartUtc = yearStartJakarta.ToUtcFromJakarta();
+        var endDateUtc = nowJakarta.AddDays(1).Date.ToUtcFromJakarta();
+
         var yearResult = await _traceabilityLogRepository.GetAllTraceabilityNewAsync(
             page: 1, pageSize: int.MaxValue,
-            startDate: yearStart, endDate: now.AddDays(1),
+            startDate: yearStartUtc, endDate: endDateUtc,
             cancellationToken: cancellationToken);
 
         var allLogs = yearResult.Items.ToList();
 
-        // Helper: count only finished logs (IsFinish == true) by CreatedAt range and Status.
+        // Helper: count only finished logs (IsFinish == true) by Jakarta CreatedAt range and Status.
         static (int total, int ok, int ng) CountRange(
-            IEnumerable<TraceabilityLog> logs, DateTime from, DateTime to)
+            IEnumerable<TraceabilityLog> logs, DateTime fromJakarta, DateTime toJakarta)
         {
             var inRange = logs.Where(l =>
             {
                 if (!l.IsFinish) return false;
-                var localCreatedAt = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
-                return localCreatedAt >= from && localCreatedAt < to;
+                var localCreatedAt = l.CreatedAt.ToJakartaTime();
+                return localCreatedAt >= fromJakarta && localCreatedAt < toJakarta;
             }).ToList();
             int ok = inRange.Count(l => l.Status);
             int ng = inRange.Count(l => !l.Status);
             return (inRange.Count, ok, ng);
         }
 
-        var (tTotal, tOk, tNg) = CountRange(allLogs, todayStart, todayStart.AddDays(1));
+        var (tTotal, tOk, tNg) = CountRange(allLogs, todayStartJakarta, todayStartJakarta.AddDays(1));
         summary.Today.TotalProduction = tTotal;
         summary.Today.OkCount = tOk;
         summary.Today.NgCount = tNg;
         summary.Today.YieldRate = CalculateYield(tTotal, tOk);
 
-        var (mTotal, mOk, mNg) = CountRange(allLogs, monthStart,
-            now.Month == 12 ? new DateTime(now.Year + 1, 1, 1) : monthStart.AddMonths(1));
+        var (mTotal, mOk, mNg) = CountRange(allLogs, monthStartJakarta,
+            nowJakarta.Month == 12 ? new DateTime(nowJakarta.Year + 1, 1, 1) : monthStartJakarta.AddMonths(1));
         summary.ThisMonth.TotalProduction = mTotal;
         summary.ThisMonth.OkCount = mOk;
         summary.ThisMonth.NgCount = mNg;
         summary.ThisMonth.YieldRate = CalculateYield(mTotal, mOk);
 
-        var (yTotal, yOk, yNg) = CountRange(allLogs, yearStart, new DateTime(now.Year + 1, 1, 1));
+        var (yTotal, yOk, yNg) = CountRange(allLogs, yearStartJakarta, new DateTime(nowJakarta.Year + 1, 1, 1));
         summary.Total.TotalProduction = yTotal;
         summary.Total.OkCount = yOk;
         summary.Total.NgCount = yNg;
@@ -120,25 +124,29 @@ public class DashboardService : IDashboardService
     public async Task<DashboardStatsDto> GetStatsAsync(int topPart, int trendDays, string? period = null, CancellationToken cancellationToken = default)
     {
         var stats = new DashboardStatsDto();
-        var now = DateTime.Now;
+        var nowJakarta = DateTimeHelper.GetJakartaNow();
 
-        // Tentukan date range berdasarkan period
-        DateTime? startDate;
-        DateTime endDate = now.AddDays(1).Date;
+        // Tentukan date range berdasarkan period di timezone Jakarta
+        DateTime? startDateJakarta;
+        DateTime endDateJakarta = nowJakarta.AddDays(1).Date;
 
-        startDate = period?.ToLowerInvariant() switch
+        startDateJakarta = period?.ToLowerInvariant() switch
         {
-            "day"   => now.Date,
-            "week"  => now.Date.AddDays(-6),
-            "month" => new DateTime(now.Year, now.Month, 1),
-            "year"  => new DateTime(now.Year, 1, 1),
+            "day"   => nowJakarta.Date,
+            "week"  => nowJakarta.Date.AddDays(-6),
+            "month" => new DateTime(nowJakarta.Year, nowJakarta.Month, 1),
+            "year"  => new DateTime(nowJakarta.Year, 1, 1),
             _       => null  // null = semua data (all time)
         };
+
+        // Konversi batas tanggal ke UTC untuk filter database
+        DateTime? startDateUtc = startDateJakarta?.ToUtcFromJakarta();
+        DateTime? endDateUtc = endDateJakarta.ToUtcFromJakarta();
 
         // Load traceability logs sesuai range
         var result = await _traceabilityLogRepository.GetAllTraceabilityNewAsync(
             page: 1, pageSize: int.MaxValue,
-            startDate: startDate, endDate: endDate,
+            startDate: startDateUtc, endDate: endDateUtc,
             cancellationToken: cancellationToken);
         var allTracLogs = result.Items.ToList();
 
@@ -188,15 +196,15 @@ public class DashboardService : IDashboardService
         switch (period?.ToLowerInvariant())
         {
             case "day":
-                // Per jam (24 jam hari ini)
+                // Per jam (24 jam hari ini di waktu Jakarta)
                 for (int h = 0; h < 24; h++)
                 {
-                    var hourStart = now.Date.AddHours(h);
+                    var hourStart = nowJakarta.Date.AddHours(h);
                     var hourEnd = hourStart.AddHours(1);
                     int count = allTracLogs.Count(l =>
                     {
                         if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        var t = l.CreatedAt.ToJakartaTime();
                         return t >= hourStart && t < hourEnd;
                     });
                     stats.ProductionTrend.Add(new ChartDataDto { Label = hourStart.ToString("HH:00"), Value = count });
@@ -204,15 +212,15 @@ public class DashboardService : IDashboardService
                 break;
 
             case "week":
-                // Per hari (7 hari terakhir)
+                // Per hari (7 hari terakhir di waktu Jakarta)
                 for (int i = 6; i >= 0; i--)
                 {
-                    var date = now.Date.AddDays(-i);
+                    var date = nowJakarta.Date.AddDays(-i);
                     var nextDate = date.AddDays(1);
                     int count = allTracLogs.Count(l =>
                     {
                         if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        var t = l.CreatedAt.ToJakartaTime();
                         return t >= date && t < nextDate;
                     });
                     stats.ProductionTrend.Add(new ChartDataDto { Label = date.ToString("dd MMM"), Value = count });
@@ -220,16 +228,16 @@ public class DashboardService : IDashboardService
                 break;
 
             case "month":
-                // Per hari dalam bulan ini
-                var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
+                // Per hari dalam bulan ini di waktu Jakarta
+                var daysInMonth = DateTime.DaysInMonth(nowJakarta.Year, nowJakarta.Month);
                 for (int d = 1; d <= daysInMonth; d++)
                 {
-                    var date = new DateTime(now.Year, now.Month, d);
+                    var date = new DateTime(nowJakarta.Year, nowJakarta.Month, d);
                     var nextDate = date.AddDays(1);
                     int count = allTracLogs.Count(l =>
                     {
                         if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        var t = l.CreatedAt.ToJakartaTime();
                         return t >= date && t < nextDate;
                     });
                     stats.ProductionTrend.Add(new ChartDataDto { Label = date.ToString("dd MMM"), Value = count });
@@ -240,20 +248,20 @@ public class DashboardService : IDashboardService
                 // year atau all-time: per bulan
                 // Untuk all-time, ambil bulan dari log paling lama hingga sekarang
                 DateTime trendStart = period?.ToLowerInvariant() == "year"
-                    ? new DateTime(now.Year, 1, 1)
+                    ? new DateTime(nowJakarta.Year, 1, 1)
                     : (allTracLogs.Count > 0
-                        ? new DateTime(allTracLogs.Min(l => l.CreatedAt).Year,
-                                       allTracLogs.Min(l => l.CreatedAt).Month, 1)
-                        : new DateTime(now.Year, 1, 1));
+                        ? new DateTime(allTracLogs.Min(l => l.CreatedAt.ToJakartaTime()).Year,
+                                       allTracLogs.Min(l => l.CreatedAt.ToJakartaTime()).Month, 1)
+                        : new DateTime(nowJakarta.Year, 1, 1));
 
                 var cursor = trendStart;
-                while (cursor <= now)
+                while (cursor <= nowJakarta)
                 {
                     var nextMonth = cursor.AddMonths(1);
                     int count = allTracLogs.Count(l =>
                     {
                         if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        var t = l.CreatedAt.ToJakartaTime();
                         return t >= cursor && t < nextMonth;
                     });
                     stats.ProductionTrend.Add(new ChartDataDto { Label = cursor.ToString("MMM yyyy"), Value = count });

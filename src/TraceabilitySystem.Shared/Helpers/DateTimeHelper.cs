@@ -39,6 +39,26 @@ public static class DateTimeHelper
     public static DateOnly GetJakartaToday() => DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
 
     /// <summary>
+    /// Converts a UTC DateTime or Unspecified DateTime (stored as UTC) to Jakarta Time (WIB / UTC+7).
+    /// </summary>
+    public static DateTime ToJakartaTime(this DateTime dateTime)
+    {
+        var utc = dateTime.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)
+            : dateTime.ToUniversalTime();
+
+        return utc.AddHours(7);
+    }
+
+    /// <summary>
+    /// Converts a Jakarta Time (WIB / UTC+7) DateTime to UTC DateTime for database filtering.
+    /// </summary>
+    public static DateTime ToUtcFromJakarta(this DateTime jakartaDateTime)
+    {
+        return DateTime.SpecifyKind(jakartaDateTime.AddHours(-7), DateTimeKind.Utc);
+    }
+
+    /// <summary>
     /// Formats a DateTime to an ISO 8601 UTC string format (e.g. 2026-09-09T07:46:00Z)
     /// suitable for accurate timezone conversion on frontend clients.
     /// </summary>
