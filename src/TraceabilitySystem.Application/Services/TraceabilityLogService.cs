@@ -1124,5 +1124,33 @@ public class TraceabilityLogService : ITraceabilityLogService
         if (string.IsNullOrWhiteSpace(code)) return false;
         return CheckPointRegex.IsMatch(code);
     }
+
+    public async Task<TraceabilityLogIssueDto> GetIssuesBySerialNumberAsync(
+        string serialNumber,
+        bool status = false,
+        CancellationToken cancellationToken = default)
+    {
+        // Validasi: cek actual status dari serial number clinching
+        // Jika actual status tidak sesuai dengan parameter yang dikirim, return empty
+        var checkSerialNumber = await _traceabilityLogRepository.GetBySerialNumberClinchingAsync(serialNumber, cancellationToken);
+        if (checkSerialNumber == null || checkSerialNumber.Status != status)
+        {
+            throw new NotFoundException(nameof(TraceabilityLog), serialNumber);
+        }
+
+        var issues = await _traceabilityLogRepository.GetIssuesBySerialNumberAsync(
+            serialNumber, status, isFinish: true, cancellationToken);
+
+        return new TraceabilityLogIssueDto
+        {
+            SerialNumber = serialNumber,
+            Issues = issues.Select(i => new TraceabilityLogIssueItemDto
+            {
+                IssueNumber = i.IssueNumber,
+                PartNumber = i.PartNumber,
+                PartName = i.PartName
+            }).ToList()
+        };
+    }
 }
 

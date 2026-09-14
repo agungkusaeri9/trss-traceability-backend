@@ -497,6 +497,51 @@ public class TraceabilityLogRepository : BaseRepository<ProcessLog>, ITraceabili
             .Take(count)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<List<(string IssueNumber, string? PartNumber, string? PartName)>> GetIssuesBySerialNumberAsync(
+        string serialNumber,
+        bool status = false,
+        bool isFinish = true,
+        CancellationToken cancellationToken = default)
+    {
+        // Cari TraceabilityLog berdasarkan SerialNumberClinching dengan filter status & isFinish
+        var traceLog = await _context.TraceabilityLogs
+            .AsNoTracking()
+            .Where(t => (t.SerialNumberClinching == serialNumber || t.Code == serialNumber)
+                        && t.Status == status
+                        && t.IsFinish == isFinish)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (traceLog == null)
+            return new List<(string, string?, string?)>();
+
+        // Ambil serial number yang terkait (clinching)
+        var snCode = traceLog.SerialNumberClinching ?? traceLog.Code;
+        if (string.IsNullOrWhiteSpace(snCode))
+            return new List<(string, string?, string?)>();
+
+        var serial = await _context.SerialNumbers
+            .AsNoTracking()
+            .Where(s => s.SerialNumberCode == snCode)
+            .Include(s => s.Issues)
+                .ThenInclude(si => si.Issue)
+                    .ThenInclude(i => i.StockIn)
+                        .ThenInclude(st => st.Part)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (serial == null)
+            return new List<(string, string?, string?)>();
+
+        return serial.Issues?
+            .Where(si => si.Issue != null)
+            .OrderBy(si => si.Id)
+            .Select(si => (
+                IssueNumber: si.Issue!.Number,
+                PartNumber: si.Issue.StockIn?.Part?.Number,
+                PartName: si.Issue.StockIn?.Part?.Name
+            ))
+            .ToList() ?? new List<(string, string?, string?)>();
+    }
 }
 
 

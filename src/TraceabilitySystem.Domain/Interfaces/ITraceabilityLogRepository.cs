@@ -55,4 +55,10 @@ public interface ITraceabilityLogRepository : IRepository<ProcessLog>
     Task<IEnumerable<TraceabilityLog>> GetRecentTraceabilityLogsAsync(
         int count = 10,
         CancellationToken cancellationToken = default);
+
+    Task<List<(string IssueNumber, string? PartNumber, string? PartName)>> GetIssuesBySerialNumberAsync(
+        string serialNumber,
+        bool status = false,
+        bool isFinish = true,
+        CancellationToken cancellationToken = default);
 }

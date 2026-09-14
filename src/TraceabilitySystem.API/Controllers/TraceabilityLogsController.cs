@@ -113,5 +113,17 @@ public class TraceabilityLogsController : ControllerBase
 
         return ResponseFormatter.Success(result, "Recent traceability logs retrieved successfully.");
     }
+
+    [HttpGet("/api/v2/traceability-logs/issues/by-serial-number/{serialNumber}")]
+    [ProducesResponseType(typeof(ApiResponse<TraceabilityLogIssueDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetIssuesBySerialNumber(
+        string serialNumber,
+        [FromQuery] bool status = false,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _traceabilityLogService.GetIssuesBySerialNumberAsync(serialNumber, status, cancellationToken);
+        return ResponseFormatter.Success(result, "Traceability log issues retrieved successfully.");
+    }
 }
 

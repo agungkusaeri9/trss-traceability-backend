@@ -123,10 +123,10 @@ public class PrintService : IPrintService
         ^FO20,16^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
         ^FO20,42^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS
 
-        ^FO20,81^A0N,22,22^FD{serialNumberCode}^FS
+        ^FO20,84^A0N,24,26^FD{serialNumberCode}^FS
 
-        ^FO20,114^A0N,22,22^FD{dateFormat}^FS
-        ^FO170,115^A0N,17,17^FDMADE IN INDONESIA^FS
+        ^FO20,117^A0N,24,26^FD{dateFormat}^FS
+        ^FO170,118^A0N,17,17^FDMADE IN INDONESIA^FS
 
         ^XZ
         """;
@@ -371,23 +371,28 @@ public class PrintService : IPrintService
             pd.DefaultPageSettings.Landscape = true;
             pd.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
-            // A6 (105mm x 148mm -> 413 x 583)
-            bool a6Found = false;
+            // 4x6 inch label / 110mm x 150mm (Lebar +1cm: 440 x 640 in hundredths of an inch)
+            bool paperFound = false;
             foreach (PaperSize size in pd.PrinterSettings.PaperSizes)
             {
-                if (size.PaperName.Equals("A6", StringComparison.OrdinalIgnoreCase) ||
-                    size.RawKind == (int)PaperKind.A6)
+                string name = size.PaperName.ToLowerInvariant();
+                if (name.Contains("4x6") || name.Contains("4 x 6") || name.Contains("4.00 x 6.00") ||
+                    name.Contains("100x150") || name.Contains("100 x 150") ||
+                    name.Contains("110x150") || name.Contains("110 x 150") ||
+                    (size.Width >= 400 && size.Width <= 450 && size.Height >= 580 && size.Height <= 650) ||
+                    (size.Width >= 580 && size.Width <= 650 && size.Height >= 400 && size.Height <= 450))
                 {
                     pd.DefaultPageSettings.PaperSize = size;
-                    a6Found = true;
+                    paperFound = true;
                     break;
                 }
             }
 
-            if (!a6Found)
-            {
-                pd.DefaultPageSettings.PaperSize = new PaperSize("A6", 413, 583);
-            }
+            // if (!paperFound)
+            // {
+            //     // Width ditambah 1 cm (~40 units / 0.4 inch): 440 x 640 hundredths of an inch
+            //     pd.DefaultPageSettings.PaperSize = new PaperSize("Custom_4x6_Wide", 440, 640);
+            // }
 
             pd.PrintPage += (sender, e) =>
             {
@@ -397,29 +402,30 @@ public class PrintService : IPrintService
 
                 g.Clear(DrawingColor.White);
                 g.SmoothingMode = SmoothingMode.HighQuality;
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-                using DrawingFont labelFont = new("Arial", 9.5f, DrawingFontStyle.Bold);
-                using DrawingFont valueFont = new("Arial", 13f, DrawingFontStyle.Bold);
+                using DrawingFont labelFont = new("Arial", 9f, DrawingFontStyle.Bold);
+                using DrawingFont valueFont = new("Arial", 11.5f, DrawingFontStyle.Bold);
 
-                Pen pen = Pens.Black;
+                using Pen pen = new(DrawingColor.Black, 1.5f);
 
-                // Margin minimal
-                int marginHorizontal = 10;
-                int marginVertical = 10;
+                // Margin luar: dikurangi 0.5 cm (~20 units) di setiap sisi (kiri, kanan, atas, bawah)
+                int startX = 45;
+                int marginRight = 90;
+                int startY = 58;
 
-                int printableWidth = pageWidth - (marginHorizontal * 2);
-                int printableHeight = pageHeight - (marginVertical * 2);
+                int printableWidth = pageWidth - startX - marginRight;
+                int printableHeight = pageHeight - (startY * 2);
 
                 // Tinggi tiap row
                 int rowHeight = printableHeight / 6;
 
-                // Lebar kolom
-                int labelWidth = (int)(printableWidth * 0.32);
-                int qrWidth = (int)(printableWidth * 0.30);
-                int valueWidth = printableWidth - labelWidth - qrWidth;
-
-                int startX = marginHorizontal;
-                int startY = marginVertical;
+                // Penyesuaian lebar kolom:
+                // Kolom Key (24%), Value (36%), dan QR Code (40%)
+                int labelWidth = (int)(printableWidth * 0.24);
+                int valueWidth = (int)(printableWidth * 0.36);
+                int qrWidth = printableWidth - labelWidth - valueWidth;
 
                 StringFormat leftMiddle = new()
                 {
@@ -451,7 +457,7 @@ public class PrintService : IPrintService
                 {
                     int y = startY + (i * rowHeight);
 
-                    // Label
+                    // Label Box
                     g.DrawRectangle(
                         pen,
                         startX,
@@ -459,7 +465,7 @@ public class PrintService : IPrintService
                         labelWidth,
                         rowHeight);
 
-                    // Value
+                    // Value Box
                     g.DrawRectangle(
                         pen,
                         startX + labelWidth,
@@ -467,49 +473,59 @@ public class PrintService : IPrintService
                         valueWidth,
                         rowHeight);
 
+                    // Label text with internal padding
                     g.DrawString(
                         labels[i],
                         labelFont,
-                        Brushes.Black,
+                        DrawingBrushes.Black,
                         new RectangleF(
                             startX + 6,
-                            y,
+                            y + 2,
                             labelWidth - 10,
-                            rowHeight),
+                            rowHeight - 4),
                         leftMiddle);
 
+                    // Value text with internal padding
                     g.DrawString(
                         values[i],
                         valueFont,
-                        Brushes.Black,
+                        DrawingBrushes.Black,
                         new RectangleF(
                             startX + labelWidth + 6,
-                            y,
+                            y + 2,
                             valueWidth - 10,
-                            rowHeight),
+                            rowHeight - 4),
                         leftMiddle);
                 }
 
                 // QR Area
                 int totalTableHeight = rowHeight * 6;
+                int qrBoxX = startX + labelWidth + valueWidth;
                 g.DrawRectangle(
                     pen,
-                    startX + labelWidth + valueWidth,
+                    qrBoxX,
                     startY,
                     qrWidth,
                     totalTableHeight);
 
-                int qrSize = Math.Min(qrWidth - 16, totalTableHeight - 16);
+                // Padding internal QR dibuat pas (10px) agar QR tidak terlalu kecil dan tidak menabrak border
+                int qrPadding = 10;
+                int maxQrWidth = qrWidth - (qrPadding * 2);
+                int maxQrHeight = totalTableHeight - (qrPadding * 2);
+                int qrSize = Math.Min(maxQrWidth, maxQrHeight);
 
-                int qrX = startX + labelWidth + valueWidth + ((qrWidth - qrSize) / 2);
+                int qrX = qrBoxX + ((qrWidth - qrSize) / 2);
                 int qrY = startY + ((totalTableHeight - qrSize) / 2);
 
+                // Gambar QR Code secara presisi menggunakan source pixel rectangle
                 g.DrawImage(
                     qrImage,
-                    qrX,
-                    qrY,
-                    qrSize,
-                    qrSize);
+                    new Rectangle(qrX, qrY, qrSize, qrSize),
+                    0,
+                    0,
+                    qrImage.Width,
+                    qrImage.Height,
+                    GraphicsUnit.Pixel);
             };
 
             pd.Print();

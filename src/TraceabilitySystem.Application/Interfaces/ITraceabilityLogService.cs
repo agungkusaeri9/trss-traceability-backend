@@ -45,4 +45,9 @@ public interface ITraceabilityLogService
     Task<List<TraceabilityLogDto>> GetRecentTraceabilityLogsAsync(
         int count = 10,
         CancellationToken cancellationToken = default);
+
+    Task<TraceabilityLogIssueDto> GetIssuesBySerialNumberAsync(
+        string serialNumber,
+        bool status = false,
+        CancellationToken cancellationToken = default);
 }
