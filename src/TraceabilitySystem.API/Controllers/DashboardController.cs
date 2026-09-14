@@ -40,10 +40,13 @@ public class DashboardController : ControllerBase
 
     [HttpGet("stats")]
     [ProducesResponseType(typeof(ApiResponse<DashboardStatsDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetStats([FromQuery] int topParts = 5, [FromQuery]
-    int trendDays = 7, CancellationToken cancellationToken = default) 
+    public async Task<IActionResult> GetStats(
+        [FromQuery] int topParts = 5,
+        [FromQuery] int trendDays = 7,
+        [FromQuery] string? period = null,
+        CancellationToken cancellationToken = default)
     {
-        var result = await _dashboardService.GetStatsAsync(topParts, trendDays,cancellationToken);
+        var result = await _dashboardService.GetStatsAsync(topParts, trendDays, period, cancellationToken);
         return ResponseFormatter.Success(result, "Dashboard stats retrieved successfully.");
     }
 

@@ -8,7 +8,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
-[Authorize(Roles = "admin")]
+[Authorize(Roles = "superadmin")]
 [ApiController]
 [Route("api/app-configs")]
 public class AppConfigsController : ControllerBase

@@ -10,7 +10,7 @@ public interface IDashboardService
 {
     Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default);
     Task<List<DashboardSummaryFieldDto>> GetTraceabilitySummaryAsync(CancellationToken cancellationToken = default);
-    Task<DashboardStatsDto> GetStatsAsync(int topParts, int trendDays, CancellationToken cancellationToken = default);
+    Task<DashboardStatsDto> GetStatsAsync(int topParts, int trendDays, string? period = null, CancellationToken cancellationToken = default);
     Task<List<ProcessLogDto>> GetRecentLogsAsync(int count = 5, CancellationToken cancellationToken = default);
     Task<TraceabilityFlowDto> GetTraceabilityFlowAsync(CancellationToken cancellationToken = default);
 }

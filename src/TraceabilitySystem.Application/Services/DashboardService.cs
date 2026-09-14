@@ -117,18 +117,30 @@ public class DashboardService : IDashboardService
         return Task.FromResult(_traceabilitySummarySimulator.GetSnapshot());
     }
 
-    public async Task<DashboardStatsDto> GetStatsAsync(int topPart, int trendDays, CancellationToken cancellationToken = default)
+    public async Task<DashboardStatsDto> GetStatsAsync(int topPart, int trendDays, string? period = null, CancellationToken cancellationToken = default)
     {
         var stats = new DashboardStatsDto();
         var now = DateTime.Now;
 
-        // Load all trac logs for this year directly from TraceabilityLogs table
-        var yearStart = new DateTime(now.Year, 1, 1);
-        var yearResult = await _traceabilityLogRepository.GetAllTraceabilityNewAsync(
+        // Tentukan date range berdasarkan period
+        DateTime? startDate;
+        DateTime endDate = now.AddDays(1).Date;
+
+        startDate = period?.ToLowerInvariant() switch
+        {
+            "day"   => now.Date,
+            "week"  => now.Date.AddDays(-6),
+            "month" => new DateTime(now.Year, now.Month, 1),
+            "year"  => new DateTime(now.Year, 1, 1),
+            _       => null  // null = semua data (all time)
+        };
+
+        // Load traceability logs sesuai range
+        var result = await _traceabilityLogRepository.GetAllTraceabilityNewAsync(
             page: 1, pageSize: int.MaxValue,
-            startDate: yearStart, endDate: now.AddDays(1),
+            startDate: startDate, endDate: endDate,
             cancellationToken: cancellationToken);
-        var allTracLogs = yearResult.Items.ToList();
+        var allTracLogs = result.Items.ToList();
 
         // 1. Quality Distribution (Pie Chart) — only finished logs (IsFinish == true)
         int ok = allTracLogs.Count(l => l.IsFinish && l.Status);
@@ -172,28 +184,87 @@ public class DashboardService : IDashboardService
 
         stats.TopPartsProduction = topParts;
 
-        // 3. Production Trend (Last 7 Days) — based on finished TraceabilityLogs CreatedAt
-        for (int i = 6; i >= 0; i--)
+        // 3. Production Trend — granularitas menyesuaikan period
+        switch (period?.ToLowerInvariant())
         {
-            var date = now.Date.AddDays(-i);
-            var nextDate = date.AddDays(1);
+            case "day":
+                // Per jam (24 jam hari ini)
+                for (int h = 0; h < 24; h++)
+                {
+                    var hourStart = now.Date.AddHours(h);
+                    var hourEnd = hourStart.AddHours(1);
+                    int count = allTracLogs.Count(l =>
+                    {
+                        if (!l.IsFinish) return false;
+                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        return t >= hourStart && t < hourEnd;
+                    });
+                    stats.ProductionTrend.Add(new ChartDataDto { Label = hourStart.ToString("HH:00"), Value = count });
+                }
+                break;
 
-            int dayCount = allTracLogs.Count(l =>
-            {
-                if (!l.IsFinish) return false;
-                var localCreatedAt = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
-                return localCreatedAt >= date && localCreatedAt < nextDate;
-            });
+            case "week":
+                // Per hari (7 hari terakhir)
+                for (int i = 6; i >= 0; i--)
+                {
+                    var date = now.Date.AddDays(-i);
+                    var nextDate = date.AddDays(1);
+                    int count = allTracLogs.Count(l =>
+                    {
+                        if (!l.IsFinish) return false;
+                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        return t >= date && t < nextDate;
+                    });
+                    stats.ProductionTrend.Add(new ChartDataDto { Label = date.ToString("dd MMM"), Value = count });
+                }
+                break;
 
-            stats.ProductionTrend.Add(new ChartDataDto
-            {
-                Label = date.ToString("dd MMM"),
-                Value = dayCount
-            });
+            case "month":
+                // Per hari dalam bulan ini
+                var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
+                for (int d = 1; d <= daysInMonth; d++)
+                {
+                    var date = new DateTime(now.Year, now.Month, d);
+                    var nextDate = date.AddDays(1);
+                    int count = allTracLogs.Count(l =>
+                    {
+                        if (!l.IsFinish) return false;
+                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        return t >= date && t < nextDate;
+                    });
+                    stats.ProductionTrend.Add(new ChartDataDto { Label = date.ToString("dd MMM"), Value = count });
+                }
+                break;
+
+            default:
+                // year atau all-time: per bulan
+                // Untuk all-time, ambil bulan dari log paling lama hingga sekarang
+                DateTime trendStart = period?.ToLowerInvariant() == "year"
+                    ? new DateTime(now.Year, 1, 1)
+                    : (allTracLogs.Count > 0
+                        ? new DateTime(allTracLogs.Min(l => l.CreatedAt).Year,
+                                       allTracLogs.Min(l => l.CreatedAt).Month, 1)
+                        : new DateTime(now.Year, 1, 1));
+
+                var cursor = trendStart;
+                while (cursor <= now)
+                {
+                    var nextMonth = cursor.AddMonths(1);
+                    int count = allTracLogs.Count(l =>
+                    {
+                        if (!l.IsFinish) return false;
+                        var t = l.CreatedAt.Kind == DateTimeKind.Utc ? l.CreatedAt.ToLocalTime() : l.CreatedAt;
+                        return t >= cursor && t < nextMonth;
+                    });
+                    stats.ProductionTrend.Add(new ChartDataDto { Label = cursor.ToString("MMM yyyy"), Value = count });
+                    cursor = nextMonth;
+                }
+                break;
         }
 
         return stats;
     }
+
 
 
     public async Task<List<ProcessLogDto>> GetRecentLogsAsync(int count = 5, CancellationToken cancellationToken = default)
