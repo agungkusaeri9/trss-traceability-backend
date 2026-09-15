@@ -24,10 +24,18 @@ public class ParameterConfiguration : IEntityTypeConfiguration<Parameter>
             .IsRequired()
             .HasMaxLength(20);
 
+        builder.Property(p => p.TypeValue)
+            .IsRequired()
+            .HasMaxLength(20)
+            .HasDefaultValue("value");
+
         builder.Property(p => p.Order)
             .IsRequired(false);
 
         builder.Property(p => p.IsActive)
+            .HasDefaultValue(true);
+
+        builder.Property(p => p.ShowInDisplay)
             .HasDefaultValue(true);
 
         builder.Property(p => p.CreatedAt)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using TraceabilitySystem.Application.DTOs.StockIn;
+using TraceabilitySystem.Application.DTOs.TraceabilityLog;
 
 namespace TraceabilitySystem.Application.DTOs.ProcessLog;
 
@@ -58,9 +59,10 @@ public class ProcessLogListDto
     public string SerialNumberCode { get; set; } = string.Empty;
     public bool Status { get; set; }
     public bool IsFinished { get; set; }
+    public List<TraceabilityLogParameterDto>? Clinching { get; set; }
+    public List<TraceabilityLogParameterDto>? MFan { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-    public object? Detail { get; set; }
 }
 
 public class ProcessLogClinchingDetailDto

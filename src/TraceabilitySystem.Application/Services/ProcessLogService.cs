@@ -2,6 +2,7 @@ using System.Globalization;
 using Mapster;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.DTOs.SerialNumber;
+using TraceabilitySystem.Application.DTOs.TraceabilityLog;
 using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
@@ -139,7 +140,7 @@ public class ProcessLogService : IProcessLogService
         {
             SerialNumberCode = log.SerialNumber.SerialNumberCode,
             Details = log.Details
-                .Where(x => !OverallProcessCodes.Contains(x.Process.Code))
+                .Where(x => !OverallProcessCodes.Contains(x.Process.Code) && (x.Parameter == null || x.Parameter.ShowInDisplay))
                 .OrderBy(x => x.Process.Order)
                 .ThenBy(x => x.Parameter.Order)
                 .Adapt<List<ProcessLogFullValueDetailDto>>()
@@ -156,6 +157,7 @@ public class ProcessLogService : IProcessLogService
             {
                 SerialNumberCode = childLog.SerialNumber.SerialNumberCode,
                 Details = childLog.Details
+                    .Where(x => x.Parameter == null || x.Parameter.ShowInDisplay)
                     .OrderBy(x => x.Process.Order)
                     .ThenBy(x => x.Parameter.Order)
                     .Adapt<List<ProcessLogFullValueDetailDto>>()
@@ -163,7 +165,7 @@ public class ProcessLogService : IProcessLogService
         }
 
         result.Overall = log.Details
-            .Where(x => OverallProcessCodes.Contains(x.Process.Code))
+            .Where(x => OverallProcessCodes.Contains(x.Process.Code) && (x.Parameter == null || x.Parameter.ShowInDisplay))
             .OrderBy(x => x.Process.Order)
             .ThenBy(x => x.Parameter.Order)
             .Adapt<List<ProcessLogFullValueDetailDto>>();
@@ -627,45 +629,49 @@ public class ProcessLogService : IProcessLogService
         string type = isClinching ? "clinching" : "mfan";
         var details = log.Details ?? new List<ProcessLogDetail>();
 
+        var issues = sn.Issues?
+            .Where(x => x.Issue != null)
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => x.Issue!.Number)
+            .ToList() ?? new List<string>();
+
+        List<TraceabilityLogParameterDto>? clinchingParams = null;
+        List<TraceabilityLogParameterDto>? mfanParams = null;
+
         bool typeStatus;
         bool isFinished;
-        object detail;
 
         if (isClinching)
         {
-            var clinchingDetail = MapClinchingDetail(log);
-            detail = clinchingDetail;
-
             var clinchingDetails = details
-                .Where(d => string.Equals(d.Process?.Code, "CLINCHING_SHORT_SIDE", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(d.Process?.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase))
+                .Where(d => d.Process != null &&
+                            (string.Equals(d.Process.Code, "CLINCHING_SHORT_SIDE", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(d.Process.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(d.Process.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
+                             d.Process.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) ||
+                             d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-            typeStatus = (clinchingDetail.ORingSetResult == null || clinchingDetail.ORingSetResult == 1) &&
-                         (clinchingDetail.ClinchingHeightStatus == null || clinchingDetail.ClinchingHeightStatus.Value) &&
-                         (clinchingDetail.EndPlateWidthStatus == null || clinchingDetail.EndPlateWidthStatus.Value) &&
-                         (clinchingDetail.CapTypePositionResult == null || clinchingDetail.CapTypePositionResult == 1) &&
-                         (clinchingDetail.LeakResult == null || clinchingDetail.LeakResult == 1) &&
-                         (clinchingDetails.Count == 0 || clinchingDetails.All(d => d.Status));
+            clinchingParams = TraceabilityLogService.MapProcessLogDetailsToParameterDtos(
+                clinchingDetails.Count > 0 ? clinchingDetails : details, issues);
 
+            typeStatus = log.Status && !clinchingParams.Any(p => p.Status == false);
             isFinished = log.IsFinished || details.Any(d => string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase));
         }
         else
         {
-            var mfanDetail = MapMFanDetail(log);
-            detail = mfanDetail;
-
             var mfanDetails = details
-                .Where(d => string.Equals(d.Process?.Code, "M_FAN_ASSY", StringComparison.OrdinalIgnoreCase) ||
-                            string.Equals(d.Process?.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase))
+                .Where(d => d.Process != null &&
+                            (string.Equals(d.Process.Code, "M_FAN_ASSY", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(d.Process.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) ||
+                             d.Process.Code.Contains("FAN", StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-            typeStatus = (mfanDetail.MFanTestResult == null || mfanDetail.MFanTestResult == 1) &&
-                         (mfanDetails.Count == 0 || mfanDetails.All(d => d.Status));
+            mfanParams = TraceabilityLogService.MapProcessLogDetailsToParameterDtos(
+                mfanDetails.Count > 0 ? mfanDetails : details, issues);
 
-            isFinished = log.IsFinished || details.Any(d => string.Equals(d.Process?.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) ||
-                                                           string.Equals(d.Process?.Code, "M_FAN_ASSY", StringComparison.OrdinalIgnoreCase));
+            typeStatus = log.Status && !mfanParams.Any(p => p.Status == false);
+            isFinished = log.IsFinished || details.Any(d => string.Equals(d.Process?.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase));
         }
 
         return new ProcessLogListDto
@@ -675,9 +681,10 @@ public class ProcessLogService : IProcessLogService
             SerialNumberCode = sn.SerialNumberCode,
             Status           = typeStatus,
             IsFinished       = isFinished,
+            Clinching        = clinchingParams,
+            MFan             = mfanParams,
             CreatedAt        = log.CreatedAt,
-            UpdatedAt        = log.UpdatedAt,
-            Detail           = detail
+            UpdatedAt        = log.UpdatedAt
         };
     }
 
@@ -740,6 +747,7 @@ public class ProcessLogService : IProcessLogService
         if (details == null) return new List<ProcessGroupDto>();
 
         return details
+            .Where(d => d.Parameter == null || d.Parameter.ShowInDisplay)
             .GroupBy(d => new { Id = d.Process?.Id ?? 0, Code = d.Process?.Code, Name = d.Process?.Name })
             .OrderBy(g => g.Key.Id)
             .Select(g => new ProcessGroupDto
@@ -889,7 +897,7 @@ public class ProcessLogService : IProcessLogService
                 if (param == null) continue;
 
                 decimal? valNum = null;
-                string? valText = null;
+                string? valText = ParseText(kvp.Value);
                 bool? valBool = null;
 
                 if (param.DataType == "boolean")
@@ -899,10 +907,6 @@ public class ProcessLogService : IProcessLogService
                 else if (param.DataType == "number")
                 {
                     valNum = ParseDecimal(kvp.Value);
-                }
-                else
-                {
-                    valText = ParseText(kvp.Value);
                 }
 
                 bool status = request.IsOk ?? true;
@@ -1005,7 +1009,7 @@ public class ProcessLogService : IProcessLogService
                 if (param == null) continue;
 
                 decimal? valNum = null;
-                string? valText = null;
+                string? valText = ParseText(kvp.Value);
                 bool? valBool = null;
 
                 if (param.DataType == "boolean")
@@ -1015,10 +1019,6 @@ public class ProcessLogService : IProcessLogService
                 else if (param.DataType == "number")
                 {
                     valNum = ParseDecimal(kvp.Value);
-                }
-                else
-                {
-                    valText = ParseText(kvp.Value);
                 }
 
                 bool status = request.IsOk ?? true;
@@ -1219,10 +1219,27 @@ public class ProcessLogService : IProcessLogService
         {
             if (element.ValueKind == System.Text.Json.JsonValueKind.True) return true;
             if (element.ValueKind == System.Text.Json.JsonValueKind.False) return false;
+            if (element.ValueKind == System.Text.Json.JsonValueKind.Number)
+            {
+                if (element.TryGetInt64(out var n))
+                {
+                    if (n == 1) return true;
+                    if (n == 0) return false;
+                }
+                return null;
+            }
 
-            var strVal = element.GetString()?.Trim().ToUpperInvariant();
+            var strVal = (element.ValueKind == System.Text.Json.JsonValueKind.String ? element.GetString() : element.GetRawText())?.Trim().ToUpperInvariant();
             if (strVal == "OK" || strVal == "TRUE" || strVal == "1") return true;
             if (strVal == "NG" || strVal == "FALSE" || strVal == "0") return false;
+            return null;
+        }
+
+        if (val is bool b) return b;
+        if (val is int intVal)
+        {
+            if (intVal == 1) return true;
+            if (intVal == 0) return false;
             return null;
         }
 
@@ -1230,7 +1247,6 @@ public class ProcessLogService : IProcessLogService
         if (str == "OK" || str == "TRUE" || str == "1") return true;
         if (str == "NG" || str == "FALSE" || str == "0") return false;
 
-        if (val is bool b) return b;
         return null;
     }
 

@@ -118,7 +118,7 @@ public class PrintService : IPrintService
         ^LL{labelH}
         ^CI28
 
-        ^FO360,75^BQN,3,3^FDQA,{qrCodeString}^FS
+        ^FO357,72^BQN,3,3^FDQA,{qrCodeString}^FS
 
         ^FO20,16^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
         ^FO20,42^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS

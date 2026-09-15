@@ -5,7 +5,7 @@ namespace TraceabilitySystem.Application.Interfaces;
 
 public interface IParameterService
 {
-    Task<PagedResult<ParameterDto>> GetParametersAsync(int page, int pageSize, string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default);
+    Task<PagedResult<ParameterDto>> GetParametersAsync(int page, int pageSize, string? searchTerm = null, bool? isActive = null, bool? showInDisplay = null, CancellationToken cancellationToken = default);
     Task<ParameterDto> GetParameterByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<ParameterDto> CreateParameterAsync(CreateParameterRequestDto request, CancellationToken cancellationToken = default);
     Task<ParameterDto> UpdateParameterAsync(int id, UpdateParameterRequestDto request, CancellationToken cancellationToken = default);

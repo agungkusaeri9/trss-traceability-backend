@@ -37,6 +37,13 @@ public class CreateProcessLogRequestDto
     [JsonPropertyName("isOk")]
     public bool? IsOk { get; set; }
 
+    [JsonPropertyName("is_ok")]
+    public bool? IsOkSnakeCase
+    {
+        get => IsOk;
+        set { if (value.HasValue) IsOk = value; }
+    }
+
     [JsonPropertyName("data")]
     public Dictionary<string, object>? Data { get; set; }
 

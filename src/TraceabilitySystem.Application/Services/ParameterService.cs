@@ -18,18 +18,20 @@ public class ParameterService : BaseService<Parameter, ParameterDto>, IParameter
     }
 
     public async Task<PagedResult<ParameterDto>> GetParametersAsync(
-        int page, int pageSize, string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default)
+        int page, int pageSize, string? searchTerm = null, bool? isActive = null, bool? showInDisplay = null, CancellationToken cancellationToken = default)
     {
         System.Linq.Expressions.Expression<Func<Parameter, bool>> predicate;
 
         if (!string.IsNullOrEmpty(searchTerm))
         {
             predicate = u => ((u.Name != null && u.Name.Contains(searchTerm)) || u.Code.Contains(searchTerm))
-                            && (!isActive.HasValue || u.IsActive == isActive.Value);
+                            && (!isActive.HasValue || u.IsActive == isActive.Value)
+                            && (!showInDisplay.HasValue || u.ShowInDisplay == showInDisplay.Value);
         }
         else
         {
-            predicate = u => !isActive.HasValue || u.IsActive == isActive.Value;
+            predicate = u => (!isActive.HasValue || u.IsActive == isActive.Value)
+                            && (!showInDisplay.HasValue || u.ShowInDisplay == showInDisplay.Value);
         }
 
         var (parameters, totalCount) = await _parameterRepository.GetPagedAsync(
@@ -62,8 +64,17 @@ public class ParameterService : BaseService<Parameter, ParameterDto>, IParameter
             throw new AppException("Invalid DataType. Allowed values are: boolean, text, number.", 400);
         }
 
+        var allowedTypeValues = new[] { "value", "ok_ng" };
+        var typeVal = string.IsNullOrWhiteSpace(request.TypeValue) ? "value" : request.TypeValue.ToLower();
+        if (!allowedTypeValues.Contains(typeVal))
+        {
+            throw new AppException("Invalid TypeValue. Allowed values are: value, ok_ng.", 400);
+        }
+
         var parameter = request.Adapt<Parameter>();
         parameter.DataType = request.DataType.ToLower();
+        parameter.TypeValue = typeVal;
+        parameter.ShowInDisplay = request.ShowInDisplay;
         parameter.CreatedAt = DateTime.UtcNow;
 
         await _parameterRepository.AddAsync(parameter, cancellationToken);
@@ -98,6 +109,18 @@ public class ParameterService : BaseService<Parameter, ParameterDto>, IParameter
             parameter.DataType = request.DataType.ToLower();
         }
 
+        if (request.TypeValue is not null)
+        {
+            var allowedTypeValues = new[] { "value", "ok_ng" };
+            var typeVal = request.TypeValue.ToLower();
+            if (!allowedTypeValues.Contains(typeVal))
+            {
+                throw new AppException("Invalid TypeValue. Allowed values are: value, ok_ng.", 400);
+            }
+            parameter.TypeValue = typeVal;
+        }
+
+        if (request.ShowInDisplay.HasValue) parameter.ShowInDisplay = request.ShowInDisplay.Value;
         if (request.IsActive.HasValue) parameter.IsActive = request.IsActive.Value;
 
         parameter.UpdatedAt = DateTime.UtcNow;

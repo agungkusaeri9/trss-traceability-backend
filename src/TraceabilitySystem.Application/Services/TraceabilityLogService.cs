@@ -146,7 +146,7 @@ public class TraceabilityLogService : ITraceabilityLogService
         {
             SerialNumberCode = log.SerialNumber.SerialNumberCode,
             Details = log.Details
-                .Where(x => !OverallProcessCodes.Contains(x.Process.Code))
+                .Where(x => !OverallProcessCodes.Contains(x.Process.Code) && (x.Parameter == null || x.Parameter.ShowInDisplay))
                 .OrderBy(x => string.Equals(x.Process.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
                 .ThenBy(x => x.Process.Order)
                 .ThenBy(x => x.Parameter.Order)
@@ -186,6 +186,7 @@ public class TraceabilityLogService : ITraceabilityLogService
             {
                 SerialNumberCode = childSn.SerialNumberCode,
                 Details = childDetails
+                    .Where(x => x.Parameter == null || x.Parameter.ShowInDisplay)
                     .OrderBy(x => x.Process.Order)
                     .ThenBy(x => x.Parameter.Order)
                     .Adapt<List<ProcessLogFullValueDetailDto>>()
@@ -197,7 +198,7 @@ public class TraceabilityLogService : ITraceabilityLogService
         }
 
         result.Overall = log.Details
-            .Where(x => OverallProcessCodes.Contains(x.Process.Code))
+            .Where(x => OverallProcessCodes.Contains(x.Process.Code) && (x.Parameter == null || x.Parameter.ShowInDisplay))
             .OrderBy(x => x.Process.Order)
             .ThenBy(x => x.Parameter.Order)
             .Adapt<List<ProcessLogFullValueDetailDto>>();
@@ -641,7 +642,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                 strVal = FormatParamValue(rawVal);
             }
 
-            bool status = DetermineParamStatus(strVal, tracLog.Status);
+            bool status = request.IsOk ?? true;
 
             var detail = new TraceabilityLogDetail
             {
@@ -676,7 +677,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                     if (processedParamIds.Contains(extraParam.Id)) continue;
 
                     string? strVal = FormatParamValue(mqttData[extraParam.Code]);
-                    bool status = DetermineParamStatus(strVal, tracLog.Status);
+                    bool status = request.IsOk ?? true;
 
                     var detail = new TraceabilityLogDetail
                     {
@@ -858,8 +859,8 @@ public class TraceabilityLogService : ITraceabilityLogService
             .ToList();
 
         var clinchingList = (clinchingProcessDetails != null && clinchingProcessDetails.Count > 0)
-            ? MapProcessLogDetailsToParameterDtos(clinchingProcessDetails, clinchingIssues)
-            : MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
+            ? TraceabilityLogMapper.MapProcessLogDetailsToParameterDtos(clinchingProcessDetails, clinchingIssues)
+            : TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
                 .Where(d => d.Process != null && (d.Process.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) ||
                                                   d.Process.Code.Contains("HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
                                                   d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase))));
@@ -877,13 +878,13 @@ public class TraceabilityLogService : ITraceabilityLogService
             .ToList();
 
         var mfanList = (mfanProcessDetails != null && mfanProcessDetails.Count > 0)
-            ? MapProcessLogDetailsToParameterDtos(mfanProcessDetails, mfanIssues)
-            : MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
+            ? TraceabilityLogMapper.MapProcessLogDetailsToParameterDtos(mfanProcessDetails, mfanIssues)
+            : TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
                 .Where(d => d.Process != null && (d.Process.Code.Contains("M_FAN", StringComparison.OrdinalIgnoreCase) ||
                                                   d.Process.Code.Contains("FAN", StringComparison.OrdinalIgnoreCase))));
 
         // 3. Dynamic ECM parameters
-        var ecmList = MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
+        var ecmList = TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
             .Where(d => (d.Process != null && (d.Process.Code.Contains("ECM", StringComparison.OrdinalIgnoreCase) ||
                                                 d.Process.Code.Equals("ECM_ASSY", StringComparison.OrdinalIgnoreCase))) ||
                         (d.Parameter != null && (d.Parameter.Code.Contains("ECM", StringComparison.OrdinalIgnoreCase) ||
@@ -891,163 +892,24 @@ public class TraceabilityLogService : ITraceabilityLogService
                                                  d.Parameter.Code.StartsWith("RAD_CORE", StringComparison.OrdinalIgnoreCase)))));
 
         // 4. Dynamic Final Inspection parameters
-        var finalList = MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
+        var finalList = TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
             .Where(d => (d.Process != null && (d.Process.Code.Contains("FINAL", StringComparison.OrdinalIgnoreCase) ||
                                                 d.Process.Code.Equals("FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase))) ||
                         (d.Parameter != null && (d.Parameter.Code.Contains("FINAL", StringComparison.OrdinalIgnoreCase) ||
                                                  d.Parameter.Code.StartsWith("CHECK_POINT", StringComparison.OrdinalIgnoreCase)))));
 
-        return new TraceabilityLogDto
-        {
-            Id = x.Id,
-            Code = x.Code,
-            SerialNumberClinching = x.SerialNumberClinching,
-            SerialNumberMFan = x.SerialNumberMFan,
-            Status = x.Status,
-            IsFinish = x.IsFinish,
-            CreatedAt = x.CreatedAt,
-            UpdatedAt = x.UpdatedAt,
-            IssueNumbersClinching = clinchingIssues,
-            IssueNumbersMfan = mfanIssues,
-            Detail = new TraceabilityLogProcessGroupDto
-            {
-                Clinching = clinchingList,
-                MFan = mfanList,
-                Ecm = ecmList,
-                Final = finalList
-            }
-        };
+        return TraceabilityLogMapper.MapToTraceabilityLogDto(
+            x, clinchingIssues, mfanIssues, clinchingList, mfanList, ecmList, finalList);
     }
 
-    private static readonly System.Text.RegularExpressions.Regex MultiPointParamRegex =
-        new(@"^(CLINCHING_HEIGHT|END_PLATE_WIDTH|CHECK_POINT)(?:_\d+.*)?$",
-            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-    private static readonly System.Text.RegularExpressions.Regex CheckPointRegex =
-        new(@"^CHECK_?POINT_?\d+$",
-            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-    private static readonly System.Text.RegularExpressions.Regex DigitsRegex =
-        new(@"\d+",
-            System.Text.RegularExpressions.RegexOptions.Compiled);
-
-    private static List<TraceabilityLogParameterDto> MapProcessLogDetailsToParameterDtos(
+    public static List<TraceabilityLogParameterDto> MapProcessLogDetailsToParameterDtos(
         IEnumerable<ProcessLogDetail>? details,
         IEnumerable<string>? fallbackIssues = null)
-    {
-        if (details == null) return new List<TraceabilityLogParameterDto>();
+        => TraceabilityLogMapper.MapProcessLogDetailsToParameterDtos(details, fallbackIssues);
 
-        var normalized = details.Select(d => (
-            ProcessOrder: d.Process?.Order ?? int.MaxValue,
-            ParamOrder: d.Parameter?.Order ?? int.MaxValue,
-            Id: d.Id,
-            ParamCode: d.Parameter?.Code ?? $"PARAM_{d.ParameterId}",
-            ParamDesc: !string.IsNullOrWhiteSpace(d.Parameter?.Description) ? d.Parameter.Description : d.Parameter?.Name,
-            Value: (object?)(d.ValueNumber.HasValue ? d.ValueNumber.Value : (d.ValueBoolean.HasValue ? d.ValueBoolean.Value : !string.IsNullOrWhiteSpace(d.ValueText) ? d.ValueText : d.DisplayValue)),
-            Status: (bool?)d.Status,
-            RawText: d.DisplayValue ?? string.Empty
-        ));
-
-        return BuildParameterDtoList(normalized, fallbackIssues);
-    }
-
-    private static List<TraceabilityLogParameterDto> MapTraceabilityLogDetailsToParameterDtos(
+    public static List<TraceabilityLogParameterDto> MapTraceabilityLogDetailsToParameterDtos(
         IEnumerable<TraceabilityLogDetail>? details)
-    {
-        if (details == null) return new List<TraceabilityLogParameterDto>();
-
-        var normalized = details.Select(d => (
-            ProcessOrder: d.Process?.Order ?? int.MaxValue,
-            ParamOrder: d.Parameter?.Order ?? int.MaxValue,
-            Id: d.Id,
-            ParamCode: d.Parameter?.Code ?? $"PARAM_{d.ParameterId}",
-            ParamDesc: !string.IsNullOrWhiteSpace(d.Parameter?.Description) ? d.Parameter.Description : d.Parameter?.Name,
-            Value: (object?)d.Value,
-            Status: (bool?)d.Status,
-            RawText: d.Value ?? string.Empty
-        ));
-
-        return BuildParameterDtoList(normalized);
-    }
-
-    private static List<TraceabilityLogParameterDto> BuildParameterDtoList(
-        IEnumerable<(int ProcessOrder, int ParamOrder, long Id, string ParamCode, string? ParamDesc, object? Value, bool? Status, string RawText)> items,
-        IEnumerable<string>? fallbackIssues = null)
-    {
-        var ordered = items
-            .OrderBy(x => x.ProcessOrder)
-            .ThenBy(x => x.ParamOrder)
-            .ThenBy(x => x.Id)
-            .ToList();
-
-        var result = new List<TraceabilityLogParameterDto>();
-        var groupedPrefixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        var arrayGroups = ordered
-            .Select(x => new { Item = x, Match = MultiPointParamRegex.Match(x.ParamCode), Suffix = ExtractNumberSuffix(x.ParamCode) })
-            .Where(x => x.Match.Success)
-            .GroupBy(x => x.Match.Groups[1].Value.ToUpperInvariant())
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderBy(x => x.Item.ParamOrder)
-                      .ThenBy(x => x.Suffix)
-                      .ThenBy(x => x.Item.Id)
-                      .Select(x => x.Item)
-                      .ToList()
-            );
-
-        int issueIndex = 0;
-        var issueList = fallbackIssues?.ToList() ?? new List<string>();
-
-        foreach (var item in ordered)
-        {
-            var match = MultiPointParamRegex.Match(item.ParamCode);
-            if (match.Success)
-            {
-                var groupKey = match.Groups[1].Value.ToUpperInvariant();
-                if (groupedPrefixes.Add(groupKey))
-                {
-                    var groupDetails = arrayGroups[groupKey];
-                    var groupValues = groupDetails.Select(g => g.Value).ToList();
-                    var rawGroupDesc = groupDetails.Select(g => g.ParamDesc).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
-                    var groupDesc = CleanGroupDescription(groupKey, rawGroupDesc);
-
-                    bool? groupStatus = (groupValues.Count == 0 || groupDetails.All(g => string.IsNullOrWhiteSpace(g.RawText)))
-                        ? null
-                        : groupDetails.Any(g => IsGroupItemFailed(groupKey, g.Value, g.Status)) ? false : true;
-
-                    result.Add(new TraceabilityLogParameterDto
-                    {
-                        Parameter = $"{groupKey}_ALL",
-                        ParameterDesc = groupDesc,
-                        Value = groupValues,
-                        Status = groupStatus
-                    });
-                }
-            }
-            else
-            {
-                object? val = item.Value;
-                if (val == null || (val is string s && string.IsNullOrWhiteSpace(s)))
-                {
-                    if (issueIndex < issueList.Count)
-                    {
-                        val = issueList[issueIndex++];
-                    }
-                }
-
-                result.Add(new TraceabilityLogParameterDto
-                {
-                    Parameter = item.ParamCode,
-                    ParameterDesc = item.ParamDesc,
-                    Value = val,
-                    Status = item.Status
-                });
-            }
-        }
-
-        return result;
-    }
+        => TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos(details);
 
     public async Task<List<TraceabilityLogDto>> GetRecentTraceabilityLogsAsync(
         int count = 10,
@@ -1088,41 +950,6 @@ public class TraceabilityLogService : ITraceabilityLogService
         }).ToList();
 
         return dtos;
-    }
-
-    private static string CleanGroupDescription(string groupKey, string? rawDesc)
-    {
-        if (string.IsNullOrWhiteSpace(rawDesc))
-        {
-            return groupKey.ToUpperInvariant() switch
-            {
-                "CLINCHING_HEIGHT" => "Clinching Height Result",
-                "END_PLATE_WIDTH" => "End Plate Width Result",
-                "CHECK_POINT" => "Check Point",
-                _ => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(groupKey.Replace('_', ' ').ToLowerInvariant())
-            };
-        }
-
-        // Remove point numbers e.g. "Clinching Height 1 Result" -> "Clinching Height Result", "Check Point 1" -> "Check Point", "End Plate Width 1 Result" -> "End Plate Width Result"
-        var cleaned = System.Text.RegularExpressions.Regex.Replace(rawDesc, @"(?<=\b[A-Za-z]+)\s+\d+\b", string.Empty);
-        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"[_\s]+\d+\s*$", string.Empty);
-        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
-
-        return cleaned;
-    }
-
-    private static int ExtractNumberSuffix(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return int.MaxValue;
-        var match = DigitsRegex.Match(text);
-        return match.Success && int.TryParse(match.Value, out var n) ? n : int.MaxValue;
-    }
-
-    private static bool IsCheckPointParameter(TraceabilityLogDetail d)
-    {
-        var code = d.Parameter?.Code;
-        if (string.IsNullOrWhiteSpace(code)) return false;
-        return CheckPointRegex.IsMatch(code);
     }
 
     public async Task<TraceabilityLogIssueDto> GetIssuesBySerialNumberAsync(

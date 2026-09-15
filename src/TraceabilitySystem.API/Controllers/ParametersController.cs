@@ -27,9 +27,10 @@ public class ParametersController : ControllerBase
         [FromQuery] PaginationDto pagination,
         [FromQuery] string? search = null,
         [FromQuery] bool? isActive = null,
+        [FromQuery] bool? showInDisplay = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await _parameterService.GetParametersAsync(pagination.Page, pagination.Limit, search, isActive, cancellationToken);
+        var result = await _parameterService.GetParametersAsync(pagination.Page, pagination.Limit, search, isActive, showInDisplay, cancellationToken);
         return ResponseFormatter.PagedSuccess(result);
     }
 

@@ -9,9 +9,8 @@ using TraceabilitySystem.API.Hubs;
 using TraceabilitySystem.API.Middleware;
 using TraceabilitySystem.Application;
 using TraceabilitySystem.Application.Mappers;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using TraceabilitySystem.Shared.Models;
-
-// Trigger rebuild with latest DateTimeHelper
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -22,14 +21,15 @@ try
     var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     {
         Args = args,
+        ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : default,
         WebRootPath = null
     });
 
     // API Host Configuration
-    builder.Services.AddWindowsService();
+    builder.Host.UseWindowsService();
 
     builder.WebHost.UseUrls(
-    builder.Configuration["Server:Url"] ?? "http://0.0.0.0:5039");
+        builder.Configuration["Server:Url"] ?? "http://0.0.0.0:5052");
 
     // ── Serilog ────────────────────────────────────────────────────────────
     builder.Host.AddSerilogConfiguration(builder.Configuration);

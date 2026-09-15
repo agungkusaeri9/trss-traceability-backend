@@ -10,6 +10,8 @@ public class ParameterDto
     public string? Name { get; set; }
     public string? Description { get; set; }
     public string DataType { get; set; } = string.Empty;
+    public string TypeValue { get; set; } = "value";
+    public bool ShowInDisplay { get; set; } = true;
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

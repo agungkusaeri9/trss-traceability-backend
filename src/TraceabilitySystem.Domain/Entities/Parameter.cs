@@ -8,9 +8,11 @@ public class Parameter
     public string Code { get; set; } = string.Empty;
     public string? Name { get; set; }
     public string? Description { get; set; }
-    public string DataType { get; set; } = string.Empty; // boolean, text, number
+    public string DataType { get; set; } = string.Empty; // text, number
+    public string TypeValue { get; set; } = "value"; // value, ok_ng
     public int? Order { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool ShowInDisplay { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
