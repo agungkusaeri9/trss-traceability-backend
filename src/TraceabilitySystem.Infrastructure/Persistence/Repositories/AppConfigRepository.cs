@@ -70,4 +70,14 @@ public class AppConfigRepository : BaseRepository<AppConfig>, IAppConfigReposito
         var val = config.Value.Trim().ToLowerInvariant();
         return val == "true" || val == "1" || val == "yes" || val == "on";
     }
+
+    public async Task<string> GetQrLabelClinching(CancellationToken cancellationToken = default)
+    {
+        var config = await _dbSet.FirstOrDefaultAsync(x => x.Key == "QR_CODE_SIZE_LABEL_CLINCHING", cancellationToken);
+        if (config == null || string.IsNullOrWhiteSpace(config.Value))
+        {
+            return "LARGE";
+        }
+        return config.Value.Trim().ToUpperInvariant();
+    }
 }

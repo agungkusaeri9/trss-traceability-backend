@@ -22,4 +22,5 @@ public interface IAppConfigService : IBaseService<AppConfig, AppConfigDto>
     Task<AppConfigDto> UpdateAppConfigAsync(int id, UpdateAppConfigRequestDto request, CancellationToken cancellationToken = default);
 
     Task DeleteAppConfigAsync(int id, CancellationToken cancellationToken = default);
+    Task<string> GetQrLabelClinching(CancellationToken cancellationToken = default);
 }

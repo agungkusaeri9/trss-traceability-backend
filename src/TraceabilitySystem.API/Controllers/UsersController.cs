@@ -8,7 +8,7 @@ using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.API.Controllers;
 
-[Authorize(Roles = "admin")]
+[Authorize(Roles = "superadmin,admin")]
 [ApiController]
 [Route("api/[controller]")]
 
@@ -45,9 +45,9 @@ public class UsersController : ControllerBase
         return ResponseFormatter.Success(result, "User retrived successfully.");
     }
 
-    /// <summary>Create a new user. (Admin only)</summary>
+    /// <summary>Create a new user. (superadmin,admin only)</summary>
     [HttpPost]
-    // [Authorize(Roles = "Admin")]
+    // [Authorize(Roles = "superadmin,admin")]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status422UnprocessableEntity)]
@@ -58,9 +58,9 @@ public class UsersController : ControllerBase
         return ResponseFormatter.Success(result, "User created successfully.", StatusCodes.Status201Created);
     }
 
-    /// <summary>Update an existing user. (Admin only)</summary>
+    /// <summary>Update an existing user. (superadmin,admin only)</summary>
     [HttpPut("{id:int}")]
-    // [Authorize(Roles = "Admin")]
+    // [Authorize(Roles = "superadmin,admin")]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateUser(
@@ -70,9 +70,9 @@ public class UsersController : ControllerBase
         return ResponseFormatter.Success(result, "User updated successfully.");
     }
 
-    /// <summary>Delete a user. (Admin only)</summary>
+    /// <summary>Delete a user. (superadmin,admin only)</summary>
     [HttpDelete("{id:int}")]
-    // [Authorize(Roles = "Admin")]
+    // [Authorize(Roles = "superadmin,admin")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)

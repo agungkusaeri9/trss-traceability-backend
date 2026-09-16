@@ -656,7 +656,7 @@ public class ProcessLogService : IProcessLogService
                 clinchingDetails.Count > 0 ? clinchingDetails : details, issues);
 
             typeStatus = log.Status && !clinchingParams.Any(p => p.Status == false);
-            isFinished = log.IsFinished || details.Any(d => string.Equals(d.Process?.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase));
+            isFinished = log.IsFinished;
         }
         else
         {
@@ -671,7 +671,7 @@ public class ProcessLogService : IProcessLogService
                 mfanDetails.Count > 0 ? mfanDetails : details, issues);
 
             typeStatus = log.Status && !mfanParams.Any(p => p.Status == false);
-            isFinished = log.IsFinished || details.Any(d => string.Equals(d.Process?.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase));
+            isFinished = log.IsFinished;
         }
 
         return new ProcessLogListDto
@@ -955,15 +955,15 @@ public class ProcessLogService : IProcessLogService
         if (process == null)
             throw new AppException($"Process with code '{request.ProcessCode}' not found.", 404);
 
-        // 3. Get Process Log (Active)
-        var processLog = await _processLogRepository.FirstOrDefaultAsync(
-            x => x.SerialNumberId == serialNumber.Id && x.IsActive, cancellationToken);
+        // 3. Get Process Log (Active) with details
+        var processLog = await _processLogRepository.GetLogBySerialNumberAsync(
+            serialNumber.SerialNumberCode, cancellationToken);
 
-        bool shouldFinish = request.IsOk == false || 
-                            request.IsFInihed || 
-                            string.Equals(request.ProcessCode?.Trim(), "HE_LEAK", StringComparison.OrdinalIgnoreCase) || 
-                            string.Equals(request.ProcessCode?.Trim(), "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) || 
-                            string.Equals(request.ProcessCode?.Trim(), "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase);
+        bool isLastProcess = string.Equals(request.ProcessCode?.Trim(), "HE_LEAK", StringComparison.OrdinalIgnoreCase) || 
+                             string.Equals(request.ProcessCode?.Trim(), "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) || 
+                             string.Equals(request.ProcessCode?.Trim(), "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase);
+
+        bool shouldFinish = request.IsFInihed || isLastProcess;
 
         if (processLog == null)
         {
@@ -982,13 +982,10 @@ public class ProcessLogService : IProcessLogService
         else
         {
             processLog.UpdatedAt = DateTime.Now;
-            if (shouldFinish)
+            processLog.IsFinished = shouldFinish;
+            if (request.IsOk.HasValue)
             {
-                processLog.IsFinished = true;
-            }
-            if (request.IsOk == false)
-            {
-                processLog.Status = false;
+                processLog.Status = request.IsOk.Value;
             }
             _processLogRepository.Update(processLog);
             await _processLogRepository.SaveChangesAsync(cancellationToken);
@@ -1030,29 +1027,45 @@ public class ProcessLogService : IProcessLogService
             }
         }
 
-        // 5. Insert details to the ProcessLog entity's Details collection directly
+        // 5. Insert or Update (Replace) details to the ProcessLog entity's Details collection
         foreach (var param in paramValues)
         {
             var parameter = existingParams.FirstOrDefault(x => x.Code == param.parameterCode);
             if (parameter == null) continue;
 
-            var detail = new ProcessLogDetail
+            var existingDetail = processLog.Details.FirstOrDefault(d => d.ProcessId == process.Id && d.ParameterId == parameter.Id);
+            if (existingDetail != null)
             {
-                ProcessLogId = processLog.Id,
-                ProcessId = process.Id,
-                ParameterId = parameter.Id,
-                ValueNumber = param.valueNumber,
-                ValueText = param.valueText,
-                ValueBoolean = param.valueBoolean,
-                Status = param.status,
-                CreatedAt = DateTime.Now
-            };
-            processLog.Details.Add(detail);
+                existingDetail.ValueNumber = param.valueNumber;
+                existingDetail.ValueText = param.valueText;
+                existingDetail.ValueBoolean = param.valueBoolean;
+                existingDetail.Status = param.status;
+                existingDetail.UpdatedAt = DateTime.Now;
+            }
+            else
+            {
+                var detail = new ProcessLogDetail
+                {
+                    ProcessLogId = processLog.Id,
+                    ProcessId = process.Id,
+                    ParameterId = parameter.Id,
+                    ValueNumber = param.valueNumber,
+                    ValueText = param.valueText,
+                    ValueBoolean = param.valueBoolean,
+                    Status = param.status,
+                    CreatedAt = DateTime.Now
+                };
+                processLog.Details.Add(detail);
+            }
         }
 
         if (request.IsOk == false || paramValues.Any(p => p.valueBoolean == false || p.status == false || (p.valueNumber.HasValue && p.valueNumber.Value == 0)))
         {
             processLog.Status = false;
+        }
+        else if (request.IsOk == true)
+        {
+            processLog.Status = true;
         }
 
         _processLogRepository.Update(processLog);

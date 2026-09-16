@@ -105,4 +105,9 @@ public class AppConfigService : BaseService<AppConfig, AppConfigDto>, IAppConfig
     {
         await DeleteAsync(id, cancellationToken);
     }
+
+    public async Task<string> GetQrLabelClinching(CancellationToken cancellationToken = default)
+    {
+        return await _appConfigRepository.GetQrLabelClinching(cancellationToken);
+    }
 }

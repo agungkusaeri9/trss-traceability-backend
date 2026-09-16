@@ -93,7 +93,8 @@ public class PrintService : IPrintService
         string trssCode = "BM57100000";
         string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
 
-        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString);
+        string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
+        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, qrLabelSize);
 
         await SendViaTcpAsync(printerIp, printerPort, zpl);
     }
@@ -104,32 +105,68 @@ public class PrintService : IPrintService
         string trssCode,
         string serialNumberCode,
         string dateFormat,
-        string qrCodeString)
+        string qrCodeString,
+        string qrLabelSize = "LARGE")
     {
         const int labelW = 464;
         const int labelH = 184;
 
+        if (string.Equals(qrLabelSize, "SMALL", StringComparison.OrdinalIgnoreCase))
+        {
+            return QrCodeLabelClinchingSmall(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, labelW, labelH);
+        }
+
+        return QrCodeLabelClinchingLarge(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, labelW, labelH);
+    }
+
+    private static string QrCodeLabelClinchingLarge(string mitsubishiCode, string trssCode, string serialNumberCode, string dateFormat, string qrCodeString, int labelW, int labelH)
+    {
         return $"""
-        ^XA
-        ^POI
-        ^MD25
-        ^PR2
-        ^PW{labelW}
-        ^LL{labelH}
-        ^CI28
+            ^XA
+            ^POI
+            ^MD25ap
+            ^PR2
+            ^PW{labelW}
+            ^LL{labelH}
+            ^CI28
 
-        ^FO357,72^BQN,3,3^FDQA,{qrCodeString}^FS
+            ^FO357,72^BQN,3,3^FDQA,{qrCodeString}^FS
 
-        ^FO20,16^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
-        ^FO20,42^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS
+            ^FO20,16^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
+            ^FO20,42^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS
 
-        ^FO20,84^A0N,24,26^FD{serialNumberCode}^FS
+            ^FO20,84^A0N,24,26^FD{serialNumberCode}^FS
 
-        ^FO20,117^A0N,24,26^FD{dateFormat}^FS
-        ^FO170,118^A0N,17,17^FDMADE IN INDONESIA^FS
+            ^FO20,117^A0N,24,26^FD{dateFormat}^FS
+            ^FO170,118^A0N,17,17^FDMADE IN INDONESIA^FS
 
-        ^XZ
-        """;
+            ^XZ
+            """;
+    }
+
+    private static string QrCodeLabelClinchingSmall(string mitsubishiCode, string trssCode, string serialNumberCode, string dateFormat, string qrCodeString, int labelW, int labelH)
+    {
+        return $"""
+            ^XA
+            ^POI
+            ^MD25ap
+            ^PR2
+            ^PW{labelW}
+            ^LL{labelH}
+            ^CI28
+
+            ^FO373,88^BQN,2,2^FDQA,{qrCodeString}^FS
+
+            ^FO20,16^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
+            ^FO20,42^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS
+
+            ^FO20,84^A0N,24,26^FD{serialNumberCode}^FS
+
+            ^FO20,117^A0N,24,26^FD{dateFormat}^FS
+            ^FO170,118^A0N,17,17^FDMADE IN INDONESIA^FS
+
+            ^XZ
+            """;
     }
 
 
@@ -566,8 +603,8 @@ public class PrintService : IPrintService
         // Mode normal / produksi: Kirim via TCP socket (ZPL)
         string printerIp = await _configRepository.GetPrinterMFanAssyIpAsync(cancellationToken);
         int printerPort = await _configRepository.GetPrinterMFanAssyPortAsync(cancellationToken);
-
-        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString);
+        string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
+        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, qrLabelSize);
 
         await SendViaTcpAsync(printerIp, printerPort, zpl);
     }

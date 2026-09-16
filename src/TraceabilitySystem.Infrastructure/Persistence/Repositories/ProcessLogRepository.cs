@@ -341,10 +341,11 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         var processLog = await _context.ProcessLogs
             .FirstOrDefaultAsync(x => x.SerialNumberId == serialNumber.Id && x.IsActive, cancellationToken);
 
-        bool shouldFinish = !isOk || 
-                            string.Equals(processCode?.Trim(), "HE_LEAK", StringComparison.OrdinalIgnoreCase) || 
-                            string.Equals(processCode?.Trim(), "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) || 
-                            string.Equals(processCode?.Trim(), "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase);
+        bool isLastProcess = string.Equals(processCode?.Trim(), "HE_LEAK", StringComparison.OrdinalIgnoreCase) || 
+                             string.Equals(processCode?.Trim(), "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) || 
+                             string.Equals(processCode?.Trim(), "FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase);
+
+        bool shouldFinish = isLastProcess;
 
         // 4. Create or update Process Log
         if (processLog == null)
@@ -363,14 +364,8 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         else
         {
             processLog.UpdatedAt = DateTime.Now;
-            if (shouldFinish)
-            {
-                processLog.IsFinished = true;
-            }
-            if (!isOk)
-            {
-                processLog.Status = false;
-            }
+            processLog.IsFinished = shouldFinish;
+            processLog.Status = isOk;
             Update(processLog);
             await SaveChangesAsync(cancellationToken);
         }
@@ -381,25 +376,40 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
             .Where(x => parameterCodes.Contains(x.Code))
             .ToListAsync(cancellationToken);
 
-        // 6. Add Process Log Details
+        // 6. Add or Update (Replace) Process Log Details
         foreach (var param in parameters)
         {
             var parameter = existingParameters.FirstOrDefault(x => x.Code == param.parameterCode);
             if (parameter == null)
                 continue; // Skip if parameter not found
 
-            var detail = new ProcessLogDetail
+            var existingDetail = await _context.ProcessLogDetails
+                .FirstOrDefaultAsync(d => d.ProcessLogId == processLog.Id && d.ProcessId == process.Id && d.ParameterId == parameter.Id, cancellationToken);
+
+            if (existingDetail != null)
             {
-                ProcessLogId = processLog.Id,
-                ProcessId = process.Id,
-                ParameterId = parameter.Id,
-                ValueNumber = param.valueNumber,
-                ValueText = param.valueText,
-                ValueBoolean = param.valueBoolean,
-                Status = param.status,
-                CreatedAt = DateTime.Now
-            };
-            await _context.ProcessLogDetails.AddAsync(detail, cancellationToken);
+                existingDetail.ValueNumber = param.valueNumber;
+                existingDetail.ValueText = param.valueText;
+                existingDetail.ValueBoolean = param.valueBoolean;
+                existingDetail.Status = param.status;
+                existingDetail.UpdatedAt = DateTime.Now;
+                _context.ProcessLogDetails.Update(existingDetail);
+            }
+            else
+            {
+                var detail = new ProcessLogDetail
+                {
+                    ProcessLogId = processLog.Id,
+                    ProcessId = process.Id,
+                    ParameterId = parameter.Id,
+                    ValueNumber = param.valueNumber,
+                    ValueText = param.valueText,
+                    ValueBoolean = param.valueBoolean,
+                    Status = param.status,
+                    CreatedAt = DateTime.Now
+                };
+                await _context.ProcessLogDetails.AddAsync(detail, cancellationToken);
+            }
         }
 
         await SaveChangesAsync(cancellationToken);
