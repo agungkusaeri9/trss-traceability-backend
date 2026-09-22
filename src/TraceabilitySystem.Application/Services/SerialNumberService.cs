@@ -19,17 +19,20 @@ public class SerialNumberService : ISerialNumberService
     private readonly IIssueService _issueService;
     private readonly IIssueRepository _issueRepository;
     private readonly IMqttPublisher _mqttPublisher;
+    private readonly IAppConfigRepository _appConfigRepository;
 
     public SerialNumberService(
         ISerialNumberRepository serialNumberRepository,
         IIssueService issueService,
         IIssueRepository issueRepository,
-        IMqttPublisher mqttPublisher)
+        IMqttPublisher mqttPublisher,
+        IAppConfigRepository appConfigRepository)
     {
         _serialNumberRepository = serialNumberRepository;
         _issueService = issueService;
         _issueRepository = issueRepository;
         _mqttPublisher = mqttPublisher;
+        _appConfigRepository = appConfigRepository;
     }
 
 
@@ -258,22 +261,44 @@ public class SerialNumberService : ISerialNumberService
         var startOfYear = new DateOnly(today.Year, 1, 1);
         var endOfYear = new DateOnly(today.Year, 12, 31);
 
+        var countSerialNumber = await _serialNumberRepository.CountAsync();
+
         // Ambil semua SN dengan prefix PVRA pada tahun berjalan
-        var existingCodes = await _serialNumberRepository.FindAsync(
-            s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken);
+        var existingCodes = (await _serialNumberRepository.FindAsync(
+            s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken)).ToList();
 
-        // Cari sequence tertinggi yang sudah ada pada tahun berjalan (restart ke 0 jika tahun baru)
-        var maxSequence = existingCodes
-            .Select(s =>
+        int startSequence;
+
+        if(countSerialNumber < 1)
+        {
+            // Jika belum ada data sebelumnya di DB, ambil initial sequence dari AppConfig
+                startSequence = await GetStartClinchingSequenceAsync(cancellationToken);
+        }
+        else
+        {
+           if (existingCodes.Count > 0)
             {
-                var suffix = s.SerialNumberCode[prefix.Length..]; 
-                return int.TryParse(suffix, out var seq) ? seq : 0;
-            })
-            .DefaultIfEmpty(0)
-            .Max();
+                // Cari sequence tertinggi yang sudah ada pada tahun berjalan (restart ke 0 jika tahun baru)
+                var maxSequence = existingCodes
+                    .Select(s =>
+                    {
+                        var suffix = s.SerialNumberCode[prefix.Length..]; 
+                        return int.TryParse(suffix, out var seq) ? seq : 0;
+                    })
+                    .DefaultIfEmpty(0)
+                    .Max();
 
-        // Generate kode baru: PVRA000001, PVRA000002, dst. (restart ke 000001 saat ganti tahun)
-        var newCodes = Enumerable.Range(maxSequence + 1, request.Qty)
+                startSequence = maxSequence + 1;
+            }
+            else
+            {
+                startSequence = 1;
+            } 
+        }
+        
+
+        // Generate kode baru: PVRA000001, PVRA000002, dst. (atau sesuai startSequence)
+        var newCodes = Enumerable.Range(startSequence, request.Qty)
             .Select(seq => $"{prefix}{seq:D6}")
             .ToList();
 
@@ -529,19 +554,29 @@ public class SerialNumberService : ISerialNumberService
         if (machinePrefix.Equals("PVRA", StringComparison.OrdinalIgnoreCase) || machinePrefix.Equals("CC", StringComparison.OrdinalIgnoreCase))
         {
             var prefix = "PVRA";
-            var existing = await _serialNumberRepository.FindAsync(
-                s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken);
+            var existing = (await _serialNumberRepository.FindAsync(
+                s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken)).ToList();
 
-            var maxSequence = existing
-                .Select(s =>
-                {
-                    var suffix = s.SerialNumberCode[prefix.Length..];
-                    return int.TryParse(suffix, out var seq) ? seq : 0;
-                })
-                .DefaultIfEmpty(0)
-                .Max();
+            int startSequence;
+            if (existing.Count > 0)
+            {
+                var maxSequence = existing
+                    .Select(s =>
+                    {
+                        var suffix = s.SerialNumberCode[prefix.Length..];
+                        return int.TryParse(suffix, out var seq) ? seq : 0;
+                    })
+                    .DefaultIfEmpty(0)
+                    .Max();
 
-            newCodes = Enumerable.Range(maxSequence + 1, request.Qty)
+                startSequence = maxSequence + 1;
+            }
+            else
+            {
+                startSequence = await GetStartClinchingSequenceAsync(cancellationToken);
+            }
+
+            newCodes = Enumerable.Range(startSequence, request.Qty)
                 .Select(seq => $"{prefix}{seq:D6}")
                 .ToList();
         }
@@ -586,19 +621,29 @@ public class SerialNumberService : ISerialNumberService
         var startOfYear = new DateOnly(today.Year, 1, 1);
         var endOfYear = new DateOnly(today.Year, 12, 31);
 
-        var existing = await _serialNumberRepository.FindAsync(
-            s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken);
+        var existing = (await _serialNumberRepository.FindAsync(
+            s => s.SerialNumberCode.StartsWith(prefix) && s.Date >= startOfYear && s.Date <= endOfYear, cancellationToken)).ToList();
 
-        var maxSequence = existing
-            .Select(s =>
-            {
-                var suffix = s.SerialNumberCode[prefix.Length..];
-                return int.TryParse(suffix, out var seq) ? seq : 0;
-            })
-            .DefaultIfEmpty(0)
-            .Max();
+        int nextSequence;
+        if (existing.Count > 0)
+        {
+            var maxSequence = existing
+                .Select(s =>
+                {
+                    var suffix = s.SerialNumberCode[prefix.Length..];
+                    return int.TryParse(suffix, out var seq) ? seq : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
 
-        var newCode = $"{prefix}{(maxSequence + 1):D6}";
+            nextSequence = maxSequence + 1;
+        }
+        else
+        {
+            nextSequence = await GetStartClinchingSequenceAsync(cancellationToken);
+        }
+
+        var newCode = $"{prefix}{nextSequence:D6}";
 
         var entity = new SerialNumber
         {
@@ -612,5 +657,25 @@ public class SerialNumberService : ISerialNumberService
         await _serialNumberRepository.SaveChangesAsync(cancellationToken);
 
         return newCode;
+    }
+
+    private async Task<int> GetStartClinchingSequenceAsync(CancellationToken cancellationToken = default)
+    {
+        var config = await _appConfigRepository.GetByKeyAsync("START_SERIAL_NUMBER_CLINCHING", cancellationToken);
+        if (config == null || string.IsNullOrWhiteSpace(config.Value))
+            return 1;
+
+        var val = config.Value.Trim();
+        if (val.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase))
+            val = val["PVRA".Length..];
+        else if (val.StartsWith("CC", StringComparison.OrdinalIgnoreCase))
+            val = val["CC".Length..];
+
+        if (int.TryParse(val, out var startSeq) && startSeq > 0)
+        {
+            return startSeq;
+        }
+
+        return 1;
     }
 }

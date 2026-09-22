@@ -14,5 +14,9 @@ public class UpdateProcessRequestDto
     [StringLength(255, ErrorMessage = "Description cannot exceed 255 characters.")]
     public string? Description { get; set; }
 
+    public int? Order { get; set; }
+
     public bool? IsActive { get; set; }
+
+    public List<int>? ParameterIds { get; set; }
 }

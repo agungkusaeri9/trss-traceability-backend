@@ -59,7 +59,7 @@ public class DashboardService : IDashboardService
         _traceabilityLogRepository = traceabilityLogRepository;
     }
 
-    public async Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default)
+    public async Task<DashboardSummaryDto> GetSummaryAsync(string? period = null, CancellationToken cancellationToken = default)
     {
         var nowJakarta = DateTimeHelper.GetJakartaNow();
         var todayStartJakarta = nowJakarta.Date;
@@ -113,6 +113,27 @@ public class DashboardService : IDashboardService
         summary.Total.NgCount = yNg;
         summary.Total.YieldRate = CalculateYield(yTotal, yOk);
 
+        if (!string.IsNullOrWhiteSpace(period))
+        {
+            var (fFrom, fTo) = period.ToLowerInvariant() switch
+            {
+                "day"   => (todayStartJakarta, todayStartJakarta.AddDays(1)),
+                "week"  => (todayStartJakarta.AddDays(-6), todayStartJakarta.AddDays(1)),
+                "month" => (monthStartJakarta, nowJakarta.Month == 12 ? new DateTime(nowJakarta.Year + 1, 1, 1) : monthStartJakarta.AddMonths(1)),
+                "year"  => (yearStartJakarta, new DateTime(nowJakarta.Year + 1, 1, 1)),
+                _       => (yearStartJakarta, new DateTime(nowJakarta.Year + 1, 1, 1))
+            };
+
+            var (fTotal, fOk, fNg) = CountRange(allLogs, fFrom, fTo);
+            summary.Filtered = new ProductionCountDto
+            {
+                TotalProduction = fTotal,
+                OkCount = fOk,
+                NgCount = fNg,
+                YieldRate = CalculateYield(fTotal, fOk)
+            };
+        }
+
         return summary;
     }
 
@@ -150,9 +171,19 @@ public class DashboardService : IDashboardService
             cancellationToken: cancellationToken);
         var allTracLogs = result.Items.ToList();
 
-        // 1. Quality Distribution (Pie Chart) — only finished logs (IsFinish == true)
+        // 1. Quality Distribution (Pie Chart) & Summary Statistics for the filtered period
         int ok = allTracLogs.Count(l => l.IsFinish && l.Status);
         int ng = allTracLogs.Count(l => l.IsFinish && !l.Status);
+        int total = ok + ng;
+        double yieldRate = total > 0 ? Math.Round((double)ok / total * 100, 2) : 0;
+
+        stats.Summary = new ProductionCountDto
+        {
+            TotalProduction = total,
+            OkCount = ok,
+            NgCount = ng,
+            YieldRate = yieldRate
+        };
 
         stats.QualityDistribution.Add(new ChartDataDto { Label = "OK", Value = ok });
         stats.QualityDistribution.Add(new ChartDataDto { Label = "NG", Value = ng });
@@ -192,7 +223,30 @@ public class DashboardService : IDashboardService
             .ToList();
 
 
-        // 3. Production Trend — granularitas menyesuaikan period
+        // 3. Production Trend — granularitas menyesuaikan period dengan rincian OK, NG, dan Total
+        static ProductionTrendItemDto CreateTrendItem(string label, IEnumerable<TraceabilityLog> logs, DateTime from, DateTime to)
+        {
+            var inSlice = logs.Where(l =>
+            {
+                if (!l.IsFinish) return false;
+                var t = l.CreatedAt.ToJakartaTime();
+                return t >= from && t < to;
+            }).ToList();
+
+            int okCount = inSlice.Count(l => l.Status);
+            int ngCount = inSlice.Count(l => !l.Status);
+            int total = inSlice.Count;
+
+            return new ProductionTrendItemDto
+            {
+                Label = label,
+                Ok = okCount,
+                Ng = ngCount,
+                Total = total,
+                Value = total
+            };
+        }
+
         switch (period?.ToLowerInvariant())
         {
             case "day":
@@ -201,13 +255,7 @@ public class DashboardService : IDashboardService
                 {
                     var hourStart = nowJakarta.Date.AddHours(h);
                     var hourEnd = hourStart.AddHours(1);
-                    int count = allTracLogs.Count(l =>
-                    {
-                        if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.ToJakartaTime();
-                        return t >= hourStart && t < hourEnd;
-                    });
-                    stats.ProductionTrend.Add(new ChartDataDto { Label = hourStart.ToString("HH:00"), Value = count });
+                    stats.ProductionTrend.Add(CreateTrendItem(hourStart.ToString("HH:00"), allTracLogs, hourStart, hourEnd));
                 }
                 break;
 
@@ -217,13 +265,7 @@ public class DashboardService : IDashboardService
                 {
                     var date = nowJakarta.Date.AddDays(-i);
                     var nextDate = date.AddDays(1);
-                    int count = allTracLogs.Count(l =>
-                    {
-                        if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.ToJakartaTime();
-                        return t >= date && t < nextDate;
-                    });
-                    stats.ProductionTrend.Add(new ChartDataDto { Label = date.ToString("dd MMM"), Value = count });
+                    stats.ProductionTrend.Add(CreateTrendItem(date.ToString("dd MMM"), allTracLogs, date, nextDate));
                 }
                 break;
 
@@ -234,19 +276,12 @@ public class DashboardService : IDashboardService
                 {
                     var date = new DateTime(nowJakarta.Year, nowJakarta.Month, d);
                     var nextDate = date.AddDays(1);
-                    int count = allTracLogs.Count(l =>
-                    {
-                        if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.ToJakartaTime();
-                        return t >= date && t < nextDate;
-                    });
-                    stats.ProductionTrend.Add(new ChartDataDto { Label = date.ToString("dd MMM"), Value = count });
+                    stats.ProductionTrend.Add(CreateTrendItem(date.ToString("dd MMM"), allTracLogs, date, nextDate));
                 }
                 break;
 
             default:
                 // year atau all-time: per bulan
-                // Untuk all-time, ambil bulan dari log paling lama hingga sekarang
                 DateTime trendStart = period?.ToLowerInvariant() == "year"
                     ? new DateTime(nowJakarta.Year, 1, 1)
                     : (allTracLogs.Count > 0
@@ -258,13 +293,7 @@ public class DashboardService : IDashboardService
                 while (cursor <= nowJakarta)
                 {
                     var nextMonth = cursor.AddMonths(1);
-                    int count = allTracLogs.Count(l =>
-                    {
-                        if (!l.IsFinish) return false;
-                        var t = l.CreatedAt.ToJakartaTime();
-                        return t >= cursor && t < nextMonth;
-                    });
-                    stats.ProductionTrend.Add(new ChartDataDto { Label = cursor.ToString("MMM yyyy"), Value = count });
+                    stats.ProductionTrend.Add(CreateTrendItem(cursor.ToString("MMM yyyy"), allTracLogs, cursor, nextMonth));
                     cursor = nextMonth;
                 }
                 break;

@@ -8,6 +8,7 @@ public class DashboardSummaryDto
     public ProductionCountDto Today { get; set; } = new();
     public ProductionCountDto ThisMonth { get; set; } = new();
     public ProductionCountDto Total { get; set; } = new();
+    public ProductionCountDto? Filtered { get; set; }
 }
 
 public class ProductionCountDto
@@ -28,9 +29,19 @@ public class DashboardSummaryFieldDto
 
 public class DashboardStatsDto
 {
+    public ProductionCountDto Summary { get; set; } = new(); // Total OK, Total NG, Total Production, Yield Rate for the filtered period
     public List<ChartDataDto> QualityDistribution { get; set; } = new(); // Pie Chart: OK vs NG
     public List<ChartDataDto> TopPartsProduction { get; set; } = new(); // Bar Chart: Parts
-    public List<ChartDataDto> ProductionTrend { get; set; } = new(); // Line Chart: Last 7 Days
+    public List<ProductionTrendItemDto> ProductionTrend { get; set; } = new(); // Trend: OK, NG, Total
+}
+
+public class ProductionTrendItemDto
+{
+    public string Label { get; set; } = string.Empty;
+    public double Value { get; set; } // Total count for compatibility
+    public int Ok { get; set; }
+    public int Ng { get; set; }
+    public int Total { get; set; }
 }
 
 public class ChartDataDto

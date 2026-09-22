@@ -801,9 +801,10 @@ public class ProcessLogService : IProcessLogService
 
         // 5. Mapping Issue Numbers ke parameter codes via IssueService
         request.Data ??= new Dictionary<string, object>();
+        var mappedParams = new Dictionary<string, object>();
         if (issueNumbers.Count > 0)
         {
-            var mappedParams = await _issueService.MapClinchingIssuesToParametersAsync(issueNumbers, cancellationToken);
+            mappedParams = await _issueService.MapClinchingIssuesToParametersAsync(issueNumbers, cancellationToken);
             foreach (var (key, value) in mappedParams)
             {
                 request.Data[key] = value;
@@ -812,8 +813,46 @@ public class ProcessLogService : IProcessLogService
 
         var result = await CreateProcessLogWithDetailsAsync(request, cancellationToken);
 
-        // Print barcode label clinching short side
-        await _printService.PrintClinchingShortSideAsync(clinchingSerialNumberCode, issueNumbers, cancellationToken);
+        // 6. Print barcode label clinching short side
+        // isPrinted: 0 = masih process/printing, 1 = berhasil, 2 = gagal
+        int isPrinted = 0;
+        try
+        {
+            await _printService.PrintClinchingShortSideAsync(clinchingSerialNumberCode, issueNumbers, cancellationToken);
+            isPrinted = 1;
+        }
+        catch
+        {
+            isPrinted = 2;
+        }
+
+        // 7. Publish MQTT ke topic data/process/clinching-short-side/process-scan
+        var upperTankIssueNo = mappedParams.TryGetValue("UPPER_TANK_ASM_VALUE", out var u) ? u?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
+        var lowerTankIssueNo = mappedParams.TryGetValue("LOWER_TANK_ASM_VALUE", out var l) ? l?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
+        var coreIssueNo      = mappedParams.TryGetValue("CORE_ASM_VALUE", out var c) ? c?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
+
+        var upperTankQtyRemaining = upperTankIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(upperTankIssueNo, cancellationToken) : null;
+        var lowerTankQtyRemaining = lowerTankIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(lowerTankIssueNo, cancellationToken) : null;
+        var coreQtyRemaining      = coreIssueNo      != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(coreIssueNo, cancellationToken) : null;
+
+        var mqttPayload = new
+        {
+            serial_number     = clinchingSerialNumberCode,
+            operator_username = request.OperatorUsername ?? "MQTT_CLINCHING",
+            isPrinted         = isPrinted,
+            timestamp         = DateTime.UtcNow,
+            data = new
+            {
+                upper_tank_asm_issue_no      = upperTankIssueNo,
+                upper_tank_asm_qty_remaining = upperTankQtyRemaining,
+                lower_tank_asm_issue_no      = lowerTankIssueNo,
+                lower_tank_asm_qty_remaining = lowerTankQtyRemaining,
+                core_asm_issue_no            = coreIssueNo,
+                core_asm_qty_remaining       = coreQtyRemaining
+            }
+        };
+
+        await _mqttPublisher.PublishAsync("data/process/clinching-short-side/process-scan", mqttPayload, cancellationToken);
 
         return result;
     }
@@ -896,30 +935,13 @@ public class ProcessLogService : IProcessLogService
                 var param = existingParams.FirstOrDefault(p => p.Code == kvp.Key);
                 if (param == null) continue;
 
-                decimal? valNum = null;
-                string? valText = ParseText(kvp.Value);
-                bool? valBool = null;
-
-                if (param.DataType == "boolean")
-                {
-                    valBool = ParseBoolean(kvp.Value);
-                }
-                else if (param.DataType == "number")
-                {
-                    valNum = ParseDecimal(kvp.Value);
-                }
-
-                bool status = request.IsOk ?? true;
+                var (valNum, valText, valBool, status) = ParseParameterValue(param, kvp.Value, defaultStatus: true);
                 paramValues.Add((kvp.Key, valNum, valText, valBool, status));
             }
         }
 
-        // Tentukan apakah status proses adalah OK atau NG
-        bool isOk = true;
-        if (paramValues.Any(p => p.valueBoolean == false))
-        {
-            isOk = false;
-        }
+        // Tentukan apakah status proses adalah OK atau NG murni berdasarkan evaluasi parameter
+        bool isOk = !paramValues.Any(p => p.status == false || p.valueBoolean == false);
 
         // Simpan log proses dan detailnya ke database menggunakan repo
         var processLog = await _processLogRepository.AddProcessLogPerProcessAsync(
@@ -972,7 +994,7 @@ public class ProcessLogService : IProcessLogService
             {
                 SerialNumberId = serialNumber.Id,
                 IsActive = true,
-                Status = request.IsOk ?? true,
+                Status = true,
                 IsFinished = shouldFinish,
                 CreatedAt = DateTime.Now
             };
@@ -983,10 +1005,6 @@ public class ProcessLogService : IProcessLogService
         {
             processLog.UpdatedAt = DateTime.Now;
             processLog.IsFinished = shouldFinish;
-            if (request.IsOk.HasValue)
-            {
-                processLog.Status = request.IsOk.Value;
-            }
             _processLogRepository.Update(processLog);
             await _processLogRepository.SaveChangesAsync(cancellationToken);
         }
@@ -1005,24 +1023,7 @@ public class ProcessLogService : IProcessLogService
                 var param = existingParams.FirstOrDefault(p => p.Code == kvp.Key);
                 if (param == null) continue;
 
-                decimal? valNum = null;
-                string? valText = ParseText(kvp.Value);
-                bool? valBool = null;
-
-                if (param.DataType == "boolean")
-                {
-                    valBool = ParseBoolean(kvp.Value);
-                }
-                else if (param.DataType == "number")
-                {
-                    valNum = ParseDecimal(kvp.Value);
-                }
-
-                bool status = request.IsOk ?? true;
-                if (valBool == false || (valNum.HasValue && valNum.Value == 0))
-                {
-                    status = false;
-                }
+                var (valNum, valText, valBool, status) = ParseParameterValue(param, kvp.Value, defaultStatus: true);
                 paramValues.Add((kvp.Key, valNum, valText, valBool, status));
             }
         }
@@ -1059,13 +1060,10 @@ public class ProcessLogService : IProcessLogService
             }
         }
 
-        if (request.IsOk == false || paramValues.Any(p => p.valueBoolean == false || p.status == false || (p.valueNumber.HasValue && p.valueNumber.Value == 0)))
+        // Jika ada parameter yang bernilai NG / Error (status == false atau valueBoolean == false), ubah processLog.Status menjadi false
+        if (paramValues.Any(p => p.valueBoolean == false || p.status == false))
         {
             processLog.Status = false;
-        }
-        else if (request.IsOk == true)
-        {
-            processLog.Status = true;
         }
 
         _processLogRepository.Update(processLog);
@@ -1127,34 +1125,8 @@ public class ProcessLogService : IProcessLogService
 
         var mfSerialNumberCode = generatedSns[0].SerialNumberCode;
 
-        // 3. Publish MQTT ke topic data/process/m-fan-assy/process-scan
+        // 3. Mapping issue numbers ke parameters
         var mappedMfanParams = await _issueService.MapMFanIssuesToParametersAsync(issueNumbers, cancellationToken);
-
-        var fanAsmIssueNo      = mappedMfanParams.TryGetValue("FAN_ASM_RESULT", out var f) ? f?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
-        var fanMotorAsmIssueNo = mappedMfanParams.TryGetValue("MOTOR_ASM_RESULT", out var m) ? m?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
-        var fanGuideAsmIssueNo = mappedMfanParams.TryGetValue("GUIDE_ASM_RESULT", out var g) ? g?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
-
-        var fanAsmQtyRemaining      = fanAsmIssueNo      != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanAsmIssueNo,      cancellationToken) : null;
-        var fanMotorAsmQtyRemaining = fanMotorAsmIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanMotorAsmIssueNo, cancellationToken) : null;
-        var fanGuideAsmQtyRemaining = fanGuideAsmIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanGuideAsmIssueNo, cancellationToken) : null;
-
-        var mqttPayload = new
-        {
-            serial_number     = mfSerialNumberCode,
-            operator_username = request.OperatorUsername ?? "MQTT_M_FAN_ASSY",
-            timestamp         = DateTime.UtcNow,
-            data = new
-            {
-                fan_asm_issue_no            = fanAsmIssueNo,
-                fan_asm_qty_remaining       = fanAsmQtyRemaining,
-                fan_motor_asm_issue_no      = fanMotorAsmIssueNo,
-                fan_motor_asm_qty_remaining = fanMotorAsmQtyRemaining,
-                fan_guide_asm_issue_no      = fanGuideAsmIssueNo,
-                fan_guide_asm_qty_remaining = fanGuideAsmQtyRemaining
-            }
-        };
-
-        await _mqttPublisher.PublishAsync("data/process/m-fan-assy/process-scan", mqttPayload, cancellationToken);
 
         // 4. Pastikan detail disimpan ke MF serial number
         request.Data ??= new Dictionary<string, object>();
@@ -1169,7 +1141,44 @@ public class ProcessLogService : IProcessLogService
         var result = await CreateProcessLogDetailOnlyAsync(request, cancellationToken);
 
         // 5. Print barcode / label M-Fan Assy
-        await _printService.PrintMFanAssyAsync(mfSerialNumberCode, issueNumbers, cancellationToken);
+        int isPrinted = 0;
+        try
+        {
+            await _printService.PrintMFanAssyAsync(mfSerialNumberCode, issueNumbers, cancellationToken);
+            isPrinted = 1;
+        }
+        catch
+        {
+            isPrinted = 2;
+        }
+
+        // 6. Publish MQTT ke topic data/process/m-fan-assy/process-scan
+        var fanAsmIssueNo      = mappedMfanParams.TryGetValue("FAN_ASM_RESULT", out var f) ? f?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
+        var fanMotorAsmIssueNo = mappedMfanParams.TryGetValue("MOTOR_ASM_RESULT", out var m) ? m?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
+        var fanGuideAsmIssueNo = mappedMfanParams.TryGetValue("GUIDE_ASM_RESULT", out var g) ? g?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
+
+        var fanAsmQtyRemaining      = fanAsmIssueNo      != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanAsmIssueNo,      cancellationToken) : null;
+        var fanMotorAsmQtyRemaining = fanMotorAsmIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanMotorAsmIssueNo, cancellationToken) : null;
+        var fanGuideAsmQtyRemaining = fanGuideAsmIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(fanGuideAsmIssueNo, cancellationToken) : null;
+
+        var mqttPayload = new
+        {
+            serial_number     = mfSerialNumberCode,
+            operator_username = request.OperatorUsername ?? "MQTT_M_FAN_ASSY",
+            isPrinted         = isPrinted,
+            timestamp         = DateTime.UtcNow,
+            data = new
+            {
+                fan_asm_issue_no            = fanAsmIssueNo,
+                fan_asm_qty_remaining       = fanAsmQtyRemaining,
+                fan_motor_asm_issue_no      = fanMotorAsmIssueNo,
+                fan_motor_asm_qty_remaining = fanMotorAsmQtyRemaining,
+                fan_guide_asm_issue_no      = fanGuideAsmIssueNo,
+                fan_guide_asm_qty_remaining = fanGuideAsmQtyRemaining
+            }
+        };
+
+        await _mqttPublisher.PublishAsync("data/process/m-fan-assy/process-scan", mqttPayload, cancellationToken);
 
         return result;
     }
@@ -1297,6 +1306,83 @@ public class ProcessLogService : IProcessLogService
                 : element.GetRawText();
         }
         return val.ToString();
+    }
+
+    private static (decimal? valNum, string? valText, bool? valBool, bool status) ParseParameterValue(
+        Parameter param,
+        object? rawValue,
+        bool defaultStatus)
+    {
+        decimal? valNum = null;
+        string? valText = ParseText(rawValue);
+        bool? valBool = null;
+        bool status = defaultStatus;
+
+        if (param.DataType == "boolean")
+        {
+            valBool = ParseBoolean(rawValue);
+        }
+        else if (param.DataType == "number")
+        {
+            valNum = ParseDecimal(rawValue);
+        }
+
+        // Pengecekan parameter, jika type value-nya ok_ng:
+        // 0 -> data belum masuk (valNum = 0, valBool = null, status = defaultStatus)
+        // 1 -> ok (valNum = 1, valBool = true, status = true)
+        // 2 -> ng (valNum = 2, valBool = false, status = false)
+        if (string.Equals(param.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase))
+        {
+            var rawStr = valText?.Trim().ToUpperInvariant() ?? "";
+            if (decimal.TryParse(rawStr.Replace(',', '.'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var num))
+            {
+                if (num == 1)
+                {
+                    status = true;
+                    valBool = true;
+                    valNum = 1;
+                }
+                else if (num == 2)
+                {
+                    status = false;
+                    valBool = false;
+                    valNum = 2;
+                }
+                else if (num == 0)
+                {
+                    status = defaultStatus;
+                    valBool = null;
+                    valNum = 0;
+                }
+            }
+            else if (rawStr == "1" || rawStr == "OK" || rawStr == "TRUE" || rawStr == "PASSED")
+            {
+                status = true;
+                valBool = true;
+                valNum = 1;
+            }
+            else if (rawStr == "2" || rawStr == "NG" || rawStr == "FALSE" || rawStr == "REJECTED" || rawStr == "FAIL" || rawStr == "FAILED")
+            {
+                status = false;
+                valBool = false;
+                valNum = 2;
+            }
+            else if (rawStr == "0")
+            {
+                status = defaultStatus;
+                valBool = null;
+                valNum = 0;
+            }
+        }
+        else
+        {
+            if (valBool == false || !defaultStatus)
+            {
+                status = false;
+            }
+        }
+
+        return (valNum, valText, valBool, status);
     }
 
     public async Task<bool> ValidateSerialNumberProcessLogAsync(

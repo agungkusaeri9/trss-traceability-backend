@@ -7,6 +7,7 @@ using System.Linq.Expressions;
 using System.Net.Sockets;
 using System.Text;
 using Mapster;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using QRCoder;
 using TraceabilitySystem.Application.DTOs.PrintHistory;
@@ -312,6 +313,8 @@ public class PrintService : IPrintService
                 process = "print-clinching",
                 error = ex.Message
             }, cancellationToken);
+
+            throw;
         }
     }
 
@@ -859,6 +862,8 @@ public class PrintService : IPrintService
                 process = "print-mfan",
                 error = ex.Message
             }, cancellationToken);
+
+            throw;
         }
     }
 
@@ -915,17 +920,143 @@ public class PrintService : IPrintService
 
     private async Task RePrintClinchingAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
-        var serialNumber = await _serialNumberRepo.GetWithRelatedBySerialNumberAsync(serialNumberCode);
+        var serialNumber = await _serialNumberRepo.GetWithRelatedBySerialNumberAsync(serialNumberCode, cancellationToken);
         if (serialNumber is null)
             throw new KeyNotFoundException("Serial Number not found.");
-        await PrintClinchingLabelWithSdkAsync(serialNumber.SerialNumberCode, cancellationToken);
+
+        int isPrinted = 0;
+        try
+        {
+            await PrintClinchingLabelWithSdkAsync(serialNumber.SerialNumberCode, cancellationToken);
+            isPrinted = 1;
+        }
+        catch
+        {
+            isPrinted = 2;
+            throw;
+        }
+        finally
+        {
+            await PublishClinchingReprintMqttAsync(serialNumber, isPrinted, cancellationToken);
+        }
+    }
+
+    private async Task PublishClinchingReprintMqttAsync(SerialNumber serialNumber, int isPrinted, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var issueService = scope.ServiceProvider.GetRequiredService<IIssueService>();
+            var issueRepository = scope.ServiceProvider.GetRequiredService<IIssueRepository>();
+
+            var issueNumbers = serialNumber.Issues?
+                .Where(x => x.Issue != null)
+                .Select(x => x.Issue!.Number)
+                .ToList() ?? new List<string>();
+
+            var mappedParams = await issueService.MapClinchingIssuesToParametersAsync(issueNumbers, cancellationToken);
+
+            var upperTankIssueNo = mappedParams.TryGetValue("UPPER_TANK_ASM_VALUE", out var u) ? u?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
+            var lowerTankIssueNo = mappedParams.TryGetValue("LOWER_TANK_ASM_VALUE", out var l) ? l?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
+            var coreIssueNo      = mappedParams.TryGetValue("CORE_ASM_VALUE", out var c) ? c?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
+
+            var upperTankQtyRemaining = upperTankIssueNo != null ? await issueRepository.GetFinalStockByIssueNumberAsync(upperTankIssueNo, cancellationToken) : null;
+            var lowerTankQtyRemaining = lowerTankIssueNo != null ? await issueRepository.GetFinalStockByIssueNumberAsync(lowerTankIssueNo, cancellationToken) : null;
+            var coreQtyRemaining      = coreIssueNo      != null ? await issueRepository.GetFinalStockByIssueNumberAsync(coreIssueNo, cancellationToken) : null;
+
+            var mqttPayload = new
+            {
+                serial_number     = serialNumber.SerialNumberCode,
+                operator_username = serialNumber.CreatedBy ?? "MQTT_CLINCHING",
+                isPrinted         = isPrinted,
+                timestamp         = DateTime.UtcNow,
+                data = new
+                {
+                    upper_tank_asm_issue_no      = upperTankIssueNo,
+                    upper_tank_asm_qty_remaining = upperTankQtyRemaining,
+                    lower_tank_asm_issue_no      = lowerTankIssueNo,
+                    lower_tank_asm_qty_remaining = lowerTankQtyRemaining,
+                    core_asm_issue_no            = coreIssueNo,
+                    core_asm_qty_remaining       = coreQtyRemaining
+                }
+            };
+
+            await _mqttPublisher.PublishAsync("data/process/clinching-short-side/process-scan", mqttPayload, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish MQTT reprint clinching process scan for {SerialNumber}", serialNumber.SerialNumberCode);
+        }
     }
 
     private async Task RePrintMFanAssyAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
-        var serialNumber = await _serialNumberRepo.GetWithRelatedBySerialNumberAsync(serialNumberCode);
+        var serialNumber = await _serialNumberRepo.GetWithRelatedBySerialNumberAsync(serialNumberCode, cancellationToken);
         if (serialNumber is null)
             throw new KeyNotFoundException("Serial Number not found.");
-        await PrintMFanAssyLabelWithSdkAsync(serialNumber.SerialNumberCode, cancellationToken);
+
+        int isPrinted = 0;
+        try
+        {
+            await PrintMFanAssyLabelWithSdkAsync(serialNumber.SerialNumberCode, cancellationToken);
+            isPrinted = 1;
+        }
+        catch
+        {
+            isPrinted = 2;
+            throw;
+        }
+        finally
+        {
+            await PublishMFanReprintMqttAsync(serialNumber, isPrinted, cancellationToken);
+        }
+    }
+
+    private async Task PublishMFanReprintMqttAsync(SerialNumber serialNumber, int isPrinted, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var issueService = scope.ServiceProvider.GetRequiredService<IIssueService>();
+            var issueRepository = scope.ServiceProvider.GetRequiredService<IIssueRepository>();
+
+            var issueNumbers = serialNumber.Issues?
+                .Where(x => x.Issue != null)
+                .Select(x => x.Issue!.Number)
+                .ToList() ?? new List<string>();
+
+            var mappedMfanParams = await issueService.MapMFanIssuesToParametersAsync(issueNumbers, cancellationToken);
+
+            var fanAsmIssueNo      = mappedMfanParams.TryGetValue("FAN_ASM_RESULT", out var f) ? f?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
+            var fanMotorAsmIssueNo = mappedMfanParams.TryGetValue("MOTOR_ASM_RESULT", out var m) ? m?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
+            var fanGuideAsmIssueNo = mappedMfanParams.TryGetValue("GUIDE_ASM_RESULT", out var g) ? g?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
+
+            var fanAsmQtyRemaining      = fanAsmIssueNo      != null ? await issueRepository.GetFinalStockByIssueNumberAsync(fanAsmIssueNo, cancellationToken) : null;
+            var fanMotorAsmQtyRemaining = fanMotorAsmIssueNo != null ? await issueRepository.GetFinalStockByIssueNumberAsync(fanMotorAsmIssueNo, cancellationToken) : null;
+            var fanGuideAsmQtyRemaining = fanGuideAsmIssueNo != null ? await issueRepository.GetFinalStockByIssueNumberAsync(fanGuideAsmIssueNo, cancellationToken) : null;
+
+            var mqttPayload = new
+            {
+                serial_number     = serialNumber.SerialNumberCode,
+                operator_username = serialNumber.CreatedBy ?? "MQTT_M_FAN_ASSY",
+                isPrinted         = isPrinted,
+                timestamp         = DateTime.UtcNow,
+                data = new
+                {
+                    fan_asm_issue_no            = fanAsmIssueNo,
+                    fan_asm_qty_remaining       = fanAsmQtyRemaining,
+                    fan_motor_asm_issue_no      = fanMotorAsmIssueNo,
+                    fan_motor_asm_qty_remaining = fanMotorAsmQtyRemaining,
+                    fan_guide_asm_issue_no      = fanGuideAsmIssueNo,
+                    fan_guide_asm_qty_remaining = fanGuideAsmQtyRemaining
+                }
+            };
+
+            await _mqttPublisher.PublishAsync("data/process/m-fan-assy/process-scan", mqttPayload, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish MQTT reprint MFan process scan for {SerialNumber}", serialNumber.SerialNumberCode);
+        }
     }
 }

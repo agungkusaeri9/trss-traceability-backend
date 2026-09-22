@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IPrintService, PrintService>();
         services.AddScoped<ILogService, LogService>();
+        services.AddSingleton<IMqttPublisher, MqttPublisher>();
 
         return services;
     }

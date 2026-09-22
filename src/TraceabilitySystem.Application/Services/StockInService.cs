@@ -9,6 +9,7 @@ using TraceabilitySystem.Application.Interfaces;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
+using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.Application.Services;
@@ -18,17 +19,20 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
     private readonly IPartRepository _partRepository;
     private readonly IPrinterService _printerService;
     private readonly IStockInRepository _stockInRepository;
+    private readonly IIssueRepository _issueRepository;
     private readonly IPrintService _printService;
 
     public StockInService(
         IStockInRepository repository,
         IPartRepository partRepository,
         IPrinterService printerService,
+        IIssueRepository issueRepository,
         IPrintService printService) : base(repository)
     {
         _stockInRepository = repository;
         _partRepository = partRepository;
         _printerService = printerService;
+        _issueRepository = issueRepository;
         _printService = printService;
     }
 
@@ -84,27 +88,33 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
     }
 
     private async Task<(string StockInCode, string IssueNumber)> GenerateStockInCodeAsync(
-    CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
-        var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
-
+        var today = DateTimeHelper.GetJakartaToday();
+        var datePart = today.ToString("yyyyMMdd");
         var prefix = $"ST{datePart}";
 
-        var existingCodes = await _stockInRepository.FindAsync(
+        var existingStockInCodes = await _stockInRepository.FindAsync(
             s => s.Code.StartsWith(prefix),
             cancellationToken);
 
-        int nextSeq = 1;
+        var existingIssues = await _issueRepository.FindAsync(
+            i => i.Number.StartsWith(datePart),
+            cancellationToken);
 
-        if (existingCodes.Any())
-        {
-            var maxSeq = existingCodes
-                .Select(s => s.Code.Replace(prefix, ""))
-                .Select(s => int.TryParse(s, out int val) ? val : 0)
-                .Max();
+        int maxStockInSeq = existingStockInCodes
+            .Select(s => s.Code.Replace(prefix, ""))
+            .Select(s => int.TryParse(s, out int val) ? val : 0)
+            .DefaultIfEmpty(0)
+            .Max();
 
-            nextSeq = maxSeq + 1;
-        }
+        int maxIssueSeq = existingIssues
+            .Select(i => i.Number.Replace(datePart, ""))
+            .Select(s => int.TryParse(s, out int val) ? val : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        int nextSeq = Math.Max(maxStockInSeq, maxIssueSeq) + 1;
 
         var stockInCode = $"{prefix}{nextSeq:D3}";
         var issueNumber = $"{datePart}{nextSeq:D3}";
@@ -115,9 +125,13 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
     public async Task<StockInDto> CreateStockInAsync(CreateStockInRequestDto request, CancellationToken cancellationToken = default)
     {
         // 1. Validate Part exists
-        var partExists = await _partRepository.ExistsAsync(p => p.Id == request.PartId, cancellationToken);
-        if (!partExists)
-            throw new NotFoundException(nameof(Part), request.PartId);
+        var part = await _partRepository.GetByIdAsync(request.PartId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Part), request.PartId);
+
+        if (request.ReceiptQty <= 0 && part.QtyStandart > 0)
+        {
+            request.ReceiptQty = part.QtyStandart;
+        }
 
         try
         {

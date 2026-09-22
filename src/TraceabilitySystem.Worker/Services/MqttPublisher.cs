@@ -4,6 +4,8 @@ using MQTTnet;
 using MQTTnet.Client;
 using TraceabilitySystem.Application.Interfaces;
 
+using Microsoft.Extensions.Logging;
+
 namespace TraceabilitySystem.Worker.Services;
 
 /// <summary>
@@ -13,33 +15,46 @@ namespace TraceabilitySystem.Worker.Services;
 public class MqttPublisher : IMqttPublisher
 {
     private readonly MqttClientAccessor _mqttClientAccessor;
+    private readonly ILogger<MqttPublisher> _logger;
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         WriteIndented = false
     };
 
-    public MqttPublisher(MqttClientAccessor mqttClientAccessor)
+    public MqttPublisher(
+        MqttClientAccessor mqttClientAccessor,
+        ILogger<MqttPublisher> logger)
     {
         _mqttClientAccessor = mqttClientAccessor;
+        _logger = logger;
     }
 
     public async Task PublishAsync(string topic, object payload, CancellationToken cancellationToken = default)
     {
-        var client = _mqttClientAccessor.Client;
-        if (client == null || !client.IsConnected)
+        string json = string.Empty;
+        try
         {
-            // MQTT client belum terkoneksi, skip publish
-            return;
+            json = JsonSerializer.Serialize(payload, _jsonOptions);
+            var client = _mqttClientAccessor.Client;
+            if (client == null || !client.IsConnected)
+            {
+                _logger.LogWarning("[MQTT] Gagal publish ke topic [{Topic}] karena MQTT client belum terkoneksi.", topic);
+                return;
+            }
+
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(Encoding.UTF8.GetBytes(json))
+                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
+
+            await client.PublishAsync(message, cancellationToken);
+            _logger.LogInformation("[MQTT] Berhasil publish ke topic [{Topic}]: {Payload}", topic, json);
         }
-
-        var json = JsonSerializer.Serialize(payload, _jsonOptions);
-        var message = new MqttApplicationMessageBuilder()
-            .WithTopic(topic)
-            .WithPayload(Encoding.UTF8.GetBytes(json))
-            .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
-            .Build();
-
-        await client.PublishAsync(message, cancellationToken);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MQTT] Gagal publish ke topic [{Topic}]: {Payload}", topic, json);
+        }
     }
 }

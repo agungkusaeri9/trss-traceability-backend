@@ -323,6 +323,12 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("number");
 
+                    b.Property<int>("QtyStandart")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("qty_standart");
+
                     b.Property<string>("SpecialCharacter")
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)")

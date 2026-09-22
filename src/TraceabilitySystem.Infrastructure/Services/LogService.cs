@@ -76,12 +76,9 @@ public class LogService : ILogService
             parameters.Add(new MySqlParameter("@isOk", filter.IsOk.Value));
         }
 
-        var effectiveStartDate = filter.StartDate ?? (filter.EndDate.HasValue ? (DateTime?)null : DateTime.Now.Date.AddDays(-30));
-        if (effectiveStartDate.HasValue)
-        {
-            whereClauses.Add("received_at >= @startDate");
-            parameters.Add(new MySqlParameter("@startDate", effectiveStartDate.Value));
-        }
+        var effectiveStartDate = filter.StartDate ?? (filter.EndDate.HasValue ? filter.EndDate.Value.Date.AddDays(-6) : DateTime.Now.Date.AddDays(-6));
+        whereClauses.Add("received_at >= @startDate");
+        parameters.Add(new MySqlParameter("@startDate", effectiveStartDate));
 
         if (filter.EndDate.HasValue)
         {
@@ -463,10 +460,20 @@ LIMIT 1;";
             }
             return dates;
         }
+        else if (!string.IsNullOrWhiteSpace(filter.EndDate) && DateTime.TryParse(filter.EndDate, out var endOnly))
+        {
+            var start = endOnly.AddDays(-6);
+            var dates = new List<string>();
+            for (var d = start; d <= endOnly; d = d.AddDays(1))
+            {
+                dates.Add(d.ToString("yyyy-MM-dd"));
+            }
+            return dates;
+        }
 
-        // By default: 30 hari terakhir dari sekarang
+        // By default: 7 hari terakhir dari sekarang
         var defaultEnd = DateTime.Now.Date;
-        var defaultStart = defaultEnd.AddDays(-29);
+        var defaultStart = defaultEnd.AddDays(-6);
         var defaultDates = new List<string>();
         for (var d = defaultStart; d <= defaultEnd; d = d.AddDays(1))
         {

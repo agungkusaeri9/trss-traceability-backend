@@ -17,5 +17,8 @@ public class CreatePartRequestValidator : AbstractValidator<CreatePartRequestDto
             
         RuleFor(x => x.Description)
             .MaximumLength(500).WithMessage("Description must not exceed 500 characters.");
+
+        RuleFor(x => x.QtyStandart)
+            .GreaterThanOrEqualTo(0).WithMessage("Qty Standart must be greater than or equal to 0.");
     }
 }

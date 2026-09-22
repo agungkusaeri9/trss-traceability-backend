@@ -63,10 +63,31 @@ public class ProcessService : BaseService<Process, ProcessDto>, IProcessService
         var process = request.Adapt<Process>();
         process.CreatedAt = DateTime.UtcNow;
 
+        if (request.Order.HasValue)
+        {
+            process.Order = request.Order.Value;
+        }
+
+        if (request.ParameterIds != null && request.ParameterIds.Count > 0)
+        {
+            foreach (var paramId in request.ParameterIds.Distinct())
+            {
+                var paramExists = await _parameterRepository.ExistsAsync(p => p.Id == paramId, cancellationToken);
+                if (paramExists)
+                {
+                    process.ProcessParameters.Add(new ProcessParameter
+                    {
+                        ParameterId = paramId
+                    });
+                }
+            }
+        }
+
         await _processRepository.AddAsync(process, cancellationToken);
         await _processRepository.SaveChangesAsync(cancellationToken);
 
-        return process.Adapt<ProcessDto>();
+        var created = await _processRepository.GetByIdAsync(process.Id, cancellationToken);
+        return (created ?? process).Adapt<ProcessDto>();
     }
 
     public async Task<ProcessDto> UpdateProcessAsync(int id, UpdateProcessRequestDto request, CancellationToken cancellationToken = default)
@@ -84,14 +105,48 @@ public class ProcessService : BaseService<Process, ProcessDto>, IProcessService
 
         if (request.Name is not null) process.Name = request.Name;
         if (request.Description is not null) process.Description = request.Description;
+        if (request.Order.HasValue) process.Order = request.Order.Value;
         if (request.IsActive.HasValue) process.IsActive = request.IsActive.Value;
+
+        if (request.ParameterIds != null)
+        {
+            var targetParamIds = request.ParameterIds.Distinct().ToList();
+
+            // Remove items not in targetParamIds
+            var toRemove = process.ProcessParameters
+                .Where(pp => !targetParamIds.Contains(pp.ParameterId))
+                .ToList();
+            foreach (var item in toRemove)
+            {
+                process.ProcessParameters.Remove(item);
+            }
+
+            // Add new items
+            var existingParamIds = process.ProcessParameters.Select(pp => pp.ParameterId).ToHashSet();
+            foreach (var paramId in targetParamIds)
+            {
+                if (!existingParamIds.Contains(paramId))
+                {
+                    var paramExists = await _parameterRepository.ExistsAsync(p => p.Id == paramId, cancellationToken);
+                    if (paramExists)
+                    {
+                        process.ProcessParameters.Add(new ProcessParameter
+                        {
+                            ProcessId = id,
+                            ParameterId = paramId
+                        });
+                    }
+                }
+            }
+        }
 
         process.UpdatedAt = DateTime.UtcNow;
 
         _processRepository.Update(process);
         await _processRepository.SaveChangesAsync(cancellationToken);
 
-        return process.Adapt<ProcessDto>();
+        var updated = await _processRepository.GetByIdAsync(process.Id, cancellationToken);
+        return (updated ?? process).Adapt<ProcessDto>();
     }
 
     public async Task ChangeStatusAsync(int id, bool isActive, CancellationToken cancellationToken = default)

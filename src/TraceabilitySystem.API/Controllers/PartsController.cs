@@ -31,7 +31,7 @@ public class PartsController : ControllerBase
         return ResponseFormatter.PagedSuccess(result);
     }
 
-    [Authorize(Roles = "admin,user")]
+    [Authorize(Roles = "superadmin,admin")]
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<PartDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
@@ -52,7 +52,7 @@ public class PartsController : ControllerBase
         return ResponseFormatter.Success(result, "Part retrieved successfully.");
     }
 
-    [Authorize(Roles = "admin,user")]
+    [Authorize(Roles = "superadmin,admin")]
     [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<PartDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -64,7 +64,7 @@ public class PartsController : ControllerBase
         return ResponseFormatter.Success(result, "Part updated successfully.");
     }
 
-    [Authorize(Roles = "admin,user")]
+    [Authorize(Roles = "superadmin,admin")]
     [HttpPatch("{id:int}/change-status")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
@@ -76,7 +76,7 @@ public class PartsController : ControllerBase
         return ResponseFormatter.Success(message: $"Part {statusMsg} successfully.");
     }
 
-    [Authorize(Roles = "admin,user")]
+    [Authorize(Roles = "superadmin,admin")]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]

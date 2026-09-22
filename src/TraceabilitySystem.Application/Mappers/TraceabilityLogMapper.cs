@@ -69,7 +69,7 @@ public static class TraceabilityLogMapper
             {
                 if (num == 1) return ("OK", true);
                 if (num == 2) return ("NG", false);
-                if (num == 0) return ("ERROR", false);
+                if (num == 0) return ("0", dbStatus);
             }
 
             if (s == "1" || s == "OK" || s == "TRUE" || s == "PASSED")
@@ -80,9 +80,9 @@ public static class TraceabilityLogMapper
             {
                 return ("NG", false);
             }
-            if (s == "0" || s == "ERROR" || s == "ERR")
+            if (s == "0")
             {
-                return ("ERROR", false);
+                return ("0", dbStatus);
             }
 
             if (dbStatus.HasValue)

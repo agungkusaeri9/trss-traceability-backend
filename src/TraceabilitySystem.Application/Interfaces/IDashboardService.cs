@@ -8,7 +8,7 @@ namespace TraceabilitySystem.Application.Interfaces;
 
 public interface IDashboardService
 {
-    Task<DashboardSummaryDto> GetSummaryAsync(CancellationToken cancellationToken = default);
+    Task<DashboardSummaryDto> GetSummaryAsync(string? period = null, CancellationToken cancellationToken = default);
     Task<List<DashboardSummaryFieldDto>> GetTraceabilitySummaryAsync(CancellationToken cancellationToken = default);
     Task<DashboardStatsDto> GetStatsAsync(int topParts, int trendDays, string? period = null, CancellationToken cancellationToken = default);
     Task<List<ProcessLogDto>> GetRecentLogsAsync(int count = 5, CancellationToken cancellationToken = default);

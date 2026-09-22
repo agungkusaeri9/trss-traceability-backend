@@ -14,7 +14,7 @@ public class SystemLogFilterDto
 {
     /// <summary>
     /// Tanggal spesifik log (format yyyy-MM-dd), contoh: '2026-09-04'.
-    /// Jika tidak diisi, default akan menggunakan tanggal hari ini atau rentang tanggal.
+    /// Jika tidak diisi, default akan menggunakan 7 hari terakhir dari sekarang atau rentang tanggal.
     /// </summary>
     public string? Date { get; set; }
 

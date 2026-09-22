@@ -100,10 +100,27 @@ public class MqttWorkerService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(1000, stoppingToken);
+            try
+            {
+                if (_mqttClient != null && !_mqttClient.IsConnected)
+                {
+                    _logger.LogInformation("[MQTT] Client is disconnected. Attempting auto-reconnection to {Broker}:{Port}...", _mqttSettings.Broker, _mqttSettings.Port);
+                    await ConnectMqttAsync(stoppingToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[MQTT] Error in auto-reconnection loop: {Message}", ex.Message);
+            }
+
+            await Task.Delay(5000, stoppingToken);
         }
 
-        await _mqttClient.DisconnectAsync(cancellationToken: stoppingToken);
+        if (_mqttClient != null && _mqttClient.IsConnected)
+        {
+            await _mqttClient.DisconnectAsync(cancellationToken: stoppingToken);
+        }
+
         if (_hubConnection != null)
         {
             await _hubConnection.StopAsync(stoppingToken);
@@ -274,38 +291,49 @@ public class MqttWorkerService : BackgroundService
         _isConnected = true;
         await SendStatusToHubAsync(true);
 
-        var mqttSubscribeOptions = new MqttFactory().CreateSubscribeOptionsBuilder()
+        var topics = new[]
+        {
             // Print request topics
-            .WithTopicFilter("traceability/print/request/clinching-short-side")
-            .WithTopicFilter("traceability/print/request/m-fan-assy")
+            "traceability/print/request/clinching-short-side",
+            "traceability/print/request/m-fan-assy",
             // Process result topics
-            .WithTopicFilter("data/process/clinching-short-side/result-scan")
-            .WithTopicFilter("data/process/clinching-short-side/result")
-            .WithTopicFilter("data/process/clinching-long-side/result")
-            .WithTopicFilter("data/process/he-leak/result")
-            .WithTopicFilter("data/process/m-fan-assy/result-scan")
-            .WithTopicFilter("data/process/m-fan-assy/result")
-            .WithTopicFilter("data/process/m-fan-inspection/result")
-            .WithTopicFilter("data/process/ecm-assy/result")
-            .WithTopicFilter("data/process/final-inspection/result")
-            .Build();
+            "data/process/clinching-short-side/result-scan",
+            "data/process/clinching-short-side/result",
+            "data/process/clinching-long-side/result",
+            "data/process/he-leak/result",
+            "data/process/m-fan-assy/result-scan",
+            "data/process/m-fan-assy/result",
+            "data/process/m-fan-inspection/result",
+            "data/process/ecm-assy/result",
+            "data/process/final-inspection/result"
+        };
+
+        var subscribeBuilder = new MqttFactory().CreateSubscribeOptionsBuilder();
+        foreach (var topic in topics)
+        {
+            subscribeBuilder.WithTopicFilter(f => f
+                .WithTopic(topic)
+                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce));
+        }
+
+        var mqttSubscribeOptions = subscribeBuilder.Build();
 
         await _mqttClient!.SubscribeAsync(mqttSubscribeOptions);
-        _logger.LogInformation("Subscribed to print request and process result topics.");
+        _logger.LogInformation("Subscribed to {Count} print request and process result topics with QoS 1 (AtLeastOnce).", topics.Length);
     }
 
     private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs arg)
     {
-        _logger.LogWarning("Disconnected from MQTT broker. Reconnecting...");
+        _logger.LogWarning("Disconnected from MQTT broker: {Reason}. Auto-reconnect loop will attempt reconnection...", arg.Reason);
         _isConnected = false;
         await SendStatusToHubAsync(false);
-
-        await Task.Delay(TimeSpan.FromSeconds(5));
-        await ConnectMqttAsync(CancellationToken.None);
     }
 
     private async Task ConnectMqttAsync(CancellationToken cancellationToken)
     {
+        if (_mqttClient == null || _mqttClient.IsConnected)
+            return;
+
         var mqttClientOptions = new MqttClientOptionsBuilder()
             .WithTcpServer(_mqttSettings.Broker, _mqttSettings.Port)
             .WithClientId(_mqttSettings.ClientId)
@@ -314,7 +342,7 @@ public class MqttWorkerService : BackgroundService
 
         try
         {
-            await _mqttClient!.ConnectAsync(mqttClientOptions, cancellationToken);
+            await _mqttClient.ConnectAsync(mqttClientOptions, cancellationToken);
         }
         catch (Exception ex)
         {
