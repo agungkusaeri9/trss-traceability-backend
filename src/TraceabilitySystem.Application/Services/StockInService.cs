@@ -128,9 +128,9 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
         var part = await _partRepository.GetByIdAsync(request.PartId, cancellationToken)
             ?? throw new NotFoundException(nameof(Part), request.PartId);
 
-        if (request.ReceiptQty <= 0 && part.QtyStandart > 0)
+        if (request.SupplyQty <= 0 && part.QtyStandart > 0)
         {
-            request.ReceiptQty = part.QtyStandart;
+            request.SupplyQty = part.QtyStandart;
         }
 
         try
@@ -148,14 +148,14 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
                 SupplyDate = request.SupplyDate,
                 ReceiptQty = request.ReceiptQty,
                 ReceiptDate = request.ReceiptDate,
-                RemainingQty = request.ReceiptQty,
+                RemainingQty = request.SupplyQty,
                 CreatedAt = DateTime.UtcNow
             };
 
             stockIn.Issues.Add(new Issue
             {
                 Number = issueNumber,
-                RemainingQty = request.ReceiptQty,
+                RemainingQty = request.SupplyQty,
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -197,14 +197,14 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
                 SupplyDate = request.SupplyDate,
                 ReceiptQty = request.ReceiptQty,
                 ReceiptDate = request.ReceiptDate,
-                RemainingQty = request.ReceiptQty,
+                RemainingQty = request.SupplyQty,
                 CreatedAt = DateTime.UtcNow
             };
 
             stockIn.Issues.Add(new Issue
             {
                 Number = issueNumber,
-                RemainingQty = request.ReceiptQty,
+                RemainingQty = request.SupplyQty,
                 CreatedAt = DateTime.UtcNow
             });
 

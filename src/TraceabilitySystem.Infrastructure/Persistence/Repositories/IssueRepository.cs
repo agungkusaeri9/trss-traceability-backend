@@ -11,7 +11,7 @@ public class IssueRepository : BaseRepository<Issue>, IIssueRepository
 
     /// <summary>
     /// Override untuk memastikan StockIn selalu di-include
-    /// sehingga IssueService bisa membaca ReceiptQty tanpa query tambahan.
+    /// sehingga IssueService bisa membaca SupplyQty tanpa query tambahan.
     /// </summary>
     public override async Task<Issue?> FirstOrDefaultAsync(
         Expression<Func<Issue, bool>> predicate,

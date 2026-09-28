@@ -42,13 +42,13 @@ public class IssueService : IIssueService
 
         // 2. Hitung QtyBefore:
         //    - Jika sudah ada transaksi sebelumnya → pakai QtyAfter transaksi terakhir
-        //    - Jika belum ada → pakai RemainingQty / ReceiptQty
+        //    - Jika belum ada → pakai RemainingQty / SupplyQty
         var lastTransaction = (await _transactionRepository.FindAsync(
                 t => t.IssueId == issue.Id, cancellationToken))
             .OrderByDescending(t => t.CreatedAt)
             .FirstOrDefault();
 
-        decimal qtyBefore = lastTransaction?.QtyAfter ?? issue.RemainingQty ?? stockIn.RemainingQty ?? stockIn.ReceiptQty;
+        decimal qtyBefore = lastTransaction?.QtyAfter ?? issue.RemainingQty ?? stockIn.RemainingQty ?? stockIn.SupplyQty;
 
         // 3. Validasi stok cukup
         if (qtyBefore < request.QtyConsumed)
