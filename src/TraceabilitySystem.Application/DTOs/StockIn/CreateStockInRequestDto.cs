@@ -9,4 +9,5 @@ public class CreateStockInRequestDto
     public DateTime SupplyDate { get; set; }
     public int ReceiptQty { get; set; }
     public DateTime ReceiptDate { get; set; }
+    public int SeriesAmount { get; set; } = 1;
 }

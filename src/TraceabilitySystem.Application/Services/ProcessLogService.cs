@@ -827,28 +827,28 @@ public class ProcessLogService : IProcessLogService
         }
 
         // 7. Publish MQTT ke topic data/process/clinching-short-side/process-scan
-        var upperTankIssueNo = mappedParams.TryGetValue("UPPER_TANK_ASM_VALUE", out var u) ? u?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
-        var lowerTankIssueNo = mappedParams.TryGetValue("LOWER_TANK_ASM_VALUE", out var l) ? l?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
-        var coreIssueNo      = mappedParams.TryGetValue("CORE_ASM_VALUE", out var c) ? c?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
+        var coreIssueNo      = mappedParams.TryGetValue("CORE_ASM_VALUE", out var c) ? c?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
+        var upperTankIssueNo = mappedParams.TryGetValue("UPPER_TANK_ASM_VALUE", out var u) ? u?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
+        var lowerTankIssueNo = mappedParams.TryGetValue("LOWER_TANK_ASM_VALUE", out var l) ? l?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
 
+        var coreQtyRemaining      = coreIssueNo      != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(coreIssueNo, cancellationToken) : null;
         var upperTankQtyRemaining = upperTankIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(upperTankIssueNo, cancellationToken) : null;
         var lowerTankQtyRemaining = lowerTankIssueNo != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(lowerTankIssueNo, cancellationToken) : null;
-        var coreQtyRemaining      = coreIssueNo      != null ? await _issueRepository.GetFinalStockByIssueNumberAsync(coreIssueNo, cancellationToken) : null;
 
         var mqttPayload = new
         {
             serial_number     = clinchingSerialNumberCode,
             operator_username = request.OperatorUsername ?? "MQTT_CLINCHING",
-            isPrinted         = isPrinted,
+            is_printed        = isPrinted,
             timestamp         = DateTime.UtcNow,
             data = new
             {
+                core_asm_issue_no            = coreIssueNo,
+                core_asm_qty_remaining       = coreQtyRemaining,
                 upper_tank_asm_issue_no      = upperTankIssueNo,
                 upper_tank_asm_qty_remaining = upperTankQtyRemaining,
                 lower_tank_asm_issue_no      = lowerTankIssueNo,
-                lower_tank_asm_qty_remaining = lowerTankQtyRemaining,
-                core_asm_issue_no            = coreIssueNo,
-                core_asm_qty_remaining       = coreQtyRemaining
+                lower_tank_asm_qty_remaining = lowerTankQtyRemaining
             }
         };
 
@@ -1165,7 +1165,7 @@ public class ProcessLogService : IProcessLogService
         {
             serial_number     = mfSerialNumberCode,
             operator_username = request.OperatorUsername ?? "MQTT_M_FAN_ASSY",
-            isPrinted         = isPrinted,
+            is_printed        = isPrinted,
             timestamp         = DateTime.UtcNow,
             data = new
             {

@@ -348,53 +348,7 @@ public class SerialNumberService : ISerialNumberService
             consumedIssues = batchResult.ToList();
         }
 
-        // Publish MQTT notification setelah berhasil
-        var mqttPayload = BuildClinchingMqttPayload(
-            serialNumber: newEntities.First().SerialNumberCode,
-            operatorUsername: request.CreatedBy ?? string.Empty,
-            consumedIssues: consumedIssues);
-
-
-        Console.WriteLine("MQTT Payload: " + mqttPayload);
-
-        await _mqttPublisher.PublishAsync(
-            "data/process/clinching-short-side/process",
-            mqttPayload,
-            cancellationToken);
-
         return newEntities.Adapt<IEnumerable<SerialNumberDto>>();
-    }
-
-    /// <summary>
-    /// Membangun payload MQTT untuk notifikasi hasil proses clinching.
-    /// Maksimal 3 issue dipetakan ke slot core_asm, upper_tank_asm, lower_tank_asm secara berurutan.
-    /// </summary>
-    private static object BuildClinchingMqttPayload(
-        string serialNumber,
-        string operatorUsername,
-        IList<IssueTransactionDto> consumedIssues)
-    {
-        string? coreAsmIssueNo         = consumedIssues.Count > 0 ? consumedIssues[0].IssueNumber : null;
-        decimal? coreAsmQtyRemaining   = consumedIssues.Count > 0 ? consumedIssues[0].QtyAfter    : null;
-        string? upperTankIssueNo       = consumedIssues.Count > 1 ? consumedIssues[1].IssueNumber : null;
-        decimal? upperTankQtyRemaining = consumedIssues.Count > 1 ? consumedIssues[1].QtyAfter    : null;
-        string? lowerTankIssueNo       = consumedIssues.Count > 2 ? consumedIssues[2].IssueNumber : null;
-        decimal? lowerTankQtyRemaining = consumedIssues.Count > 2 ? consumedIssues[2].QtyAfter    : null;
-
-        return new
-        {
-            serial_number = serialNumber,
-            operator_username = operatorUsername,
-            data = new
-            {
-                core_asm_issue_no         = coreAsmIssueNo,
-                core_asm_qty_remaining    = coreAsmQtyRemaining,
-                upper_tank_asm_issue_no   = upperTankIssueNo,
-                upper_tank_asm_qty_remaining = upperTankQtyRemaining,
-                lower_tank_asm_issue_no   = lowerTankIssueNo,
-                lower_tank_asm_qty_remaining = lowerTankQtyRemaining
-            }
-        };
     }
 
     /// <summary>

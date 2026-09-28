@@ -133,45 +133,52 @@ public class StockInService : BaseService<StockIn, StockInDto>, IStockInService
             request.SupplyQty = part.QtyStandart;
         }
 
+        int count = request.SeriesAmount > 0 ? request.SeriesAmount : 1;
+        StockInDto? lastDto = null;
+
         try
         {
-
-            var (stockInCode, issueNumber) =
-                await GenerateStockInCodeAsync(cancellationToken);
-
-            // 3. Build entity with nested issue
-            var stockIn = new StockIn
+            for (int i = 0; i < count; i++)
             {
-                Code = stockInCode,
-                PartId = request.PartId,
-                SupplyQty = request.SupplyQty,
-                SupplyDate = request.SupplyDate,
-                ReceiptQty = request.ReceiptQty,
-                ReceiptDate = request.ReceiptDate,
-                RemainingQty = request.SupplyQty,
-                CreatedAt = DateTime.UtcNow
-            };
+                var (stockInCode, issueNumber) =
+                    await GenerateStockInCodeAsync(cancellationToken);
 
-            stockIn.Issues.Add(new Issue
-            {
-                Number = issueNumber,
-                RemainingQty = request.SupplyQty,
-                CreatedAt = DateTime.UtcNow
-            });
+                // 3. Build entity with nested issue
+                var stockIn = new StockIn
+                {
+                    Code = stockInCode,
+                    PartId = request.PartId,
+                    SupplyQty = request.SupplyQty,
+                    SupplyDate = request.SupplyDate,
+                    ReceiptQty = request.ReceiptQty,
+                    ReceiptDate = request.ReceiptDate,
+                    RemainingQty = request.SupplyQty,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            await _stockInRepository.AddAsync(stockIn, cancellationToken);
-            await _stockInRepository.SaveChangesAsync(cancellationToken);
+                stockIn.Issues.Add(new Issue
+                {
+                    Number = issueNumber,
+                    RemainingQty = request.SupplyQty,
+                    CreatedAt = DateTime.UtcNow
+                });
 
-            // 4. Reload with navigation (Part + Issues eager-loaded)
-            var saved = await _stockInRepository.GetByIdAsync(stockIn.Id, cancellationToken)
-                ?? throw new NotFoundException(nameof(StockIn), stockIn.Id);
+                await _stockInRepository.AddAsync(stockIn, cancellationToken);
+                await _stockInRepository.SaveChangesAsync(cancellationToken);
 
-            var dto = saved.Adapt<StockInDto>();
+                // 4. Reload with navigation (Part + Issues eager-loaded)
+                var saved = await _stockInRepository.GetByIdAsync(stockIn.Id, cancellationToken)
+                    ?? throw new NotFoundException(nameof(StockIn), stockIn.Id);
 
-            // 5. Trigger print label
-             await _printService.PrintStockInAsync(dto);
+                var dto = saved.Adapt<StockInDto>();
 
-            return dto;
+                // 5. Trigger print label for each stock-in created
+                await _printService.PrintStockInAsync(dto);
+
+                lastDto = dto;
+            }
+
+            return lastDto ?? throw new AppException("Failed to create Stock In.");
         }
         catch (Exception ex)
         {

@@ -968,7 +968,7 @@ public class PrintService : IPrintService
             {
                 serial_number     = serialNumber.SerialNumberCode,
                 operator_username = serialNumber.CreatedBy ?? "MQTT_CLINCHING",
-                isPrinted         = isPrinted,
+                is_printed        = isPrinted,
                 timestamp         = DateTime.UtcNow,
                 data = new
                 {
@@ -1039,7 +1039,7 @@ public class PrintService : IPrintService
             {
                 serial_number     = serialNumber.SerialNumberCode,
                 operator_username = serialNumber.CreatedBy ?? "MQTT_M_FAN_ASSY",
-                isPrinted         = isPrinted,
+                is_printed        = isPrinted,
                 timestamp         = DateTime.UtcNow,
                 data = new
                 {
