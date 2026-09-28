@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Worker.Models;
 
@@ -20,6 +21,7 @@ namespace TraceabilitySystem.Worker.Validator
         private readonly IProcessCategoryRepository _processCategoryRepository;
         private readonly ISerialNumberRepository _serialNumberRepository;
         private readonly IProcessLogRepository _processLogRepository;
+        private readonly IPasswordHasher _passwordHasher;
 
         public ProcessValidator(
             IProcessRepository processRepository,
@@ -27,7 +29,8 @@ namespace TraceabilitySystem.Worker.Validator
             IUserRepository userRepository,
             IProcessCategoryRepository processCategoryRepository,
             ISerialNumberRepository serialNumberRepository,
-            IProcessLogRepository processLogRepository)
+            IProcessLogRepository processLogRepository,
+            IPasswordHasher passwordHasher)
         {
             _processRepository = processRepository;
             _issueRepository = issueRepository;
@@ -35,6 +38,7 @@ namespace TraceabilitySystem.Worker.Validator
             _processCategoryRepository = processCategoryRepository;
             _serialNumberRepository = serialNumberRepository;
             _processLogRepository = processLogRepository;
+            _passwordHasher = passwordHasher;
         }
 
         private async Task<ValidationResult> ValidateCommonAsync(CreateProcessLogRequestDto request)
@@ -48,14 +52,31 @@ namespace TraceabilitySystem.Worker.Validator
             }
 
             if (string.IsNullOrWhiteSpace(request.OperatorUsername))
-                validation.Errors.Add("Operator username is required.");
+            {
+                var generalUser = await _userRepository.GetByUsernameAsync("general");
+                if (generalUser == null)
+                {
+                    generalUser = new User
+                    {
+                        Username = "general",
+                        Name = "General",
+                        PasswordHash = _passwordHasher.Hash("password"),
+                        Role = "operator",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _userRepository.AddAsync(generalUser);
+                    await _userRepository.SaveChangesAsync();
+                }
 
-            if (!string.IsNullOrWhiteSpace(request.OperatorUsername))
+                request.OperatorUsername = "general";
+            }
+            else
             {
                 var user = await _userRepository.GetByUsernameAsync(request.OperatorUsername);
 
                 if (user == null)
-                    validation.Errors.Add("Username tidak ditemukan.");
+                    validation.Errors.Add($"Username '{request.OperatorUsername}' tidak ditemukan.");
             }
 
             if (request.Data == null)
