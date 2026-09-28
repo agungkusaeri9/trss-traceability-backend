@@ -644,25 +644,36 @@ public class TraceabilityLogService : ITraceabilityLogService
 
             bool status = request.IsOk ?? true;
 
-            var detail = new TraceabilityLogDetail
+            var existingDetail = tracLog.Details.FirstOrDefault(d => d.ProcessId == process.Id && d.ParameterId == param.Id);
+            if (existingDetail != null)
             {
-                TraceabilityLogId = tracLog.Id,
-                ProcessId = process.Id,
-                ParameterId = param.Id,
-                Value = strVal,
-                Status = status,
-                IsFinish = isFinish,
-                OperatorId = operatorId,
-                CreatedAt = request.Timestamp ?? DateTime.UtcNow
-            };
+                existingDetail.Value = strVal;
+                existingDetail.Status = status;
+                existingDetail.IsFinish = isFinish;
+                existingDetail.OperatorId = operatorId;
+                existingDetail.UpdatedAt = request.Timestamp ?? DateTime.UtcNow;
+            }
+            else
+            {
+                var detail = new TraceabilityLogDetail
+                {
+                    TraceabilityLogId = tracLog.Id,
+                    ProcessId = process.Id,
+                    ParameterId = param.Id,
+                    Value = strVal,
+                    Status = status,
+                    IsFinish = isFinish,
+                    OperatorId = operatorId,
+                    CreatedAt = request.Timestamp ?? DateTime.UtcNow
+                };
 
-            tracLog.Details.Add(detail);
+                tracLog.Details.Add(detail);
+            }
         }
 
         // If there are additional parameters present in MQTT data not in ProcessParameters
         if (mqttData.Count > 0)
         {
-            var processedParamIds = tracLog.Details.Select(d => d.ParameterId).ToHashSet();
             var remainingKeys = mqttData.Keys
                 .Where(k => !processParameters.Any(p => string.Equals(p.Code, k, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
@@ -674,24 +685,34 @@ public class TraceabilityLogService : ITraceabilityLogService
 
                 foreach (var extraParam in extraParams)
                 {
-                    if (processedParamIds.Contains(extraParam.Id)) continue;
-
                     string? strVal = FormatParamValue(mqttData[extraParam.Code]);
                     bool status = request.IsOk ?? true;
 
-                    var detail = new TraceabilityLogDetail
+                    var existingDetail = tracLog.Details.FirstOrDefault(d => d.ProcessId == process.Id && d.ParameterId == extraParam.Id);
+                    if (existingDetail != null)
                     {
-                        TraceabilityLogId = tracLog.Id,
-                        ProcessId = process.Id,
-                        ParameterId = extraParam.Id,
-                        Value = strVal,
-                        Status = status,
-                        IsFinish = isFinish,
-                        OperatorId = operatorId,
-                        CreatedAt = request.Timestamp ?? DateTime.UtcNow
-                    };
+                        existingDetail.Value = strVal;
+                        existingDetail.Status = status;
+                        existingDetail.IsFinish = isFinish;
+                        existingDetail.OperatorId = operatorId;
+                        existingDetail.UpdatedAt = request.Timestamp ?? DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        var detail = new TraceabilityLogDetail
+                        {
+                            TraceabilityLogId = tracLog.Id,
+                            ProcessId = process.Id,
+                            ParameterId = extraParam.Id,
+                            Value = strVal,
+                            Status = status,
+                            IsFinish = isFinish,
+                            OperatorId = operatorId,
+                            CreatedAt = request.Timestamp ?? DateTime.UtcNow
+                        };
 
-                    tracLog.Details.Add(detail);
+                        tracLog.Details.Add(detail);
+                    }
                 }
             }
         }
