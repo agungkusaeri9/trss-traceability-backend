@@ -9,7 +9,7 @@ public class ConsumeIssueRequestDto
     public string IssueNumber { get; set; } = string.Empty;
 
     /// <summary>Jumlah qty yang dikonsumsi (harus > 0).</summary>
-    public decimal QtyConsumed { get; set; }
+    public int QtyConsumed { get; set; }
 
     /// <summary>Keterangan tambahan (opsional).</summary>
     public string? Remark { get; set; }

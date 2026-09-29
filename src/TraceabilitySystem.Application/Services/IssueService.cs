@@ -48,7 +48,7 @@ public class IssueService : IIssueService
             .OrderByDescending(t => t.CreatedAt)
             .FirstOrDefault();
 
-        decimal qtyBefore = lastTransaction?.QtyAfter ?? issue.RemainingQty ?? stockIn.RemainingQty ?? stockIn.SupplyQty;
+        int qtyBefore = lastTransaction?.QtyAfter ?? issue.RemainingQty ?? stockIn.RemainingQty ?? stockIn.SupplyQty;
 
         // 3. Validasi stok cukup
         if (qtyBefore < request.QtyConsumed)

@@ -57,7 +57,7 @@ public class IssueRepository : BaseRepository<Issue>, IIssueRepository
     /// Returns the remaining stock (RemainingQty) for the given issue number.
     /// Returns null if the issue number does not exist.
     /// </summary>
-    public async Task<decimal?> GetFinalStockByIssueNumberAsync(
+    public async Task<int?> GetFinalStockByIssueNumberAsync(
         string issueNumber,
         CancellationToken cancellationToken = default)
     {

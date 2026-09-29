@@ -78,8 +78,8 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasColumnType("varchar(50)")
                         .HasColumnName("number");
 
-                    b.Property<decimal?>("RemainingQty")
-                        .HasColumnType("decimal(65,30)")
+                    b.Property<int?>("RemainingQty")
+                        .HasColumnType("int")
                         .HasColumnName("remaining_qty");
 
                     b.Property<int>("StockInId")
@@ -120,19 +120,16 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("issue_id");
 
-                    b.Property<decimal>("QtyAfter")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
+                    b.Property<int>("QtyAfter")
+                        .HasColumnType("int")
                         .HasColumnName("qty_after");
 
-                    b.Property<decimal>("QtyBefore")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
+                    b.Property<int>("QtyBefore")
+                        .HasColumnType("int")
                         .HasColumnName("qty_before");
 
-                    b.Property<decimal>("QtyChange")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
+                    b.Property<int>("QtyChange")
+                        .HasColumnType("int")
                         .HasColumnName("qty_change");
 
                     b.Property<string>("Remark")
@@ -914,8 +911,8 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("receipt_qty");
 
-                    b.Property<decimal?>("RemainingQty")
-                        .HasColumnType("decimal(65,30)")
+                    b.Property<int?>("RemainingQty")
+                        .HasColumnType("int")
                         .HasColumnName("remaining_qty");
 
                     b.Property<DateTime>("SupplyDate")

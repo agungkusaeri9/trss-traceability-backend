@@ -413,6 +413,22 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         }
 
         await SaveChangesAsync(cancellationToken);
+
+        // Evaluasi ulang processLog.Status berdasarkan SEMUA details yang ada di database
+        var allDetails = await _context.ProcessLogDetails
+            .Include(d => d.Parameter)
+            .Where(d => d.ProcessLogId == processLog.Id)
+            .ToListAsync(cancellationToken);
+
+        bool hasNg = allDetails.Any(d =>
+            d.Status == false ||
+            d.ValueBoolean == false ||
+            (d.Parameter != null && string.Equals(d.Parameter.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase) && d.ValueNumber == 2));
+
+        processLog.Status = !hasNg;
+        Update(processLog);
+        await SaveChangesAsync(cancellationToken);
+
         return processLog;
     }
 

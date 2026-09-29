@@ -12,7 +12,7 @@ public interface IIssueRepository : IRepository<Issue>
         IEnumerable<string> issueNumbers,
         CancellationToken cancellationToken = default);
 
-    Task<decimal?> GetFinalStockByIssueNumberAsync(
+    Task<int?> GetFinalStockByIssueNumberAsync(
         string issueNumber,
         CancellationToken cancellationToken = default);
 }

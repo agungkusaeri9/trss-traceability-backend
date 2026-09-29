@@ -13,15 +13,12 @@ public class IssueTransactionConfiguration : IEntityTypeConfiguration<IssueTrans
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.QtyBefore)
-            .HasPrecision(18, 2)
             .IsRequired();
 
         builder.Property(x => x.QtyChange)
-            .HasPrecision(18, 2)
             .IsRequired();
 
         builder.Property(x => x.QtyAfter)
-            .HasPrecision(18, 2)
             .IsRequired();
 
         builder.Property(x => x.Type)

@@ -1060,11 +1060,17 @@ public class ProcessLogService : IProcessLogService
             }
         }
 
-        // Jika ada parameter yang bernilai NG / Error (status == false atau valueBoolean == false), ubah processLog.Status menjadi false
-        if (paramValues.Any(p => p.valueBoolean == false || p.status == false))
-        {
-            processLog.Status = false;
-        }
+        // 6. Evaluasi ulang status ProcessLog berdasarkan SEMUA parameter yang ada di Details:
+        // - Status = false (NG / 0) jika ada SALAH SATU parameter bernilai NG (Status == false, ValueBoolean == false, atau TypeValue "ok_ng" bernilai 2).
+        // - Status = true (OK / 1) jika SEMUA parameter bernilai OK / tidak ada yang NG.
+        bool hasNgDetail = processLog.Details.Any(d =>
+            d.Status == false ||
+            d.ValueBoolean == false ||
+            (d.Parameter != null && string.Equals(d.Parameter.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase) && d.ValueNumber == 2) ||
+            (existingParams.FirstOrDefault(p => p.Id == d.ParameterId) is { } ep && string.Equals(ep.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase) && d.ValueNumber == 2)
+        );
+
+        processLog.Status = !hasNgDetail;
 
         _processLogRepository.Update(processLog);
         await _processLogRepository.SaveChangesAsync(cancellationToken);

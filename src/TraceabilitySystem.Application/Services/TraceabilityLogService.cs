@@ -642,7 +642,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                 strVal = FormatParamValue(rawVal);
             }
 
-            bool status = request.IsOk ?? true;
+            bool status = DetermineParamStatus(param, strVal, request.IsOk ?? true);
 
             var existingDetail = tracLog.Details.FirstOrDefault(d => d.ProcessId == process.Id && d.ParameterId == param.Id);
             if (existingDetail != null)
@@ -686,7 +686,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                 foreach (var extraParam in extraParams)
                 {
                     string? strVal = FormatParamValue(mqttData[extraParam.Code]);
-                    bool status = request.IsOk ?? true;
+                    bool status = DetermineParamStatus(extraParam, strVal, request.IsOk ?? true);
 
                     var existingDetail = tracLog.Details.FirstOrDefault(d => d.ProcessId == process.Id && d.ParameterId == extraParam.Id);
                     if (existingDetail != null)
@@ -717,6 +717,12 @@ public class TraceabilityLogService : ITraceabilityLogService
             }
         }
 
+        // Evaluasi status TraceabilityLog berdasarkan SEMUA parameter di Details:
+        // - Status = false (NG / 0) jika ada SALAH SATU detail bernilai Status == false
+        // - Status = true (OK / 1) jika SEMUA detail bernilai Status == true
+        bool hasNg = tracLog.Details.Any(d => d.Status == false);
+        tracLog.Status = !hasNg;
+
         return await _traceabilityLogRepository.CreateNewAsync(tracLog, cancellationToken);
     }
 
@@ -739,10 +745,25 @@ public class TraceabilityLogService : ITraceabilityLogService
         return val.ToString();
     }
 
-    private static bool DetermineParamStatus(string? value, bool defaultStatus)
+    private static bool DetermineParamStatus(Parameter? param, string? value, bool defaultStatus)
     {
         if (string.IsNullOrWhiteSpace(value)) return defaultStatus;
         var trimmed = value.Trim().ToUpperInvariant();
+
+        // Jika parameter bertipe ok_ng:
+        // 1 -> OK (true)
+        // 2 -> NG (false)
+        // 0 -> Belum ada data / defaultStatus
+        if (param != null && string.Equals(param.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase))
+        {
+            if (trimmed == "1" || trimmed == "OK" || trimmed == "TRUE" || trimmed == "PASSED")
+                return true;
+            if (trimmed == "2" || trimmed == "NG" || trimmed == "FALSE" || trimmed == "REJECTED" || trimmed == "FAIL" || trimmed == "FAILED")
+                return false;
+            if (trimmed == "0")
+                return defaultStatus;
+        }
+
         if (trimmed == "0" || trimmed == "NG" || trimmed == "FALSE" || 
             trimmed == "REJECTED" || trimmed == "ERROR" || trimmed == "ERR" || trimmed == "FAIL" || trimmed == "FAILED")
         {
