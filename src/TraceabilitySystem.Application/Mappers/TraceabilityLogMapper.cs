@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using TraceabilitySystem.Application.DTOs.TraceabilityLog;
 using TraceabilitySystem.Domain.Entities;
+using TraceabilitySystem.Shared.Helpers;
 
 namespace TraceabilitySystem.Application.Mappers;
 
@@ -164,8 +165,8 @@ public static class TraceabilityLogMapper
             SerialNumberMFan = x.SerialNumberMFan,
             Status = x.Status,
             IsFinish = x.IsFinish,
-            CreatedAt = x.CreatedAt,
-            UpdatedAt = x.UpdatedAt,
+            CreatedAt = DateTime.SpecifyKind(x.CreatedAt, DateTimeKind.Utc),
+            UpdatedAt = x.UpdatedAt.HasValue ? DateTime.SpecifyKind(x.UpdatedAt.Value, DateTimeKind.Utc) : null,
             IssueNumbersClinching = clinchingIssues,
             IssueNumbersMfan = mfanIssues,
             Detail = new TraceabilityLogProcessGroupDto

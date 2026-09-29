@@ -848,8 +848,8 @@ public class TraceabilityLogService : ITraceabilityLogService
                 SerialNumberMFan = x.SerialNumberMFan,
                 Status = x.Status,
                 IsFinish = x.IsFinish,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
+                CreatedAt = DateTime.SpecifyKind(x.CreatedAt, DateTimeKind.Utc),
+                UpdatedAt = x.UpdatedAt.HasValue ? DateTime.SpecifyKind(x.UpdatedAt.Value, DateTimeKind.Utc) : null,
                 IssueNumbersClinching = clinchingIssues,
                 IssueNumbersMfan = mfanIssues,
                 Detail = null
@@ -983,8 +983,8 @@ public class TraceabilityLogService : ITraceabilityLogService
                 SerialNumberMFan = x.SerialNumberMFan,
                 Status = x.Status,
                 IsFinish = x.IsFinish,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
+                CreatedAt = DateTime.SpecifyKind(x.CreatedAt, DateTimeKind.Utc),
+                UpdatedAt = x.UpdatedAt.HasValue ? DateTime.SpecifyKind(x.UpdatedAt.Value, DateTimeKind.Utc) : null,
                 IssueNumbersClinching = clinchingIssues,
                 IssueNumbersMfan = mfanIssues,
                 Detail = null
