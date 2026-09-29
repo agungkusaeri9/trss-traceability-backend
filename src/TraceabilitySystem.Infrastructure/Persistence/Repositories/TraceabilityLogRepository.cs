@@ -337,6 +337,9 @@ public class TraceabilityLogRepository : BaseRepository<ProcessLog>, ITraceabili
     {
         return await _context.TraceabilityLogs
             .Include(x => x.Details)
+                .ThenInclude(d => d.Parameter)
+            .Include(x => x.Details)
+                .ThenInclude(d => d.Process)
             .FirstOrDefaultAsync(x => x.Code == code, cancellationToken);
     }
 

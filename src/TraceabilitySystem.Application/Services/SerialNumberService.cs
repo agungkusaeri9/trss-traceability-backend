@@ -269,31 +269,34 @@ public class SerialNumberService : ISerialNumberService
 
         int startSequence;
 
-        if(countSerialNumber < 1)
+        if (countSerialNumber < 1 || existingCodes.Count == 0)
         {
             // Jika belum ada data sebelumnya di DB, ambil initial sequence dari AppConfig
-                startSequence = await GetStartClinchingSequenceAsync(cancellationToken);
+            var initialStart = await GetStartClinchingSequenceAsync("START_SERIAL_NUMBER_CLINCHING", cancellationToken);
+            startSequence = initialStart > 0 ? initialStart : 1;
         }
         else
         {
-           if (existingCodes.Count > 0)
-            {
-                // Cari sequence tertinggi yang sudah ada pada tahun berjalan (restart ke 0 jika tahun baru)
-                var maxSequence = existingCodes
-                    .Select(s =>
-                    {
-                        var suffix = s.SerialNumberCode[prefix.Length..]; 
-                        return int.TryParse(suffix, out var seq) ? seq : 0;
-                    })
-                    .DefaultIfEmpty(0)
-                    .Max();
+            // Cari sequence tertinggi yang sudah ada pada tahun berjalan (restart ke 0 jika tahun baru)
+            var maxSequence = existingCodes
+                .Select(s =>
+                {
+                    var suffix = s.SerialNumberCode[prefix.Length..]; 
+                    return int.TryParse(suffix, out var seq) ? seq : 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
 
-                startSequence = maxSequence + 1;
+            var startWithData = await GetStartClinchingSequenceAsync("START_SERIAL_NUMBER_CLINCHING_WITH_DATA", cancellationToken);
+
+            if (startWithData > 0 && maxSequence < startWithData)
+            {
+                startSequence = startWithData;
             }
             else
             {
-                startSequence = 1;
-            } 
+                startSequence = maxSequence + 1;
+            }
         }
         
 
@@ -523,11 +526,21 @@ public class SerialNumberService : ISerialNumberService
                     .DefaultIfEmpty(0)
                     .Max();
 
-                startSequence = maxSequence + 1;
+                var startWithData = await GetStartClinchingSequenceAsync("START_SERIAL_NUMBER_CLINCHING_WITH_DATA", cancellationToken);
+
+                if (startWithData > 0 && maxSequence < startWithData)
+                {
+                    startSequence = startWithData;
+                }
+                else
+                {
+                    startSequence = maxSequence + 1;
+                }
             }
             else
             {
-                startSequence = await GetStartClinchingSequenceAsync(cancellationToken);
+                var initialStart = await GetStartClinchingSequenceAsync("START_SERIAL_NUMBER_CLINCHING", cancellationToken);
+                startSequence = initialStart > 0 ? initialStart : 1;
             }
 
             newCodes = Enumerable.Range(startSequence, request.Qty)
@@ -590,11 +603,21 @@ public class SerialNumberService : ISerialNumberService
                 .DefaultIfEmpty(0)
                 .Max();
 
-            nextSequence = maxSequence + 1;
+            var startWithData = await GetStartClinchingSequenceAsync("START_SERIAL_NUMBER_CLINCHING_WITH_DATA", cancellationToken);
+
+            if (startWithData > 0 && maxSequence < startWithData)
+            {
+                nextSequence = startWithData;
+            }
+            else
+            {
+                nextSequence = maxSequence + 1;
+            }
         }
         else
         {
-            nextSequence = await GetStartClinchingSequenceAsync(cancellationToken);
+            var initialStart = await GetStartClinchingSequenceAsync("START_SERIAL_NUMBER_CLINCHING", cancellationToken);
+            nextSequence = initialStart > 0 ? initialStart : 1;
         }
 
         var newCode = $"{prefix}{nextSequence:D6}";
@@ -613,11 +636,11 @@ public class SerialNumberService : ISerialNumberService
         return newCode;
     }
 
-    private async Task<int> GetStartClinchingSequenceAsync(CancellationToken cancellationToken = default)
+    private async Task<int> GetStartClinchingSequenceAsync(string configKey = "START_SERIAL_NUMBER_CLINCHING", CancellationToken cancellationToken = default)
     {
-        var config = await _appConfigRepository.GetByKeyAsync("START_SERIAL_NUMBER_CLINCHING", cancellationToken);
+        var config = await _appConfigRepository.GetByKeyAsync(configKey, cancellationToken);
         if (config == null || string.IsNullOrWhiteSpace(config.Value))
-            return 1;
+            return 0;
 
         var val = config.Value.Trim();
         if (val.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase))
@@ -630,6 +653,6 @@ public class SerialNumberService : ISerialNumberService
             return startSeq;
         }
 
-        return 1;
+        return 0;
     }
 }

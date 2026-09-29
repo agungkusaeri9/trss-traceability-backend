@@ -1060,7 +1060,7 @@ public class ProcessLogService : IProcessLogService
             }
         }
 
-        // 6. Evaluasi ulang status ProcessLog berdasarkan SEMUA parameter yang ada di Details:
+        // 6. Evaluasi ulang status ProcessLog berdasarkan SEMUA parameter yang ada di Details (Parent + Child Relations):
         // - Status = false (NG / 0) jika ada SALAH SATU parameter bernilai NG (Status == false, ValueBoolean == false, atau TypeValue "ok_ng" bernilai 2).
         // - Status = true (OK / 1) jika SEMUA parameter bernilai OK / tidak ada yang NG.
         bool hasNgDetail = processLog.Details.Any(d =>
@@ -1070,7 +1070,21 @@ public class ProcessLogService : IProcessLogService
             (existingParams.FirstOrDefault(p => p.Id == d.ParameterId) is { } ep && string.Equals(ep.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase) && d.ValueNumber == 2)
         );
 
-        processLog.Status = !hasNgDetail;
+        bool hasNgInChild = false;
+        if (serialNumber.ParentRelations != null && serialNumber.ParentRelations.Count > 0)
+        {
+            var childDetails = serialNumber.ParentRelations
+                .SelectMany(r => r.ChildSerialNumber?.ProcessLogs?.SelectMany(pl => pl.Details) ?? Enumerable.Empty<ProcessLogDetail>())
+                .ToList();
+
+            hasNgInChild = childDetails.Any(d =>
+                d.Status == false ||
+                d.ValueBoolean == false ||
+                (d.Parameter != null && string.Equals(d.Parameter.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase) && d.ValueNumber == 2)
+            );
+        }
+
+        processLog.Status = !(hasNgDetail || hasNgInChild);
 
         _processLogRepository.Update(processLog);
         await _processLogRepository.SaveChangesAsync(cancellationToken);
