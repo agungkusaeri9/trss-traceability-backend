@@ -11,7 +11,7 @@ namespace TraceabilitySystem.Application.Mappers;
 public static class TraceabilityLogMapper
 {
     private static readonly Regex MultiPointParamRegex =
-        new(@"^(CLINCHING_HEIGHT|END_PLATE_WIDTH|CHECK_POINT)(?:_\d+.*)?$",
+        new(@"^(CLINCHING_HEIGHT|END_PLATE_WIDTH)(?:_\d+.*)?$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex DigitsRegex =
@@ -267,7 +267,6 @@ public static class TraceabilityLogMapper
             {
                 "CLINCHING_HEIGHT" => "Clinching Height Result",
                 "END_PLATE_WIDTH" => "End Plate Width Result",
-                "CHECK_POINT" => "Check Point",
                 _ => System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(groupKey.Replace('_', ' ').ToLowerInvariant())
             };
         }

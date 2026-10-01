@@ -74,6 +74,7 @@ public class ParameterService : BaseService<Parameter, ParameterDto>, IParameter
         var parameter = request.Adapt<Parameter>();
         parameter.DataType = request.DataType.ToLower();
         parameter.TypeValue = typeVal;
+        parameter.Order = request.Order ?? 0;
         parameter.ShowInDisplay = request.ShowInDisplay;
         parameter.CreatedAt = DateTime.UtcNow;
 
@@ -120,6 +121,7 @@ public class ParameterService : BaseService<Parameter, ParameterDto>, IParameter
             parameter.TypeValue = typeVal;
         }
 
+        if (request.Order.HasValue) parameter.Order = request.Order.Value;
         if (request.ShowInDisplay.HasValue) parameter.ShowInDisplay = request.ShowInDisplay.Value;
         if (request.IsActive.HasValue) parameter.IsActive = request.IsActive.Value;
 

@@ -21,5 +21,7 @@ public class CreateParameterRequestDto
     [StringLength(20, ErrorMessage = "Type Value cannot exceed 20 characters.")]
     public string TypeValue { get; set; } = "value";
 
+    public int? Order { get; set; } = 0;
+
     public bool ShowInDisplay { get; set; } = true;
 }
