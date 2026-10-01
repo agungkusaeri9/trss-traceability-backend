@@ -895,19 +895,34 @@ public class TraceabilityLogService : ITraceabilityLogService
         // 1. Dynamic Clinching process parameters from ProcessLog (or fallback to TraceabilityLogDetails)
         var clinchingProcessDetails = processLog?.Details?
             .Where(d => d.Process != null &&
-                        (d.Process.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) ||
-                         d.Process.Code.Contains("HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
-                         d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase)))
+                        d.Process.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) &&
+                        !d.Process.Code.Contains("HE_LEAK", StringComparison.OrdinalIgnoreCase) &&
+                        !d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         var clinchingList = (clinchingProcessDetails != null && clinchingProcessDetails.Count > 0)
             ? TraceabilityLogMapper.MapProcessLogDetailsToParameterDtos(clinchingProcessDetails, clinchingIssues)
             : TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
-                .Where(d => d.Process != null && (d.Process.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) ||
-                                                  d.Process.Code.Contains("HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
-                                                  d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase))));
+                .Where(d => d.Process != null &&
+                            d.Process.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) &&
+                            !d.Process.Code.Contains("HE_LEAK", StringComparison.OrdinalIgnoreCase) &&
+                            !d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase)));
 
-        // 2. Dynamic M-Fan process parameters from ProcessLog of SerialNumberMFan (or fallback to TraceabilityLogDetails)
+        // 2. Dynamic HE Leak process parameters from ProcessLog (or fallback to TraceabilityLogDetails)
+        var heLeakProcessDetails = processLog?.Details?
+            .Where(d => d.Process != null &&
+                        (d.Process.Code.Contains("HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
+                         d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        var heLeakList = (heLeakProcessDetails != null && heLeakProcessDetails.Count > 0)
+            ? TraceabilityLogMapper.MapProcessLogDetailsToParameterDtos(heLeakProcessDetails)
+            : TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
+                .Where(d => d.Process != null &&
+                            (d.Process.Code.Contains("HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
+                             d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase))));
+
+        // 3. Dynamic M-Fan process parameters from ProcessLog of SerialNumberMFan (or fallback to TraceabilityLogDetails)
         var mfanSn = x.SerialNumberMFan;
         var mfanProcessLog = !string.IsNullOrWhiteSpace(mfanSn)
             ? await _traceabilityLogRepository.GetProcessLogFullValueAsync(mfanSn, cancellationToken)
@@ -925,7 +940,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                 .Where(d => d.Process != null && (d.Process.Code.Contains("M_FAN", StringComparison.OrdinalIgnoreCase) ||
                                                   d.Process.Code.Contains("FAN", StringComparison.OrdinalIgnoreCase))));
 
-        // 3. Dynamic ECM parameters
+        // 4. Dynamic ECM parameters
         var ecmList = TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
             .Where(d => (d.Process != null && (d.Process.Code.Contains("ECM", StringComparison.OrdinalIgnoreCase) ||
                                                 d.Process.Code.Equals("ECM_ASSY", StringComparison.OrdinalIgnoreCase))) ||
@@ -933,7 +948,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                                                  d.Parameter.Code.Contains("MOTOR_FAN", StringComparison.OrdinalIgnoreCase) ||
                                                  d.Parameter.Code.StartsWith("RAD_CORE", StringComparison.OrdinalIgnoreCase)))));
 
-        // 4. Dynamic Final Inspection parameters
+        // 5. Dynamic Final Inspection parameters
         var finalList = TraceabilityLogMapper.MapTraceabilityLogDetailsToParameterDtos((x.Details ?? Enumerable.Empty<TraceabilityLogDetail>())
             .Where(d => (d.Process != null && (d.Process.Code.Contains("FINAL", StringComparison.OrdinalIgnoreCase) ||
                                                 d.Process.Code.Equals("FINAL_INSPECTION", StringComparison.OrdinalIgnoreCase))) ||
@@ -941,7 +956,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                                                  d.Parameter.Code.StartsWith("CHECK_POINT", StringComparison.OrdinalIgnoreCase)))));
 
         return TraceabilityLogMapper.MapToTraceabilityLogDto(
-            x, clinchingIssues, mfanIssues, clinchingList, mfanList, ecmList, finalList);
+            x, clinchingIssues, mfanIssues, clinchingList, heLeakList, mfanList, ecmList, finalList);
     }
 
     public static List<TraceabilityLogParameterDto> MapProcessLogDetailsToParameterDtos(

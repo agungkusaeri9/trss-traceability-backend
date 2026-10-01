@@ -153,6 +153,7 @@ public static class TraceabilityLogMapper
         List<string> clinchingIssues,
         List<string> mfanIssues,
         List<TraceabilityLogParameterDto> clinchingList,
+        List<TraceabilityLogParameterDto> heLeakList,
         List<TraceabilityLogParameterDto> mfanList,
         List<TraceabilityLogParameterDto> ecmList,
         List<TraceabilityLogParameterDto> finalList)
@@ -172,6 +173,7 @@ public static class TraceabilityLogMapper
             Detail = new TraceabilityLogProcessGroupDto
             {
                 Clinching = clinchingList,
+                HeLeak = heLeakList,
                 MFan = mfanList,
                 Ecm = ecmList,
                 Final = finalList

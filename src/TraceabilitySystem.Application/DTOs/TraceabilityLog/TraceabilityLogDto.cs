@@ -39,6 +39,9 @@ public class TraceabilityLogProcessGroupDto
     [JsonPropertyName("clinching")]
     public List<TraceabilityLogParameterDto> Clinching { get; set; } = new();
 
+    [JsonPropertyName("heLeak")]
+    public List<TraceabilityLogParameterDto> HeLeak { get; set; } = new();
+
     [JsonPropertyName("mfan")]
     public List<TraceabilityLogParameterDto> MFan { get; set; } = new();
 
