@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.DTOs.TraceabilityLog;
+using TraceabilitySystem.Application.Services;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Shared.Helpers;
 
@@ -329,11 +331,11 @@ public static class TraceabilityLogMapper
         TraceabilityLog x,
         List<string> clinchingIssues,
         List<string> mfanIssues,
-        List<TraceabilityLogParameterDto> clinchingList,
-        List<TraceabilityLogParameterDto> heLeakList,
-        List<TraceabilityLogParameterDto> mfanList,
-        List<TraceabilityLogParameterDto> ecmList,
-        List<TraceabilityLogParameterDto> finalList)
+        List<TraceabilityLogProcessSectionDto> clinchingSections,
+        List<TraceabilityLogProcessSectionDto> heLeakSections,
+        List<TraceabilityLogProcessSectionDto> mfanSections,
+        List<TraceabilityLogProcessSectionDto> ecmSections,
+        List<TraceabilityLogProcessSectionDto> finalSections)
     {
         return new TraceabilityLogDto
         {
@@ -349,13 +351,210 @@ public static class TraceabilityLogMapper
             IssueNumbersMfan = mfanIssues,
             Detail = new TraceabilityLogProcessGroupDto
             {
-                Clinching = clinchingList,
-                HeLeak = heLeakList,
-                MFan = mfanList,
-                Ecm = ecmList,
-                Final = finalList
+                Clinching = clinchingSections,
+                HeLeak = heLeakSections,
+                MFan = mfanSections,
+                Ecm = ecmSections,
+                Final = finalSections
             }
         };
+    }
+
+    public static TraceabilityLogDto MapToTraceabilityLogDto(
+        TraceabilityLog x,
+        List<string> clinchingIssues,
+        List<string> mfanIssues,
+        TraceabilityLogProcessSectionDto clinchingSection,
+        TraceabilityLogProcessSectionDto heLeakSection,
+        TraceabilityLogProcessSectionDto mfanSection,
+        TraceabilityLogProcessSectionDto ecmSection,
+        TraceabilityLogProcessSectionDto finalSection)
+    {
+        return MapToTraceabilityLogDto(
+            x,
+            clinchingIssues,
+            mfanIssues,
+            new List<TraceabilityLogProcessSectionDto> { clinchingSection },
+            new List<TraceabilityLogProcessSectionDto> { heLeakSection },
+            new List<TraceabilityLogProcessSectionDto> { mfanSection },
+            new List<TraceabilityLogProcessSectionDto> { ecmSection },
+            new List<TraceabilityLogProcessSectionDto> { finalSection });
+    }
+
+    public static TraceabilityLogDto MapToTraceabilityLogDto(
+        TraceabilityLog x,
+        List<string> clinchingIssues,
+        List<string> mfanIssues,
+        List<TraceabilityLogParameterDto> clinchingList,
+        List<TraceabilityLogParameterDto> heLeakList,
+        List<TraceabilityLogParameterDto> mfanList,
+        List<TraceabilityLogParameterDto> ecmList,
+        List<TraceabilityLogParameterDto> finalList)
+    {
+        return MapToTraceabilityLogDto(
+            x,
+            clinchingIssues,
+            mfanIssues,
+            new List<TraceabilityLogProcessSectionDto> { new() { ProcessCode = "CLINCHING", ProcessName = "Clinching Process", Parameters = clinchingList } },
+            new List<TraceabilityLogProcessSectionDto> { new() { ProcessCode = "HE_LEAK", ProcessName = "HE Leak Process", Parameters = heLeakList } },
+            new List<TraceabilityLogProcessSectionDto> { new() { ProcessCode = "M_FAN", ProcessName = "M-Fan Assembly & Inspection Process", Parameters = mfanList } },
+            new List<TraceabilityLogProcessSectionDto> { new() { ProcessCode = "ECM", ProcessName = "ECM Assembly Process", Parameters = ecmList } },
+            new List<TraceabilityLogProcessSectionDto> { new() { ProcessCode = "FINAL", ProcessName = "Final Inspection Process", Parameters = finalList } });
+    }
+
+    public static List<TraceabilityLogProcessSectionDto> BuildProcessSectionList(
+        List<Process> masterProcesses,
+        string fallbackDefaultCode,
+        string fallbackDefaultName,
+        IEnumerable<ProcessLogDetail>? processLogDetails,
+        IEnumerable<TraceabilityLogDetail>? traceabilityLogDetails,
+        IEnumerable<string>? fallbackIssues,
+        List<ProcessHistory>? histories,
+        List<MqttPublisherStatus>? disabledMqttStatuses)
+    {
+        var activeMasterProcesses = masterProcesses?
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.Order ?? int.MaxValue)
+            .ThenBy(p => p.Id)
+            .ToList() ?? new List<Process>();
+
+        if (activeMasterProcesses.Count == 0)
+        {
+            var fallbackParams = MapDetailsWithMasterParameters(
+                null,
+                processLogDetails,
+                traceabilityLogDetails,
+                fallbackIssues);
+
+            var fallbackSection = BuildProcessSection(
+                fallbackDefaultCode,
+                fallbackDefaultName,
+                new List<Process>(),
+                fallbackParams,
+                histories,
+                disabledMqttStatuses);
+
+            return new List<TraceabilityLogProcessSectionDto> { fallbackSection };
+        }
+
+        var result = new List<TraceabilityLogProcessSectionDto>();
+
+        foreach (var proc in activeMasterProcesses)
+        {
+            var singleProcList = new List<Process> { proc };
+            var procParams = MapDetailsWithMasterParameters(
+                singleProcList,
+                processLogDetails,
+                traceabilityLogDetails,
+                fallbackIssues);
+
+            var section = BuildProcessSection(
+                proc.Code,
+                proc.Name ?? proc.Code,
+                singleProcList,
+                procParams,
+                histories,
+                disabledMqttStatuses);
+
+            result.Add(section);
+        }
+
+        return result;
+    }
+
+    public static TraceabilityLogProcessSectionDto BuildProcessSection(
+        string processCode,
+        string processName,
+        List<Process> masterProcesses,
+        List<TraceabilityLogParameterDto> parameters,
+        List<ProcessHistory>? histories,
+        List<MqttPublisherStatus>? disabledMqttStatuses)
+    {
+        var (isPublisher, status, reason) = GetMqttPublisherStatus(processCode, masterProcesses, disabledMqttStatuses);
+        var procHistories = GetHistoriesForProcesses(processCode, masterProcesses, histories);
+
+        bool result = parameters.All(p => p.Value is string s && s == "-" ? true : (p.Status ?? true));
+
+        return new TraceabilityLogProcessSectionDto
+        {
+            ProcessCode = processCode,
+            ProcessName = processName,
+            Result = result,
+            IsMqttPublisher = isPublisher,
+            MqttPublisherStatus = status,
+            Reason = reason,
+            Parameters = parameters,
+            History = procHistories
+        };
+    }
+
+    private static (bool IsPublisher, string? Status, string? Reason) GetMqttPublisherStatus(
+        string sectionCode,
+        List<Process> masterProcesses,
+        List<MqttPublisherStatus>? disabledMqttStatuses)
+    {
+        if (masterProcesses == null || masterProcesses.Count == 0)
+        {
+            var matchedDirect = disabledMqttStatuses?.FirstOrDefault(s =>
+                string.Equals(s.ProcessCode, sectionCode, StringComparison.OrdinalIgnoreCase) && !s.IsPublisher);
+
+            if (matchedDirect != null)
+            {
+                return (false, matchedDirect.Status ?? "Disabled", matchedDirect.Reason ?? $"Process '{sectionCode}' MQTT publisher is disabled by configuration.");
+            }
+
+            return (true, null, null);
+        }
+
+        foreach (var proc in masterProcesses)
+        {
+            var matched = disabledMqttStatuses?.FirstOrDefault(s =>
+                (string.Equals(s.ProcessCode, proc.Code, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(s.ProcessCode, sectionCode, StringComparison.OrdinalIgnoreCase)) && !s.IsPublisher);
+
+            if (!proc.IsMqttPublisher || matched != null)
+            {
+                return (
+                    false,
+                    matched?.Status ?? "Disabled",
+                    matched?.Reason ?? $"Process '{proc.Code}' MQTT publisher is disabled by configuration."
+                );
+            }
+        }
+
+        return (true, null, null);
+    }
+
+    private static List<ProcessHistoryItemDto> GetHistoriesForProcesses(
+        string sectionCode,
+        List<Process> masterProcesses,
+        List<ProcessHistory>? histories)
+    {
+        if (histories == null || histories.Count == 0)
+            return new List<ProcessHistoryItemDto>();
+
+        var procIds = new HashSet<int>((masterProcesses ?? Enumerable.Empty<Process>()).Select(p => p.Id));
+        var procCodes = new HashSet<string>((masterProcesses ?? Enumerable.Empty<Process>()).Select(p => p.Code), StringComparer.OrdinalIgnoreCase);
+
+        return histories
+            .Where(h => (h.ProcessId != 0 && procIds.Contains(h.ProcessId)) ||
+                        (!string.IsNullOrEmpty(h.Process?.Code) && procCodes.Contains(h.Process.Code)) ||
+                        (!string.IsNullOrEmpty(h.Process?.Code) && (
+                            string.Equals(h.Process.Code, sectionCode, StringComparison.OrdinalIgnoreCase) ||
+                            h.Process.Code.Contains(sectionCode, StringComparison.OrdinalIgnoreCase) ||
+                            sectionCode.Contains(h.Process.Code, StringComparison.OrdinalIgnoreCase))))
+            .OrderByDescending(h => h.CreatedAt)
+            .ThenByDescending(h => h.Id)
+            .Select(h => new ProcessHistoryItemDto
+            {
+                Id = h.Id,
+                ParameterCode = h.Parameter?.Code ?? string.Empty,
+                ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
+                Value = h.Value,
+                Status = ProcessLogService.DetermineHistoryStatus(h.Parameter, h.Value),
+                CreatedAt = h.CreatedAt
+            })
+            .ToList();
     }
 
     private static List<TraceabilityLogParameterDto> BuildParameterDtoList(

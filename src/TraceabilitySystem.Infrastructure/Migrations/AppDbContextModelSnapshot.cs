@@ -765,7 +765,7 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.ToTable("process_log_details");
                 });
 
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessLogHistory", b =>
+            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessHistory", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -788,37 +788,70 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                         .HasColumnType("int")
                         .HasColumnName("process_id");
 
-                    b.Property<long>("ProcessLogId")
+                    b.Property<long?>("ProcessLogId")
                         .HasColumnType("bigint")
                         .HasColumnName("process_log_id");
 
-                    b.Property<int>("SerialNumberId")
+                    b.Property<string>("ReferenceCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("reference_code");
+
+                    b.Property<long?>("ReferenceId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reference_id");
+
+                    b.Property<string>("ReferenceType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasDefaultValue("ProcessLog")
+                        .HasColumnName("reference_type");
+
+                    b.Property<int?>("SerialNumberId")
                         .HasColumnType("int")
                         .HasColumnName("serial_number_id");
+
+                    b.Property<long?>("TraceabilityLogId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("traceability_log_id");
 
                     b.Property<string>("Value")
                         .HasColumnType("longtext")
                         .HasColumnName("value");
 
                     b.HasKey("Id")
-                        .HasName("pk_process_log_histories");
+                        .HasName("pk_process_histories");
 
                     b.HasIndex("CreatedAt")
-                        .HasDatabaseName("ix_process_log_histories_created_at");
+                        .HasDatabaseName("ix_process_histories_created_at");
 
                     b.HasIndex("ParameterId")
-                        .HasDatabaseName("ix_process_log_histories_parameter_id");
+                        .HasDatabaseName("ix_process_histories_parameter_id");
 
                     b.HasIndex("ProcessId")
-                        .HasDatabaseName("ix_process_log_histories_process_id");
+                        .HasDatabaseName("ix_process_histories_process_id");
 
                     b.HasIndex("ProcessLogId")
-                        .HasDatabaseName("ix_process_log_histories_process_log_id");
+                        .HasDatabaseName("ix_process_histories_process_log_id");
+
+                    b.HasIndex("ReferenceCode")
+                        .HasDatabaseName("ix_process_histories_reference_code");
+
+                    b.HasIndex("ReferenceId")
+                        .HasDatabaseName("ix_process_histories_reference_id");
+
+                    b.HasIndex("ReferenceType")
+                        .HasDatabaseName("ix_process_histories_reference_type");
 
                     b.HasIndex("SerialNumberId")
-                        .HasDatabaseName("ix_process_log_histories_serial_number_id");
+                        .HasDatabaseName("ix_process_histories_serial_number_id");
 
-                    b.ToTable("process_log_histories");
+                    b.HasIndex("TraceabilityLogId")
+                        .HasDatabaseName("ix_process_histories_traceability_log_id");
+
+                    b.ToTable("process_histories");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessParameter", b =>
@@ -1406,35 +1439,39 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.Navigation("ProcessLog");
                 });
 
-            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessLogHistory", b =>
+            modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessHistory", b =>
                 {
                     b.HasOne("TraceabilitySystem.Domain.Entities.Parameter", "Parameter")
                         .WithMany()
                         .HasForeignKey("ParameterId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_process_log_histories_parameters_parameter_id");
+                        .HasConstraintName("fk_process_histories_parameters_parameter_id");
 
                     b.HasOne("TraceabilitySystem.Domain.Entities.Process", "Process")
                         .WithMany()
                         .HasForeignKey("ProcessId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
-                        .HasConstraintName("fk_process_log_histories_processes_process_id");
+                        .HasConstraintName("fk_process_histories_processes_process_id");
 
                     b.HasOne("TraceabilitySystem.Domain.Entities.ProcessLog", "ProcessLog")
                         .WithMany("Histories")
                         .HasForeignKey("ProcessLogId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_process_log_histories_process_logs_process_log_id");
+                        .HasConstraintName("fk_process_histories_process_logs_process_log_id");
 
                     b.HasOne("TraceabilitySystem.Domain.Entities.SerialNumber", "SerialNumber")
-                        .WithMany("ProcessLogHistories")
+                        .WithMany("ProcessHistories")
                         .HasForeignKey("SerialNumberId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_process_log_histories_serial_numbers_serial_number_id");
+                        .HasConstraintName("fk_process_histories_serial_numbers_serial_number_id");
+
+                    b.HasOne("TraceabilitySystem.Domain.Entities.TraceabilityLog", "TraceabilityLog")
+                        .WithMany("Histories")
+                        .HasForeignKey("TraceabilityLogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_process_histories_traceability_logs_traceability_log_id");
 
                     b.Navigation("Parameter");
 
@@ -1443,6 +1480,8 @@ namespace TraceabilitySystem.Infrastructure.Migrations
                     b.Navigation("ProcessLog");
 
                     b.Navigation("SerialNumber");
+
+                    b.Navigation("TraceabilityLog");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.ProcessParameter", b =>
@@ -1621,7 +1660,7 @@ namespace TraceabilitySystem.Infrastructure.Migrations
 
                     b.Navigation("ProcessLogs");
 
-                    b.Navigation("ProcessLogHistories");
+                    b.Navigation("ProcessHistories");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.StockIn", b =>
@@ -1632,6 +1671,8 @@ namespace TraceabilitySystem.Infrastructure.Migrations
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.TraceabilityLog", b =>
                 {
                     b.Navigation("Details");
+
+                    b.Navigation("Histories");
                 });
 
             modelBuilder.Entity("TraceabilitySystem.Domain.Entities.User", b =>

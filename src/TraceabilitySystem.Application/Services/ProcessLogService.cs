@@ -143,7 +143,7 @@ public class ProcessLogService : IProcessLogService
 
         var histories = snIds.Count > 0
             ? await _processLogRepository.GetHistoriesBySerialNumberIdsAsync(snIds, cancellationToken)
-            : new List<ProcessLogHistory>();
+            : new List<ProcessHistory>();
 
         var disabledMqttStatuses = snCodes.Count > 0
             ? await _mqttPublisherStatusRepository.GetByReferenceCodesAsync(
@@ -186,7 +186,7 @@ public class ProcessLogService : IProcessLogService
 
         var histories = snIds.Count > 0
             ? await _processLogRepository.GetHistoriesBySerialNumberIdsAsync(snIds, cancellationToken)
-            : new List<ProcessLogHistory>();
+            : new List<ProcessHistory>();
 
         var disabledMqttStatuses = await _mqttPublisherStatusRepository.GetByReferenceCodesAsync(
             snCodes,
@@ -658,7 +658,7 @@ public class ProcessLogService : IProcessLogService
     private static ProcessLogDto MapToDto(
         ProcessLog log, 
         List<Process>? masterProcesses = null, 
-        List<ProcessLogHistory>? histories = null,
+        List<ProcessHistory>? histories = null,
         List<MqttPublisherStatus>? disabledMqttStatuses = null)
     {
         var sn = log.SerialNumber;
@@ -717,7 +717,7 @@ public class ProcessLogService : IProcessLogService
         ICollection<ProcessLogDetail>? details, 
         List<Process>? masterProcesses = null, 
         bool isParent = true, 
-        List<ProcessLogHistory>? histories = null,
+        List<ProcessHistory>? histories = null,
         List<MqttPublisherStatus>? disabledMqttStatuses = null)
     {
         if (masterProcesses == null || masterProcesses.Count == 0)
@@ -757,10 +757,10 @@ public class ProcessLogService : IProcessLogService
                             },
                             Status = d.Status
                         }).ToList(),
-                        History = (histories ?? Enumerable.Empty<ProcessLogHistory>())
+                        History = (histories ?? Enumerable.Empty<ProcessHistory>())
                             .Where(h => (g.Key.Id != 0 && h.ProcessId == g.Key.Id) || string.Equals(h.Process?.Code, g.Key.Code, StringComparison.OrdinalIgnoreCase))
-                            .OrderBy(h => h.CreatedAt)
-                            .ThenBy(h => h.Id)
+                            .OrderByDescending(h => h.CreatedAt)
+                            .ThenByDescending(h => h.Id)
                             .Select(h => new ProcessHistoryItemDto
                             {
                                 Id            = h.Id,
@@ -825,10 +825,10 @@ public class ProcessLogService : IProcessLogService
                 }
             }
 
-            var procHistories = (histories ?? Enumerable.Empty<ProcessLogHistory>())
+            var procHistories = (histories ?? Enumerable.Empty<ProcessHistory>())
                 .Where(h => h.ProcessId == proc.Id || string.Equals(h.Process?.Code, proc.Code, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(h => h.CreatedAt)
-                .ThenBy(h => h.Id)
+                .OrderByDescending(h => h.CreatedAt)
+                .ThenByDescending(h => h.Id)
                 .Select(h => new ProcessHistoryItemDto
                 {
                     Id            = h.Id,
@@ -1150,7 +1150,7 @@ public class ProcessLogService : IProcessLogService
         }
 
         // 5. Insert or Update (Replace) details to the ProcessLog entity's Details collection
-        var newHistories = recordHistory ? new List<ProcessLogHistory>() : null;
+        var newHistories = recordHistory ? new List<ProcessHistory>() : null;
         foreach (var param in paramValues)
         {
             var parameter = existingParams.FirstOrDefault(x => x.Code == param.parameterCode);
@@ -1189,14 +1189,17 @@ public class ProcessLogService : IProcessLogService
                                    ?? param.valueBoolean?.ToString()
                                    ?? (request.Data != null && request.Data.TryGetValue(param.parameterCode, out var rawVal) ? rawVal?.ToString() : null);
 
-                var history = new ProcessLogHistory
+                var history = new ProcessHistory
                 {
+                    ReferenceType = ProcessHistoryReferenceTypes.ProcessLog,
+                    ReferenceId = processLog.Id,
+                    ReferenceCode = serialNumber.SerialNumberCode,
                     ProcessLogId = processLog.Id,
                     SerialNumberId = serialNumber.Id,
                     ProcessId = process.Id,
                     ParameterId = parameter.Id,
                     Value = historyValue,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = request.Timestamp ?? DateTime.UtcNow
                 };
                 newHistories.Add(history);
             }
@@ -1307,7 +1310,7 @@ public class ProcessLogService : IProcessLogService
         
         request.SerialNumber = mfSerialNumberCode;
         
-        var result = await CreateProcessLogDetailOnlyAsync(request, recordHistory: false, cancellationToken);
+        var result = await CreateProcessLogDetailOnlyAsync(request, recordHistory: true, cancellationToken);
 
         // 5. Print barcode / label M-Fan Assy
         int isPrinted = 0;
@@ -1366,6 +1369,23 @@ public class ProcessLogService : IProcessLogService
         // Simpan process log detail untuk ECM_ASSY pada serial number CC
         request.SerialNumber = clinchingSnCode;
         request.ProcessCode = "ECM_ASSY";
+        return await CreateProcessLogDetailOnlyAsync(request, cancellationToken);
+    }
+
+    public async Task<ProcessLogDto> CreateProcessLogFinalInspectionAsync(
+        CreateProcessLogRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var clinchingSnCode = !string.IsNullOrWhiteSpace(request.SerialNumberClinching)
+            ? request.SerialNumberClinching
+            : request.SerialNumber;
+
+        if (string.IsNullOrWhiteSpace(clinchingSnCode))
+            throw new AppException("Serial number clinching (CC) is required.", 400);
+
+        // Simpan process log detail untuk FINAL_INSPECTION pada serial number CC
+        request.SerialNumber = clinchingSnCode;
+        request.ProcessCode = "FINAL_INSPECTION";
         return await CreateProcessLogDetailOnlyAsync(request, cancellationToken);
     }
 
@@ -1554,7 +1574,7 @@ public class ProcessLogService : IProcessLogService
         return (valNum, valText, valBool, status);
     }
 
-    private static bool? DetermineHistoryStatus(Parameter? param, string? value)
+    public static bool? DetermineHistoryStatus(Parameter? param, string? value)
     {
         if (param == null || string.IsNullOrWhiteSpace(value)) return null;
 

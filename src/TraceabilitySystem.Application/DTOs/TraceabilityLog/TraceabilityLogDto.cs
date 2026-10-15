@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using TraceabilitySystem.Application.DTOs.ProcessLog;
 
 namespace TraceabilitySystem.Application.DTOs.TraceabilityLog;
 
@@ -37,31 +38,61 @@ public class TraceabilityLogDto
 public class TraceabilityLogProcessGroupDto
 {
     [JsonPropertyName("clinching")]
-    public List<TraceabilityLogParameterDto> Clinching { get; set; } = new();
+    public List<TraceabilityLogProcessSectionDto> Clinching { get; set; } = new();
 
     [JsonPropertyName("heLeak")]
-    public List<TraceabilityLogParameterDto> HeLeak { get; set; } = new();
+    public List<TraceabilityLogProcessSectionDto> HeLeak { get; set; } = new();
 
     [JsonPropertyName("mfan")]
-    public List<TraceabilityLogParameterDto> MFan { get; set; } = new();
+    public List<TraceabilityLogProcessSectionDto> MFan { get; set; } = new();
 
     [JsonPropertyName("ecm")]
-    public List<TraceabilityLogParameterDto> Ecm { get; set; } = new();
+    public List<TraceabilityLogProcessSectionDto> Ecm { get; set; } = new();
 
     [JsonPropertyName("final")]
-    public List<TraceabilityLogParameterDto> Final { get; set; } = new();
+    public List<TraceabilityLogProcessSectionDto> Final { get; set; } = new();
 
     [JsonIgnore]
-    public List<TraceabilityLogParameterDto> ClinchingProcess => Clinching;
+    public List<TraceabilityLogParameterDto> ClinchingProcess => Clinching.SelectMany(c => c.Parameters).ToList();
 
     [JsonIgnore]
-    public List<TraceabilityLogParameterDto> MFanProcess => MFan;
+    public List<TraceabilityLogParameterDto> MFanProcess => MFan.SelectMany(m => m.Parameters).ToList();
 
     [JsonIgnore]
-    public List<TraceabilityLogParameterDto> EcmAssy => Ecm;
+    public List<TraceabilityLogParameterDto> EcmAssy => Ecm.SelectMany(e => e.Parameters).ToList();
 
     [JsonIgnore]
-    public List<TraceabilityLogParameterDto> FinalInspection => Final;
+    public List<TraceabilityLogParameterDto> FinalInspection => Final.SelectMany(f => f.Parameters).ToList();
+}
+
+public class TraceabilityLogProcessSectionDto
+{
+    [JsonPropertyName("processCode")]
+    public string? ProcessCode { get; set; }
+
+    [JsonPropertyName("processName")]
+    public string? ProcessName { get; set; }
+
+    [JsonPropertyName("result")]
+    public bool Result { get; set; } = true;
+
+    [JsonPropertyName("isMqttPublisher")]
+    public bool IsMqttPublisher { get; set; } = true;
+
+    [JsonPropertyName("status")]
+    public string? Status => MqttPublisherStatus;
+
+    [JsonPropertyName("mqttPublisherStatus")]
+    public string? MqttPublisherStatus { get; set; }
+
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("parameters")]
+    public List<TraceabilityLogParameterDto> Parameters { get; set; } = new();
+
+    [JsonPropertyName("history")]
+    public List<ProcessHistoryItemDto> History { get; set; } = new();
 }
 
 public class TraceabilityLogParameterDto

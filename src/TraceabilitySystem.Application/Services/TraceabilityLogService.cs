@@ -30,17 +30,26 @@ public class TraceabilityLogService : ITraceabilityLogService
     private readonly IProcessRepository _processRepository;
     private readonly IParameterRepository _parameterRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IProcessLogRepository _processLogRepository;
+    private readonly IMqttPublisherStatusRepository _mqttPublisherStatusRepository;
+    private readonly ISerialNumberRepository _serialNumberRepository;
 
     public TraceabilityLogService(
         ITraceabilityLogRepository traceabilityLogRepository,
         IProcessRepository processRepository,
         IParameterRepository parameterRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IProcessLogRepository processLogRepository,
+        IMqttPublisherStatusRepository mqttPublisherStatusRepository,
+        ISerialNumberRepository serialNumberRepository)
     {
         _traceabilityLogRepository = traceabilityLogRepository;
         _processRepository = processRepository;
         _parameterRepository = parameterRepository;
         _userRepository = userRepository;
+        _processLogRepository = processLogRepository;
+        _mqttPublisherStatusRepository = mqttPublisherStatusRepository;
+        _serialNumberRepository = serialNumberRepository;
     }
 
     public async Task<PagedResult<ProcessLogMockDto>> GetTraceabilityLogsAsync(
@@ -632,6 +641,8 @@ public class TraceabilityLogService : ITraceabilityLogService
                 p => keys.Contains(p.Code), cancellationToken)).ToList();
         }
 
+        var recordedParamHistories = new List<(Parameter Param, string? Value)>();
+
         foreach (var param in processParameters)
         {
             if (param == null) continue;
@@ -640,6 +651,7 @@ public class TraceabilityLogService : ITraceabilityLogService
             if (mqttData.TryGetValue(param.Code, out var rawVal))
             {
                 strVal = FormatParamValue(rawVal);
+                recordedParamHistories.Add((param, strVal));
             }
 
             bool status = DetermineParamStatus(param, strVal, request.IsOk ?? true);
@@ -686,6 +698,7 @@ public class TraceabilityLogService : ITraceabilityLogService
                 foreach (var extraParam in extraParams)
                 {
                     string? strVal = FormatParamValue(mqttData[extraParam.Code]);
+                    recordedParamHistories.Add((extraParam, strVal));
                     bool status = DetermineParamStatus(extraParam, strVal, request.IsOk ?? true);
 
                     var existingDetail = tracLog.Details.FirstOrDefault(d => d.ProcessId == process.Id && d.ParameterId == extraParam.Id);
@@ -723,7 +736,33 @@ public class TraceabilityLogService : ITraceabilityLogService
         bool hasNg = tracLog.Details.Any(d => d.Status == false);
         tracLog.Status = !hasNg;
 
-        return await _traceabilityLogRepository.CreateNewAsync(tracLog, cancellationToken);
+        var savedTracLog = await _traceabilityLogRepository.CreateNewAsync(tracLog, cancellationToken);
+
+        if (recordedParamHistories.Count > 0)
+        {
+            var serialNumber = await _serialNumberRepository.FirstOrDefaultAsync(
+                x => x.SerialNumberCode == clinchingSn, cancellationToken);
+
+            var historyCreatedAt = request.Timestamp ?? DateTime.UtcNow;
+            var newHistories = recordedParamHistories.Select(p => new ProcessHistory
+            {
+                ReferenceType = ProcessHistoryReferenceTypes.TraceabilityLog,
+                ReferenceId = savedTracLog.Id,
+                ReferenceCode = clinchingSn,
+                TraceabilityLogId = savedTracLog.Id,
+                ProcessLogId = null,
+                SerialNumberId = serialNumber?.Id,
+                ProcessId = process.Id,
+                ParameterId = p.Param.Id,
+                Value = p.Value,
+                CreatedAt = historyCreatedAt
+            }).ToList();
+
+            await _processLogRepository.AddHistoriesAsync(newHistories, cancellationToken);
+            await _traceabilityLogRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        return savedTracLog;
     }
 
 
@@ -944,6 +983,47 @@ public class TraceabilityLogService : ITraceabilityLogService
 
         var allProcesses = await _processRepository.GetAllWithParametersAsync(cancellationToken);
 
+        // 1.5. Gather SerialNumber IDs and Codes for Histories and MQTT Publisher Statuses
+        var snIds = new List<int>();
+        var snCodes = new List<string>(detailCodes);
+
+        if (processLog?.SerialNumber != null)
+        {
+            snIds.Add(processLog.SerialNumber.Id);
+            if (processLog.SerialNumber.ParentRelations != null)
+            {
+                snIds.AddRange(processLog.SerialNumber.ParentRelations
+                    .Where(r => r.ChildSerialNumber != null)
+                    .Select(r => r.ChildSerialNumber!.Id));
+                snCodes.AddRange(processLog.SerialNumber.ParentRelations
+                    .Where(r => r.ChildSerialNumber != null)
+                    .Select(r => r.ChildSerialNumber!.SerialNumberCode));
+            }
+        }
+
+        if (mfanProcessLog?.SerialNumber != null)
+        {
+            snIds.Add(mfanProcessLog.SerialNumber.Id);
+            if (!string.IsNullOrWhiteSpace(mfanProcessLog.SerialNumber.SerialNumberCode))
+            {
+                snCodes.Add(mfanProcessLog.SerialNumber.SerialNumberCode);
+            }
+        }
+
+        snIds = snIds.Distinct().ToList();
+        snCodes = snCodes.Distinct().ToList();
+
+        var histories = (snIds.Count > 0 || snCodes.Count > 0 || x.Id > 0)
+            ? await _processLogRepository.GetHistoriesAsync(snIds, snCodes, x.Id, null, cancellationToken)
+            : new List<ProcessHistory>();
+
+        var disabledMqttStatuses = snCodes.Count > 0
+            ? await _mqttPublisherStatusRepository.GetByReferenceCodesAsync(
+                snCodes,
+                MqttPublisherReferenceTypes.ProcessLog,
+                cancellationToken)
+            : new List<MqttPublisherStatus>();
+
         // 1. Kelompok Master Processes
         var clinchingMasterProcesses = allProcesses
             .Where(p => p.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) &&
@@ -969,46 +1049,69 @@ public class TraceabilityLogService : ITraceabilityLogService
             .Where(p => p.Code.Contains("FINAL", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // 2. Map Details with Master Parameters
-        var clinchingList = TraceabilityLogMapper.MapDetailsWithMasterParameters(
+        // 2. Build Process Sections with History & MQTT Publisher Status per Process
+        var clinchingSections = TraceabilityLogMapper.BuildProcessSectionList(
             clinchingMasterProcesses,
+            "CLINCHING",
+            "Clinching Process",
             processLog?.Details,
             x.Details,
-            clinchingIssues);
+            clinchingIssues,
+            histories,
+            disabledMqttStatuses);
 
-        var heLeakList = TraceabilityLogMapper.MapDetailsWithMasterParameters(
+        var heLeakSections = TraceabilityLogMapper.BuildProcessSectionList(
             heLeakMasterProcesses,
+            "HE_LEAK",
+            "HE Leak Process",
             processLog?.Details,
-            x.Details);
+            x.Details,
+            null,
+            histories,
+            disabledMqttStatuses);
 
-        var mfanList = TraceabilityLogMapper.MapDetailsWithMasterParameters(
+        var mfanSections = TraceabilityLogMapper.BuildProcessSectionList(
             mfanMasterProcesses,
+            "M_FAN",
+            "M-Fan Assembly & Inspection Process",
             mfanProcessLog?.Details,
             x.Details,
-            mfanIssues);
+            mfanIssues,
+            histories,
+            disabledMqttStatuses);
 
-        var ecmList = TraceabilityLogMapper.MapDetailsWithMasterParameters(
+        var ecmSections = TraceabilityLogMapper.BuildProcessSectionList(
             ecmMasterProcesses,
+            "ECM",
+            "ECM Assembly Process",
             null,
-            x.Details);
+            x.Details,
+            null,
+            histories,
+            disabledMqttStatuses);
 
-        var finalList = TraceabilityLogMapper.MapDetailsWithMasterParameters(
+        var finalSections = TraceabilityLogMapper.BuildProcessSectionList(
             finalMasterProcesses,
+            "FINAL",
+            "Final Inspection Process",
             null,
-            x.Details);
+            x.Details,
+            null,
+            histories,
+            disabledMqttStatuses);
 
         // Dynamic overall status jika ada parameter yang failed
         bool calculatedStatus = x.Status
-            && !clinchingList.Any(p => p.Status == false)
-            && !heLeakList.Any(p => p.Status == false)
-            && !mfanList.Any(p => p.Status == false)
-            && !ecmList.Any(p => p.Status == false)
-            && !finalList.Any(p => p.Status == false);
+            && !clinchingSections.Any(s => !s.Result)
+            && !heLeakSections.Any(s => !s.Result)
+            && !mfanSections.Any(s => !s.Result)
+            && !ecmSections.Any(s => !s.Result)
+            && !finalSections.Any(s => !s.Result);
 
         x.Status = calculatedStatus;
 
         return TraceabilityLogMapper.MapToTraceabilityLogDto(
-            x, clinchingIssues, mfanIssues, clinchingList, heLeakList, mfanList, ecmList, finalList);
+            x, clinchingIssues, mfanIssues, clinchingSections, heLeakSections, mfanSections, ecmSections, finalSections);
     }
 
     public static List<TraceabilityLogParameterDto> MapProcessLogDetailsToParameterDtos(

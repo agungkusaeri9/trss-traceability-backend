@@ -31,6 +31,14 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
         CancellationToken cancellationToken = default);
 
     Task<int> CountProductionAsync(DateTime startDate, DateTime endDate, bool? status, CancellationToken cancellationToken = default);
-    Task AddHistoriesAsync(IEnumerable<ProcessLogHistory> histories, CancellationToken cancellationToken = default);
-    Task<List<ProcessLogHistory>> GetHistoriesBySerialNumberIdsAsync(IEnumerable<int> serialNumberIds, CancellationToken cancellationToken = default);
+    Task AddHistoriesAsync(IEnumerable<ProcessHistory> histories, CancellationToken cancellationToken = default);
+    Task<List<ProcessHistory>> GetHistoriesBySerialNumberIdsAsync(IEnumerable<int> serialNumberIds, CancellationToken cancellationToken = default);
+    Task<List<ProcessHistory>> GetHistoriesByReferenceCodesAsync(IEnumerable<string> referenceCodes, CancellationToken cancellationToken = default);
+    Task<List<ProcessHistory>> GetHistoriesByTraceabilityLogIdAsync(long traceabilityLogId, CancellationToken cancellationToken = default);
+    Task<List<ProcessHistory>> GetHistoriesAsync(
+        IEnumerable<int>? serialNumberIds = null,
+        IEnumerable<string>? referenceCodes = null,
+        long? traceabilityLogId = null,
+        long? processLogId = null,
+        CancellationToken cancellationToken = default);
 }

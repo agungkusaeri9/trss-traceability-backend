@@ -1,8 +1,9 @@
-using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 
@@ -410,6 +411,24 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                 };
                 await _context.ProcessLogDetails.AddAsync(detail, cancellationToken);
             }
+
+            var historyValue = param.valueNumber?.ToString(CultureInfo.InvariantCulture)
+                               ?? param.valueText
+                               ?? param.valueBoolean?.ToString();
+
+            var history = new ProcessHistory
+            {
+                ReferenceType = ProcessHistoryReferenceTypes.ProcessLog,
+                ReferenceId = processLog.Id,
+                ReferenceCode = serialNumber.SerialNumberCode,
+                ProcessLogId = processLog.Id,
+                SerialNumberId = serialNumber.Id,
+                ProcessId = process.Id,
+                ParameterId = parameter.Id,
+                Value = historyValue,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _context.ProcessHistories.AddAsync(history, cancellationToken);
         }
 
         await SaveChangesAsync(cancellationToken);
@@ -432,21 +451,81 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         return processLog;
     }
 
-    public async Task AddHistoriesAsync(IEnumerable<ProcessLogHistory> histories, CancellationToken cancellationToken = default)
+    public async Task AddHistoriesAsync(IEnumerable<ProcessHistory> histories, CancellationToken cancellationToken = default)
     {
-        await _context.ProcessLogHistories.AddRangeAsync(histories, cancellationToken);
+        await _context.ProcessHistories.AddRangeAsync(histories, cancellationToken);
     }
 
-    public async Task<List<ProcessLogHistory>> GetHistoriesBySerialNumberIdsAsync(
+    public async Task<List<ProcessHistory>> GetHistoriesBySerialNumberIdsAsync(
         IEnumerable<int> serialNumberIds,
         CancellationToken cancellationToken = default)
     {
-        return await _context.ProcessLogHistories
+        var idList = serialNumberIds?.Distinct().ToList() ?? new List<int>();
+        if (idList.Count == 0) return new List<ProcessHistory>();
+
+        return await _context.ProcessHistories
             .Include(h => h.Process)
             .Include(h => h.Parameter)
-            .Where(h => serialNumberIds.Contains(h.SerialNumberId))
-            .OrderBy(h => h.CreatedAt)
-            .ThenBy(h => h.Id)
+            .Where(h => h.SerialNumberId.HasValue && idList.Contains(h.SerialNumberId.Value))
+            .OrderByDescending(h => h.CreatedAt)
+            .ThenByDescending(h => h.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<ProcessHistory>> GetHistoriesByReferenceCodesAsync(
+        IEnumerable<string> referenceCodes,
+        CancellationToken cancellationToken = default)
+    {
+        var codeList = referenceCodes?.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList() ?? new List<string>();
+        if (codeList.Count == 0) return new List<ProcessHistory>();
+
+        return await _context.ProcessHistories
+            .Include(h => h.Process)
+            .Include(h => h.Parameter)
+            .Where(h => h.ReferenceCode != null && codeList.Contains(h.ReferenceCode))
+            .OrderByDescending(h => h.CreatedAt)
+            .ThenByDescending(h => h.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<ProcessHistory>> GetHistoriesByTraceabilityLogIdAsync(
+        long traceabilityLogId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.ProcessHistories
+            .Include(h => h.Process)
+            .Include(h => h.Parameter)
+            .Where(h => h.TraceabilityLogId == traceabilityLogId)
+            .OrderByDescending(h => h.CreatedAt)
+            .ThenByDescending(h => h.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<ProcessHistory>> GetHistoriesAsync(
+        IEnumerable<int>? serialNumberIds = null,
+        IEnumerable<string>? referenceCodes = null,
+        long? traceabilityLogId = null,
+        long? processLogId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var snIdList = serialNumberIds?.Distinct().ToList() ?? new List<int>();
+        var refCodeList = referenceCodes?.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList() ?? new List<string>();
+
+        var query = _context.ProcessHistories
+            .Include(h => h.Process)
+            .Include(h => h.Parameter)
+            .AsQueryable();
+
+        query = query.Where(h =>
+            (snIdList.Count > 0 && h.SerialNumberId.HasValue && snIdList.Contains(h.SerialNumberId.Value)) ||
+            (refCodeList.Count > 0 && h.ReferenceCode != null && refCodeList.Contains(h.ReferenceCode)) ||
+            (traceabilityLogId.HasValue && h.TraceabilityLogId == traceabilityLogId.Value) ||
+            (processLogId.HasValue && h.ProcessLogId == processLogId.Value)
+        );
+
+        return await query
+            .OrderByDescending(h => h.CreatedAt)
+            .ThenByDescending(h => h.Id)
             .ToListAsync(cancellationToken);
     }
 }

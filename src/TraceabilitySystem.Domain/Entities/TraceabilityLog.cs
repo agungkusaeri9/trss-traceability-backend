@@ -17,4 +17,5 @@ public class TraceabilityLog
 
     // Navigation
     public ICollection<TraceabilityLogDetail> Details { get; set; } = new List<TraceabilityLogDetail>();
+    public virtual ICollection<ProcessHistory> Histories { get; set; } = new List<ProcessHistory>();
 }

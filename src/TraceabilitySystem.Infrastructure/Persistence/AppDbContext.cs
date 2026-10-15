@@ -19,7 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<AppConfig> AppConfigs => Set<AppConfig>();
     public DbSet<ProcessLog> ProcessLogs => Set<ProcessLog>();
     public DbSet<ProcessLogDetail> ProcessLogDetails => Set<ProcessLogDetail>();
-    public DbSet<ProcessLogHistory> ProcessLogHistories => Set<ProcessLogHistory>();
+    public DbSet<ProcessHistory> ProcessHistories => Set<ProcessHistory>();
     public DbSet<MqttPrintRequest> MqttPrintRequests => Set<MqttPrintRequest>();
     public DbSet<SerialNumber> SerialNumbers => Set<SerialNumber>();
 
@@ -131,7 +131,7 @@ public class AppDbContext : DbContext
                 if (entry.State == EntityState.Added) detail.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) detail.UpdatedAt = DateTime.UtcNow;
             }
-            else if (entry.Entity is ProcessLogHistory history)
+            else if (entry.Entity is ProcessHistory history)
             {
                 if (entry.State == EntityState.Added) history.CreatedAt = DateTime.UtcNow;
             }
