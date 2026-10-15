@@ -432,41 +432,21 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
         return processLog;
     }
 
-    public async Task<ProcessLog?> GetProcessLogFullValueAsync(
-    string serialNumberCode,
-    CancellationToken cancellationToken = default)
+    public async Task AddHistoriesAsync(IEnumerable<ProcessLogHistory> histories, CancellationToken cancellationToken = default)
     {
-        return await _context.ProcessLogs
-            .AsNoTracking()
+        await _context.ProcessLogHistories.AddRangeAsync(histories, cancellationToken);
+    }
 
-            // Current Serial Number
-            .Include(x => x.SerialNumber)
-
-            // Current Process Details
-            .Include(x => x.Details)
-                .ThenInclude(d => d.Process)
-
-            .Include(x => x.Details)
-                .ThenInclude(d => d.Parameter)
-
-            // Parent -> Child Relations
-            .Include(x => x.SerialNumber)
-                .ThenInclude(sn => sn.ParentRelations)
-                    .ThenInclude(r => r.ChildSerialNumber)
-                        .ThenInclude(sn => sn.ProcessLogs)
-                            .ThenInclude(pl => pl.Details)
-                                .ThenInclude(d => d.Process)
-
-            .Include(x => x.SerialNumber)
-                .ThenInclude(sn => sn.ParentRelations)
-                    .ThenInclude(r => r.ChildSerialNumber)
-                        .ThenInclude(sn => sn.ProcessLogs)
-                            .ThenInclude(pl => pl.Details)
-                                .ThenInclude(d => d.Parameter)
-
-             .FirstOrDefaultAsync(
-            x => x.SerialNumber.SerialNumberCode == serialNumberCode &&
-                 (x.SerialNumber.SerialNumberCode.StartsWith("PVRA") || x.SerialNumber.SerialNumberCode.StartsWith("CC") || x.SerialNumber.Type == "CLINCHING"),
-            cancellationToken);
+    public async Task<List<ProcessLogHistory>> GetHistoriesBySerialNumberIdsAsync(
+        IEnumerable<int> serialNumberIds,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.ProcessLogHistories
+            .Include(h => h.Process)
+            .Include(h => h.Parameter)
+            .Where(h => serialNumberIds.Contains(h.SerialNumberId))
+            .OrderBy(h => h.CreatedAt)
+            .ThenBy(h => h.Id)
+            .ToListAsync(cancellationToken);
     }
 }

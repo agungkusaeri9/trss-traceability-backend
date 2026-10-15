@@ -29,7 +29,6 @@ public interface IProcessLogService
     Task<ProcessLogMockDto> GetTraceabilityLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default);
 
     Task<ProcessLogDto> GetProcessLogByIdAsync(long id, CancellationToken cancellationToken = default);
-    Task<ProcessLogFullValueDto> GetProcessLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken = default);
     Task<ProcessLogDto> GetProcessLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default);
 
     Task<ProcessLogDto> CreateProcessLogWithDetailsAsync(
@@ -38,6 +37,11 @@ public interface IProcessLogService
 
     Task<ProcessLogDto> CreateProcessLogDetailOnlyAsync(
         CreateProcessLogRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<ProcessLogDto> CreateProcessLogDetailOnlyAsync(
+        CreateProcessLogRequestDto request,
+        bool recordHistory,
         CancellationToken cancellationToken = default);
 
     Task<ProcessLogDto> CreateProcessLogMFanAssyAsync(

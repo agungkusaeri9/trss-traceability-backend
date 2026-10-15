@@ -12,4 +12,7 @@ public interface IProcessRepository : IRepository<Process>
     Task<Process?> GetByCodeWithParametersAsync(
        string processCode,
        CancellationToken cancellationToken = default);
+
+    Task<List<Process>> GetAllWithParametersAsync(
+       CancellationToken cancellationToken = default);
 }

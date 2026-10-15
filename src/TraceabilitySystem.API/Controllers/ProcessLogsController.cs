@@ -39,30 +39,12 @@ public class ProcessLogsController : ControllerBase
         return ResponseFormatter.PagedSuccess(result, "Process logs retrieved successfully.");
     }
 
-    // [HttpGet("{id:long}")]
-    // [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
-    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    // public async Task<IActionResult> GetProcessLog(long id, CancellationToken cancellationToken)
-    // {
-    //     var result = await _processLogService.GetProcessLogByIdAsync(id, cancellationToken);
-    //     return ResponseFormatter.Success(result, "Process log retrieved successfully.");
-    // }
-
-    // [HttpGet("by-serial-number/{serialNumber}")]
-    // [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
-    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    // public async Task<IActionResult> GetProcessLogBySerialNumber(string serialNumber, CancellationToken cancellationToken)
-    // {
-    //     var result = await _processLogService.GetProcessLogBySerialNumberAsync(serialNumber, cancellationToken);
-    //     return ResponseFormatter.Success(result, "Process log retrieved successfully.");
-    // }
-
-    // [HttpGet("full-values/{serialNumberCode}")]
-    // [ProducesResponseType(typeof(ApiResponse<ProcessLogFullValueDto>), StatusCodes.Status200OK)]
-    // [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-    // public async Task<IActionResult> GetProcessLogFullValuesAsync(string serialNumberCode, CancellationToken cancellationToken)
-    // {
-    //     var result = await _processLogService.GetProcessLogFullValuesAsync(serialNumberCode, cancellationToken);
-    //     return ResponseFormatter.Success(result, "Process log full values retrieved successfully.");
-    // }
+    [HttpGet("by-serial-number/{serialNumber}")]
+    [ProducesResponseType(typeof(ApiResponse<ProcessLogDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProcessLogBySerialNumber(string serialNumber, CancellationToken cancellationToken)
+    {
+        var result = await _processLogService.GetProcessLogBySerialNumberAsync(serialNumber, cancellationToken);
+        return ResponseFormatter.Success(result, "Process log retrieved successfully.");
+    }
 }

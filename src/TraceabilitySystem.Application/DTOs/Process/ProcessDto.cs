@@ -12,6 +12,15 @@ public class ProcessDto
     public string? Name { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; }
+    public bool IsMqttPublisher { get; set; } = true;
+
+    [System.Text.Json.Serialization.JsonPropertyName("isMqttPublihser")]
+    public bool IsMqttPublihser
+    {
+        get => IsMqttPublisher;
+        set => IsMqttPublisher = value;
+    }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public List<ParameterDto> Parameters { get; set; } = new List<ParameterDto>();

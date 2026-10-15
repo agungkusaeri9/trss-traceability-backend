@@ -30,9 +30,7 @@ public interface IProcessLogRepository : IRepository<ProcessLog>
         List<(string parameterCode, decimal? valueNumber, string? valueText, bool? valueBoolean, bool status)> parameters,
         CancellationToken cancellationToken = default);
 
-    Task<ProcessLog?> GetProcessLogFullValueAsync(
-    string serialNumberCode,
-    CancellationToken cancellationToken = default);
-
     Task<int> CountProductionAsync(DateTime startDate, DateTime endDate, bool? status, CancellationToken cancellationToken = default);
+    Task AddHistoriesAsync(IEnumerable<ProcessLogHistory> histories, CancellationToken cancellationToken = default);
+    Task<List<ProcessLogHistory>> GetHistoriesBySerialNumberIdsAsync(IEnumerable<int> serialNumberIds, CancellationToken cancellationToken = default);
 }

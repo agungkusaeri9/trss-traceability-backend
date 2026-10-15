@@ -29,6 +29,9 @@ public class ProcessConfiguration : IEntityTypeConfiguration<Process>
         builder.Property(p => p.IsActive)
             .HasDefaultValue(true);
 
+        builder.Property(p => p.IsMqttPublisher)
+            .HasDefaultValue(true);
+
         if (!AppDbContext.IsInMemory)
         {
             builder.Property(p => p.CreatedAt)

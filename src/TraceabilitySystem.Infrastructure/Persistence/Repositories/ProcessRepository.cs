@@ -79,5 +79,16 @@ public class ProcessRepository : BaseRepository<Process>, IProcessRepository
                 .ThenInclude(pp => pp.Parameter)
             .FirstOrDefaultAsync(p => p.Code == processCode || p.Code.ToLower() == processCode.ToLower(), cancellationToken);
     }
+
+    public async Task<List<Process>> GetAllWithParametersAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.Order)
+            .Include(p => p.ProcessParameters)
+                .ThenInclude(pp => pp.Parameter)
+            .ToListAsync(cancellationToken);
+    }
 }
 

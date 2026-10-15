@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using TraceabilitySystem.Application.DTOs.StockIn;
 using TraceabilitySystem.Application.DTOs.TraceabilityLog;
 
@@ -59,8 +60,6 @@ public class ProcessLogListDto
     public string SerialNumberCode { get; set; } = string.Empty;
     public bool Status { get; set; }
     public bool IsFinished { get; set; }
-    public List<TraceabilityLogParameterDto>? Clinching { get; set; }
-    public List<TraceabilityLogParameterDto>? MFan { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
@@ -117,6 +116,19 @@ public class ProcessLogMFanDetailDto
         public string? ProcessName { get; set; }
         public bool Result { get; set; }
         public List<ProcessParameterValueDto> Parameters { get; set; } = new();
+
+        [JsonPropertyName("history")]
+        public List<ProcessHistoryItemDto> History { get; set; } = new();
+    }
+
+    public class ProcessHistoryItemDto
+    {
+        public long Id { get; set; }
+        public string? ParameterCode { get; set; }
+        public string? ParameterName { get; set; }
+        public string? Value { get; set; }
+        public bool? Status { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     public class ProcessParameterValueDto

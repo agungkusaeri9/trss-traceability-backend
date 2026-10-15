@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Options;
 using MQTTnet.Client;
+using TraceabilitySystem.Application.DTOs.Process;
 using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Models;
 using TraceabilitySystem.Worker.BackgroundServices;
 using TraceabilitySystem.Worker.Validator;
@@ -515,11 +518,6 @@ namespace TraceabilitySystem.Worker.Services
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
-
-                var result = await processLogService.CreateProcessLogEcmAssyAsync(request);
-                _logger.LogInformation("[MQTT][EcmAssy] Successfully processed ECM Assy log with ID: {ProcessLogId} (Clinching: {CC}, M-Fan: {MF})", result.Id, request.SerialNumberClinching, request.SerialNumberMFanAssy);
-
                 var traceabilityLogService = scope.ServiceProvider.GetRequiredService<ITraceabilityLogService>();
                 await traceabilityLogService.CreateNewAsync(request);
                 _logger.LogInformation("[MQTT][EcmAssy] Successfully created TraceabilityLog for {Code}", request.SerialNumberClinching);
@@ -579,10 +577,7 @@ namespace TraceabilitySystem.Worker.Services
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var processLogService = scope.ServiceProvider.GetRequiredService<IProcessLogService>();
                 request.IsFInihed = true;
-                var result = await processLogService.CreateProcessLogDetailOnlyAsync(request);
-                _logger.LogInformation("[MQTT][FinalInspection] Successfully created process log details with ID: {ProcessLogId} for SN: {SerialNumber}", result.Id, request.SerialNumber);
 
                 var traceabilityLogService = scope.ServiceProvider.GetRequiredService<ITraceabilityLogService>();
                 await traceabilityLogService.CreateNewAsync(request);
@@ -610,6 +605,105 @@ namespace TraceabilitySystem.Worker.Services
                 await _mqttPublisher.PublishAsync("data/process/validation", payloadError);
                 await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", ex.Message);
             }
+        }
+
+        public async Task HandleProcessSubscriptionAsync(string messageId, string payload)
+        {
+            _logger.LogInformation("[MQTT][ProcessSubscription] Processing payload: {Payload}", payload);
+
+            ProcessIsPublisherMqttDto? request = null;
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                request = JsonSerializer.Deserialize<ProcessIsPublisherMqttDto>(payload, options);
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = $"Invalid JSON payload: {ex.Message}";
+                _logger.LogWarning("[MQTT][ProcessIsPublisher] {Error}", errorMsg);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMsg);
+                await _mqttPublisher.PublishAsync("data/process/validation", new
+                {
+                    status = false,
+                    process = "is-publisher",
+                    error = errorMsg
+                });
+                return;
+            }
+
+            if (request == null || string.IsNullOrWhiteSpace(request.ProcessCode))
+            {
+                var errorMsg = "process_code is required in payload.";
+                _logger.LogWarning("[MQTT][ProcessIsPublisher] {Error}", errorMsg);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMsg);
+                await _mqttPublisher.PublishAsync("data/process/validation", new
+                {
+                    status = false,
+                    process = "is-publisher",
+                    error = errorMsg
+                });
+                return;
+            }
+
+            if (!request.IsMqttPublisher.HasValue)
+            {
+                var errorMsg = "isMqttPublisher boolean value is required in payload.";
+                _logger.LogWarning("[MQTT][ProcessIsPublisher] {Error}", errorMsg);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMsg);
+                await _mqttPublisher.PublishAsync("data/process/validation", new
+                {
+                    status = false,
+                    process = "is-publisher",
+                    error = errorMsg
+                });
+                return;
+            }
+
+            using var scope = _scopeFactory.CreateScope();
+            var processRepository = scope.ServiceProvider.GetRequiredService<IProcessRepository>();
+
+            var process = await processRepository.FirstOrDefaultAsync(
+                p => p.Code == request.ProcessCode || p.Code.ToLower() == request.ProcessCode.ToLower());
+
+            if (process == null)
+            {
+                var errorMsg = $"Process with code '{request.ProcessCode}' not found.";
+                _logger.LogWarning("[MQTT][ProcessIsPublisher] {Error}", errorMsg);
+                await _databaseService.UpdateMqttMessageStatusAsync(messageId, "FAILED", errorMsg);
+                await _mqttPublisher.PublishAsync("data/process/validation", new
+                {
+                    status = false,
+                    process = "is-publisher",
+                    error = errorMsg
+                });
+                return;
+            }
+
+            var previousState = process.IsMqttPublisher;
+            process.IsMqttPublisher = request.IsMqttPublisher.Value;
+            process.UpdatedAt = DateTime.UtcNow;
+
+            processRepository.Update(process);
+            await processRepository.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "[MQTT][ProcessIsPublisher] Process '{Code}' IsMqttPublisher updated from {OldState} to {NewState}.",
+                process.Code,
+                previousState,
+                process.IsMqttPublisher);
+
+            await _databaseService.UpdateMqttMessageStatusAsync(messageId, "SUCCESS");
+            await _mqttPublisher.PublishAsync("data/process/validation", new
+            {
+                status = true,
+                process = "is-publisher",
+                process_code = process.Code,
+                isMqttPublisher = process.IsMqttPublisher,
+                error = (string?)null
+            });
         }
     }
 }

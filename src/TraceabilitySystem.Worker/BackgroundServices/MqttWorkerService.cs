@@ -167,17 +167,22 @@ public class MqttWorkerService : BackgroundService
 
             var processName = GetProcessNameFromTopic(topic);
 
-            // 1. Deserialisasi JSON secara aman
-            CreateProcessLogRequestDto? request = null;
+            // 1. Ekstrak data dasar payload secara aman jika berupa JSON
+            string? operatorUsername = null;
+            bool? isOk = null;
             string? parseError = null;
 
             try
             {
-                var options = new JsonSerializerOptions
+                using var doc = JsonDocument.Parse(payload);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("operator_username", out var opProp) || root.TryGetProperty("operatorUsername", out opProp))
+                    operatorUsername = opProp.GetString();
+                if (root.TryGetProperty("is_ok", out var okProp) || root.TryGetProperty("isOk", out okProp))
                 {
-                    PropertyNameCaseInsensitive = true
-                };
-                request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+                    if (okProp.ValueKind == JsonValueKind.True || okProp.ValueKind == JsonValueKind.False)
+                        isOk = okProp.GetBoolean();
+                }
             }
             catch (Exception ex)
             {
@@ -185,7 +190,7 @@ public class MqttWorkerService : BackgroundService
                 _logger.LogWarning("[MQTT] Failed to deserialize payload for topic [{Topic}]: {Error}", topic, parseError);
             }
 
-            // 2. Selalu simpan pesan mentah MQTT ke database terlebih dahulu
+            // 2. Selalu simpan pesan mentah MQTT ke database logging (trss_traceability_system_logging.mqtt_message_logs) terlebih dahulu
             var initialStatus = parseError == null ? "RECEIVED" : "FAILED";
             try
             {
@@ -193,8 +198,8 @@ public class MqttWorkerService : BackgroundService
                     messageId: messageId,
                     topic: topic,
                     payload: payload,
-                    operatorUsername: request?.OperatorUsername,
-                    isOk: request?.IsOk,
+                    operatorUsername: operatorUsername,
+                    isOk: isOk,
                     status: initialStatus,
                     processName: processName,
                     errorMessage: parseError
@@ -203,6 +208,13 @@ public class MqttWorkerService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[MQTT][Database] Failed to save raw MQTT message to database. Topic: {Topic}", topic);
+            }
+
+            // Khusus topic konfigurasi MQTT publisher/subscription
+            if (topic == "data/process/is-publisher")
+            {
+                await subscriptionService.HandleProcessSubscriptionAsync(messageId, payload);
+                return;
             }
 
             // 3. Jika payload bukan JSON valid, beri respons error ke broker jika berupa topic result
@@ -220,6 +232,20 @@ public class MqttWorkerService : BackgroundService
                     await mqttPublisher.PublishAsync("data/process/validation", errorPayload);
                 }
                 return;
+            }
+
+            CreateProcessLogRequestDto? request = null;
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                request = JsonSerializer.Deserialize<CreateProcessLogRequestDto>(payload, options);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("[MQTT] Failed to deserialize CreateProcessLogRequestDto for topic [{Topic}]: {Error}", topic, ex.Message);
             }
 
             if (request == null)
@@ -257,10 +283,11 @@ public class MqttWorkerService : BackgroundService
 
     private static string GetProcessNameFromTopic(string topic) => topic switch
     {
+        "data/process/is-publisher" => "Process MQTT Publisher Status",
         "data/process/clinching-short-side/result-scan" => "Clinching Short Side Scan",
         "data/process/clinching-short-side/result" => "Clinching Short Side",
         "data/process/clinching-long-side/result" => "Clinching Long Side",
-        // "data/process/he-leak/result" => "He Leak",
+        "data/process/he-leak/result" => "He Leak",
         "data/process/m-fan-assy/result-scan" => "M Fan Assy Scan",
         "data/process/m-fan-assy/result" => "M Fan Assy",
         "data/process/m-fan-inspection/result" => "M Fan Inspection",
@@ -273,6 +300,7 @@ public class MqttWorkerService : BackgroundService
 
     private static string? GetProcessKeyFromTopic(string topic) => topic switch
     {
+        "data/process/is-publisher" => "is-publisher",
         "data/process/clinching-short-side/result-scan" => "clinching-short-side-scan",
         "data/process/clinching-short-side/result" => "clinching-short-side",
         "data/process/clinching-long-side/result" => "clinching-long-side",
@@ -296,6 +324,8 @@ public class MqttWorkerService : BackgroundService
             // Print request topics
             "traceability/print/request/clinching-short-side",
             "traceability/print/request/m-fan-assy",
+            // Process status topics
+            "data/process/is-publisher",
             // Process result topics
             "data/process/clinching-short-side/result-scan",
             "data/process/clinching-short-side/result",

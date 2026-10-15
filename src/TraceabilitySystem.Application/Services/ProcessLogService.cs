@@ -4,6 +4,7 @@ using TraceabilitySystem.Application.DTOs.ProcessLog;
 using TraceabilitySystem.Application.DTOs.SerialNumber;
 using TraceabilitySystem.Application.DTOs.TraceabilityLog;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Application.Mappers;
 using TraceabilitySystem.Domain.Entities;
 using TraceabilitySystem.Domain.Interfaces;
 using TraceabilitySystem.Shared.Exceptions;
@@ -62,7 +63,7 @@ public class ProcessLogService : IProcessLogService
         var (logs, totalCount) = await _processLogRepository.GetPagedLogsAsync(
             page, pageSize, serialNumberCode, status, isFinished, startDate, endDate, clinchingOnly: false, cancellationToken: cancellationToken);
 
-        var dtos = logs.Select(log => MapToListDto(log)).ToList();
+        var dtos = logs.Select(MapToListDto).ToList();
 
         return new PagedResult<ProcessLogListDto>
         {
@@ -118,7 +119,25 @@ public class ProcessLogService : IProcessLogService
         var log = await _processLogRepository.GetLogWithDetailsAsync(id, cancellationToken)
             ?? throw new NotFoundException(nameof(ProcessLog), id);
 
-        return MapToDto(log);
+        var allProcesses = await _processRepository.GetAllWithParametersAsync(cancellationToken);
+
+        var snIds = new List<int>();
+        if (log.SerialNumber != null)
+        {
+            snIds.Add(log.SerialNumber.Id);
+            if (log.SerialNumber.ParentRelations != null)
+            {
+                snIds.AddRange(log.SerialNumber.ParentRelations
+                    .Where(r => r.ChildSerialNumber != null)
+                    .Select(r => r.ChildSerialNumber!.Id));
+            }
+        }
+
+        var histories = snIds.Count > 0
+            ? await _processLogRepository.GetHistoriesBySerialNumberIdsAsync(snIds, cancellationToken)
+            : new List<ProcessLogHistory>();
+
+        return MapToDto(log, allProcesses, histories);
     }
 
     private static readonly HashSet<string> OverallProcessCodes =
@@ -127,58 +146,30 @@ public class ProcessLogService : IProcessLogService
     "FINAL_INSPECTION"
 ];
 
-    public async Task<ProcessLogFullValueDto> GetProcessLogFullValuesAsync(
-    string serialNumberCode,
-    CancellationToken cancellationToken = default)
-    {
-        var log = await _processLogRepository.GetProcessLogFullValueAsync(serialNumberCode, cancellationToken)
-            ?? throw new NotFoundException(nameof(ProcessLog), serialNumberCode);
-
-        var result = log.Adapt<ProcessLogFullValueDto>();
-
-        result.Clinching = new ProcessLogFullValueParentDto
-        {
-            SerialNumberCode = log.SerialNumber.SerialNumberCode,
-            Details = log.Details
-                .Where(x => !OverallProcessCodes.Contains(x.Process.Code) && (x.Parameter == null || x.Parameter.ShowInDisplay))
-                .OrderBy(x => x.Process.Order)
-                .ThenBy(x => x.Parameter.Order)
-                .Adapt<List<ProcessLogFullValueDetailDto>>()
-        };
-
-        var childLog = log.SerialNumber.ParentRelations
-            .SelectMany(x => x.ChildSerialNumber.ProcessLogs)
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefault();
-
-        if (childLog != null)
-        {
-            result.MFan = new ProcessLogFullValueChildDto
-            {
-                SerialNumberCode = childLog.SerialNumber.SerialNumberCode,
-                Details = childLog.Details
-                    .Where(x => x.Parameter == null || x.Parameter.ShowInDisplay)
-                    .OrderBy(x => x.Process.Order)
-                    .ThenBy(x => x.Parameter.Order)
-                    .Adapt<List<ProcessLogFullValueDetailDto>>()
-            };
-        }
-
-        result.Overall = log.Details
-            .Where(x => OverallProcessCodes.Contains(x.Process.Code) && (x.Parameter == null || x.Parameter.ShowInDisplay))
-            .OrderBy(x => x.Process.Order)
-            .ThenBy(x => x.Parameter.Order)
-            .Adapt<List<ProcessLogFullValueDetailDto>>();
-
-        return result;
-    }
-
     public async Task<ProcessLogDto> GetProcessLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default)
     {
         var log = await _processLogRepository.GetLogBySerialNumberAsync(serialNumber, cancellationToken);
         if (log == null) throw new NotFoundException(nameof(ProcessLog), serialNumber);
 
-        return MapToDto(log);
+        var allProcesses = await _processRepository.GetAllWithParametersAsync(cancellationToken);
+
+        var snIds = new List<int>();
+        if (log.SerialNumber != null)
+        {
+            snIds.Add(log.SerialNumber.Id);
+            if (log.SerialNumber.ParentRelations != null)
+            {
+                snIds.AddRange(log.SerialNumber.ParentRelations
+                    .Where(r => r.ChildSerialNumber != null)
+                    .Select(r => r.ChildSerialNumber!.Id));
+            }
+        }
+
+        var histories = snIds.Count > 0
+            ? await _processLogRepository.GetHistoriesBySerialNumberIdsAsync(snIds, cancellationToken)
+            : new List<ProcessLogHistory>();
+
+        return MapToDto(log, allProcesses, histories);
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
@@ -627,68 +618,23 @@ public class ProcessLogService : IProcessLogService
             : (sn.SerialNumberCode.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) || sn.SerialNumberCode.StartsWith("CC", StringComparison.OrdinalIgnoreCase));
 
         string type = isClinching ? "clinching" : "mfan";
-        var details = log.Details ?? new List<ProcessLogDetail>();
-
-        var issues = sn.Issues?
-            .Where(x => x.Issue != null)
-            .OrderBy(x => x.CreatedAt)
-            .Select(x => x.Issue!.Number)
-            .ToList() ?? new List<string>();
-
-        List<TraceabilityLogParameterDto>? clinchingParams = null;
-        List<TraceabilityLogParameterDto>? mfanParams = null;
-
-        bool typeStatus;
-        bool isFinished;
-
-        if (isClinching)
-        {
-            var clinchingDetails = details
-                .Where(d => d.Process != null &&
-                            (string.Equals(d.Process.Code, "CLINCHING_SHORT_SIDE", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(d.Process.Code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(d.Process.Code, "HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
-                             d.Process.Code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) ||
-                             d.Process.Code.Contains("LEAK", StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            clinchingParams = TraceabilityLogService.MapProcessLogDetailsToParameterDtos(
-                clinchingDetails.Count > 0 ? clinchingDetails : details, issues);
-
-            typeStatus = log.Status && !clinchingParams.Any(p => p.Status == false);
-            isFinished = log.IsFinished;
-        }
-        else
-        {
-            var mfanDetails = details
-                .Where(d => d.Process != null &&
-                            (string.Equals(d.Process.Code, "M_FAN_ASSY", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(d.Process.Code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) ||
-                             d.Process.Code.Contains("FAN", StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            mfanParams = TraceabilityLogService.MapProcessLogDetailsToParameterDtos(
-                mfanDetails.Count > 0 ? mfanDetails : details, issues);
-
-            typeStatus = log.Status && !mfanParams.Any(p => p.Status == false);
-            isFinished = log.IsFinished;
-        }
 
         return new ProcessLogListDto
         {
             Id               = log.Id,
             Type             = type,
             SerialNumberCode = sn.SerialNumberCode,
-            Status           = typeStatus,
-            IsFinished       = isFinished,
-            Clinching        = clinchingParams,
-            MFan             = mfanParams,
+            Status           = log.Status,
+            IsFinished       = log.IsFinished,
             CreatedAt        = log.CreatedAt,
             UpdatedAt        = log.UpdatedAt
         };
     }
 
-    private static ProcessLogDto MapToDto(ProcessLog log)
+    private static ProcessLogDto MapToDto(
+        ProcessLog log, 
+        List<Process>? masterProcesses = null, 
+        List<ProcessLogHistory>? histories = null)
     {
         var sn = log.SerialNumber;
         if (sn == null) return new ProcessLogDto();
@@ -726,7 +672,7 @@ public class ProcessLogService : IProcessLogService
             CreatedAt        = log.CreatedAt,
             UpdatedAt        = log.UpdatedAt,
             Issues           = issues,
-            Processes        = MapDetails(allDetails)
+            Processes        = MapDetails(allDetails, masterProcesses, isParent, histories)
         };
     }
 
@@ -742,32 +688,148 @@ public class ProcessLogService : IProcessLogService
             })
             .ToList() ?? new List<IssueSummaryDto>();
 
-    private static List<ProcessGroupDto> MapDetails(ICollection<ProcessLogDetail>? details)
+    private static List<ProcessGroupDto> MapDetails(
+        ICollection<ProcessLogDetail>? details, 
+        List<Process>? masterProcesses = null, 
+        bool isParent = true, 
+        List<ProcessLogHistory>? histories = null)
     {
-        if (details == null) return new List<ProcessGroupDto>();
+        if (masterProcesses == null || masterProcesses.Count == 0)
+        {
+            if (details == null) return new List<ProcessGroupDto>();
 
-        return details
-            .Where(d => d.Parameter == null || d.Parameter.ShowInDisplay)
-            .GroupBy(d => new { Id = d.Process?.Id ?? 0, Code = d.Process?.Code, Name = d.Process?.Name })
-            .OrderBy(g => g.Key.Id)
-            .Select(g => new ProcessGroupDto
-            {
-                ProcessCode = g.Key.Code ?? "UNKNOWN",
-                ProcessName = g.Key.Name ?? "Unknown Process",
-                Result      = !g.Any(d => d.Parameter?.DataType == "boolean" && d.ValueBoolean == false),
-                Parameters  = g.Select(d => new ProcessParameterValueDto
+            return details
+                .Where(d => d.Parameter == null || d.Parameter.ShowInDisplay)
+                .GroupBy(d => new { Id = d.Process?.Id ?? 0, Code = d.Process?.Code, Name = d.Process?.Name })
+                .OrderBy(g => g.Key.Id)
+                .Select(g => new ProcessGroupDto
                 {
-                    ParameterCode = d.Parameter?.Code,
-                    ParameterName = d.Parameter?.Name,
-                    Value = d.Parameter?.DataType switch
+                    ProcessCode = g.Key.Code ?? "UNKNOWN",
+                    ProcessName = g.Key.Name ?? "Unknown Process",
+                    Result      = !g.Any(d => d.Parameter?.DataType == "boolean" && d.ValueBoolean == false),
+                    Parameters  = g.Select(d => new ProcessParameterValueDto
                     {
-                        "boolean" => d.ValueBoolean,
-                        "number"  => d.ValueNumber,
-                        _         => d.ValueText
-                    },
-                    Status = d.Status
-                }).ToList()
-            }).ToList();
+                        ParameterCode = d.Parameter?.Code,
+                        ParameterName = d.Parameter?.Name,
+                        Value = d.Parameter?.DataType switch
+                        {
+                            "boolean" => d.ValueBoolean,
+                            "number"  => d.ValueNumber,
+                            _         => d.ValueText
+                        },
+                        Status = d.Status
+                    }).ToList(),
+                    History = (histories ?? Enumerable.Empty<ProcessLogHistory>())
+                        .Where(h => (g.Key.Id != 0 && h.ProcessId == g.Key.Id) || string.Equals(h.Process?.Code, g.Key.Code, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(h => h.CreatedAt)
+                        .ThenBy(h => h.Id)
+                        .Select(h => new ProcessHistoryItemDto
+                        {
+                            Id            = h.Id,
+                            ParameterCode = h.Parameter?.Code ?? string.Empty,
+                            ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
+                            Value         = h.Value,
+                            Status        = DetermineHistoryStatus(h.Parameter, h.Value),
+                            CreatedAt     = h.CreatedAt
+                        }).ToList()
+                }).ToList();
+        }
+
+        var detailsList = details?.ToList() ?? new List<ProcessLogDetail>();
+        var result = new List<ProcessGroupDto>();
+
+        var relevantProcesses = isParent
+            ? masterProcesses.Where(p => IsClinchingProcess(p.Code) || OverallProcessCodes.Contains(p.Code))
+            : masterProcesses.Where(p => IsMFanProcess(p.Code));
+
+        foreach (var proc in relevantProcesses.Where(p => p.IsActive).OrderBy(p => p.Order ?? int.MaxValue).ThenBy(p => p.Id))
+        {
+            var procParams = proc.ProcessParameters?
+                .Where(pp => pp.Parameter != null && pp.Parameter.IsActive && pp.Parameter.ShowInDisplay)
+                .OrderBy(pp => pp.Parameter.Order ?? int.MaxValue)
+                .ThenBy(pp => pp.Parameter.Id)
+                .Select(pp => pp.Parameter!)
+                .ToList() ?? new List<Parameter>();
+
+            var paramDtos = new List<ProcessParameterValueDto>();
+
+            foreach (var param in procParams)
+            {
+                var matched = detailsList.FirstOrDefault(d =>
+                    (d.ProcessId == proc.Id || string.Equals(d.Process?.Code, proc.Code, StringComparison.OrdinalIgnoreCase)) &&
+                    (d.ParameterId == param.Id || string.Equals(d.Parameter?.Code, param.Code, StringComparison.OrdinalIgnoreCase)));
+
+                if (matched != null)
+                {
+                    paramDtos.Add(new ProcessParameterValueDto
+                    {
+                        ParameterCode = param.Code,
+                        ParameterName = !string.IsNullOrWhiteSpace(param.Description) ? param.Description : param.Name,
+                        Value = param.DataType switch
+                        {
+                            "boolean" => matched.ValueBoolean,
+                            "number"  => matched.ValueNumber,
+                            _         => matched.ValueText ?? matched.DisplayValue
+                        },
+                        Status = matched.Status
+                    });
+                }
+                else
+                {
+                    paramDtos.Add(new ProcessParameterValueDto
+                    {
+                        ParameterCode = param.Code,
+                        ParameterName = !string.IsNullOrWhiteSpace(param.Description) ? param.Description : param.Name,
+                        Value = "-",
+                        Status = false
+                    });
+                }
+            }
+
+            var procHistories = (histories ?? Enumerable.Empty<ProcessLogHistory>())
+                .Where(h => h.ProcessId == proc.Id || string.Equals(h.Process?.Code, proc.Code, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(h => h.CreatedAt)
+                .ThenBy(h => h.Id)
+                .Select(h => new ProcessHistoryItemDto
+                {
+                    Id            = h.Id,
+                    ParameterCode = h.Parameter?.Code ?? string.Empty,
+                    ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
+                    Value         = h.Value,
+                    Status        = DetermineHistoryStatus(h.Parameter, h.Value),
+                    CreatedAt     = h.CreatedAt
+                })
+                .ToList();
+
+            result.Add(new ProcessGroupDto
+            {
+                ProcessCode = proc.Code,
+                ProcessName = proc.Name,
+                Result = paramDtos.All(p => p.Value is string s && s == "-" ? true : p.Status),
+                Parameters = paramDtos,
+                History = procHistories
+            });
+        }
+
+        return result;
+    }
+
+    public static bool IsClinchingProcess(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return false;
+        return string.Equals(code, "CLINCHING_SHORT_SIDE", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(code, "CLINCHING_LONG_SIDE", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(code, "HE_LEAK", StringComparison.OrdinalIgnoreCase) ||
+               code.Contains("CLINCHING", StringComparison.OrdinalIgnoreCase) ||
+               code.Contains("LEAK", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool IsMFanProcess(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return false;
+        return string.Equals(code, "M_FAN_ASSY", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(code, "M_FAN_INSPECTION", StringComparison.OrdinalIgnoreCase) ||
+               code.Contains("FAN", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<ProcessLogDto> CreateProcessLogByClinchingAsync(
@@ -955,8 +1017,16 @@ public class ProcessLogService : IProcessLogService
         return await GetProcessLogByIdAsync(processLog.Id, cancellationToken);
     }
 
+    public Task<ProcessLogDto> CreateProcessLogDetailOnlyAsync(
+        CreateProcessLogRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return CreateProcessLogDetailOnlyAsync(request, recordHistory: true, cancellationToken);
+    }
+
     public async Task<ProcessLogDto> CreateProcessLogDetailOnlyAsync(
         CreateProcessLogRequestDto request,
+        bool recordHistory,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.SerialNumber))
@@ -1029,6 +1099,7 @@ public class ProcessLogService : IProcessLogService
         }
 
         // 5. Insert or Update (Replace) details to the ProcessLog entity's Details collection
+        var newHistories = recordHistory ? new List<ProcessLogHistory>() : null;
         foreach (var param in paramValues)
         {
             var parameter = existingParams.FirstOrDefault(x => x.Code == param.parameterCode);
@@ -1058,6 +1129,31 @@ public class ProcessLogService : IProcessLogService
                 };
                 processLog.Details.Add(detail);
             }
+
+            if (recordHistory && newHistories != null)
+            {
+                // Catat ke riwayat (history) baik saat replace (update) maupun insert baru
+                var historyValue = param.valueNumber?.ToString(CultureInfo.InvariantCulture)
+                                   ?? param.valueText
+                                   ?? param.valueBoolean?.ToString()
+                                   ?? (request.Data != null && request.Data.TryGetValue(param.parameterCode, out var rawVal) ? rawVal?.ToString() : null);
+
+                var history = new ProcessLogHistory
+                {
+                    ProcessLogId = processLog.Id,
+                    SerialNumberId = serialNumber.Id,
+                    ProcessId = process.Id,
+                    ParameterId = parameter.Id,
+                    Value = historyValue,
+                    CreatedAt = DateTime.Now
+                };
+                newHistories.Add(history);
+            }
+        }
+
+        if (recordHistory && newHistories != null && newHistories.Count > 0)
+        {
+            await _processLogRepository.AddHistoriesAsync(newHistories, cancellationToken);
         }
 
         // 6. Evaluasi ulang status ProcessLog berdasarkan SEMUA parameter yang ada di Details (Parent + Child Relations):
@@ -1158,7 +1254,7 @@ public class ProcessLogService : IProcessLogService
         
         request.SerialNumber = mfSerialNumberCode;
         
-        var result = await CreateProcessLogDetailOnlyAsync(request, cancellationToken);
+        var result = await CreateProcessLogDetailOnlyAsync(request, recordHistory: false, cancellationToken);
 
         // 5. Print barcode / label M-Fan Assy
         int isPrinted = 0;
@@ -1403,6 +1499,26 @@ public class ProcessLogService : IProcessLogService
         }
 
         return (valNum, valText, valBool, status);
+    }
+
+    private static bool? DetermineHistoryStatus(Parameter? param, string? value)
+    {
+        if (param == null || string.IsNullOrWhiteSpace(value)) return null;
+
+        var valStr = value.Trim().ToUpperInvariant();
+        if (string.Equals(param.TypeValue, "ok_ng", StringComparison.OrdinalIgnoreCase))
+        {
+            if (valStr == "1" || valStr == "OK" || valStr == "TRUE" || valStr == "PASSED") return true;
+            if (valStr == "2" || valStr == "NG" || valStr == "FALSE" || valStr == "REJECTED" || valStr == "0") return false;
+        }
+
+        if (string.Equals(param.DataType, "boolean", StringComparison.OrdinalIgnoreCase))
+        {
+            if (valStr == "1" || valStr == "OK" || valStr == "TRUE") return true;
+            if (valStr == "0" || valStr == "NG" || valStr == "FALSE") return false;
+        }
+
+        return null;
     }
 
     public async Task<bool> ValidateSerialNumberProcessLogAsync(

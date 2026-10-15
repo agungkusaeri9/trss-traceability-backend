@@ -30,4 +30,6 @@ public class SerialNumber
     public virtual ICollection<SerialNumberRelation> ChildRelations { get; set; } = new List<SerialNumberRelation>();
      public virtual ICollection<ProcessLog> ProcessLogs { get; set; }
         = new List<ProcessLog>();
+    public virtual ICollection<ProcessLogHistory> ProcessLogHistories { get; set; }
+        = new List<ProcessLogHistory>();
 }

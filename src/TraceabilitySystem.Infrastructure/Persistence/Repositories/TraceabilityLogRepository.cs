@@ -409,7 +409,7 @@ public class TraceabilityLogRepository : BaseRepository<ProcessLog>, ITraceabili
                 .ThenInclude(d => d.Process)
             .Include(x => x.Details)
                 .ThenInclude(d => d.Parameter)
-            .FirstOrDefaultAsync(x => x.SerialNumberClinching == serialNumberClinching || x.Code == serialNumberClinching, cancellationToken);
+            .FirstOrDefaultAsync(x => x.SerialNumberClinching == serialNumberClinching || x.SerialNumberMFan == serialNumberClinching || x.Code == serialNumberClinching, cancellationToken);
     }
 
     public async Task<Dictionary<string, List<string>>> GetIssueNumbersBySerialNumbersAsync(

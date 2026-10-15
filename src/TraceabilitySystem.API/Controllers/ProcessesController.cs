@@ -28,9 +28,10 @@ public class ProcessesController : ControllerBase
         [FromQuery] PaginationDto pagination,
         [FromQuery] string? search = null,
         [FromQuery] bool? isActive = null,
+        [FromQuery] bool? isMqttPublisher = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await _processService.GetProcessesAsync(pagination.Page, pagination.Limit, search, isActive, cancellationToken);
+        var result = await _processService.GetProcessesAsync(pagination.Page, pagination.Limit, search, isActive, isMqttPublisher, cancellationToken);
         return ResponseFormatter.PagedSuccess(result);
     }
 

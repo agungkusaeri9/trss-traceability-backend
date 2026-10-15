@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<AppConfig> AppConfigs => Set<AppConfig>();
     public DbSet<ProcessLog> ProcessLogs => Set<ProcessLog>();
     public DbSet<ProcessLogDetail> ProcessLogDetails => Set<ProcessLogDetail>();
+    public DbSet<ProcessLogHistory> ProcessLogHistories => Set<ProcessLogHistory>();
     public DbSet<MqttPrintRequest> MqttPrintRequests => Set<MqttPrintRequest>();
     public DbSet<SerialNumber> SerialNumbers => Set<SerialNumber>();
 
@@ -32,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<ProcessCategoryPart> ProcessCategoryParts => Set<ProcessCategoryPart>();
     public DbSet<TraceabilityLog> TraceabilityLogs => Set<TraceabilityLog>();
     public DbSet<TraceabilityLogDetail> TraceabilityLogDetails => Set<TraceabilityLogDetail>();
+    public DbSet<MqttPublisherStatus> MqttPublisherStatuses => Set<MqttPublisherStatus>();
 
     public static bool IsInMemory { get; private set; }
 
@@ -129,6 +131,10 @@ public class AppDbContext : DbContext
                 if (entry.State == EntityState.Added) detail.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) detail.UpdatedAt = DateTime.UtcNow;
             }
+            else if (entry.Entity is ProcessLogHistory history)
+            {
+                if (entry.State == EntityState.Added) history.CreatedAt = DateTime.UtcNow;
+            }
             else if (entry.Entity is MqttPrintRequest mqttRequest)
             {
                 if (entry.State == EntityState.Added) mqttRequest.CreatedAt = DateTime.UtcNow;
@@ -166,6 +172,11 @@ public class AppDbContext : DbContext
             {
                 if (entry.State == EntityState.Added) tracDetail.CreatedAt = DateTime.UtcNow;
                 if (entry.State == EntityState.Modified) tracDetail.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.Entity is MqttPublisherStatus pubStatus)
+            {
+                if (entry.State == EntityState.Added) pubStatus.CreatedAt = DateTime.UtcNow;
+                if (entry.State == EntityState.Modified) pubStatus.UpdatedAt = DateTime.UtcNow;
             }
         }
         return base.SaveChangesAsync(cancellationToken);

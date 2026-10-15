@@ -22,18 +22,20 @@ public class ProcessService : BaseService<Process, ProcessDto>, IProcessService
     }
 
     public async Task<PagedResult<ProcessDto>> GetProcessesAsync(
-        int page, int pageSize, string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default)
+        int page, int pageSize, string? searchTerm = null, bool? isActive = null, bool? isMqttPublisher = null, CancellationToken cancellationToken = default)
     {
         System.Linq.Expressions.Expression<Func<Process, bool>> predicate;
 
         if (!string.IsNullOrEmpty(searchTerm))
         {
             predicate = u => ((u.Name != null && u.Name.Contains(searchTerm)) || u.Code.Contains(searchTerm))
-                            && (!isActive.HasValue || u.IsActive == isActive.Value);
+                            && (!isActive.HasValue || u.IsActive == isActive.Value)
+                            && (!isMqttPublisher.HasValue || u.IsMqttPublisher == isMqttPublisher.Value);
         }
         else
         {
-            predicate = u => !isActive.HasValue || u.IsActive == isActive.Value;
+            predicate = u => (!isActive.HasValue || u.IsActive == isActive.Value)
+                            && (!isMqttPublisher.HasValue || u.IsMqttPublisher == isMqttPublisher.Value);
         }
 
         var (processes, totalCount) = await _processRepository.GetPagedAsync(
@@ -62,6 +64,7 @@ public class ProcessService : BaseService<Process, ProcessDto>, IProcessService
 
         var process = request.Adapt<Process>();
         process.CreatedAt = DateTime.UtcNow;
+        process.IsMqttPublisher = true;
 
         if (request.Order.HasValue)
         {
