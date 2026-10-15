@@ -25,6 +25,7 @@ public class ProcessLogService : IProcessLogService
     private readonly IIssueService _issueService;
     private readonly IMqttPublisher _mqttPublisher;
     private readonly IPrintService _printService;
+    private readonly IMqttPublisherStatusRepository _mqttPublisherStatusRepository;
 
     public ProcessLogService(
         IProcessLogRepository processLogRepository,
@@ -36,7 +37,8 @@ public class ProcessLogService : IProcessLogService
         ISerialNumberService serialNumberService,
         IIssueService issueService,
         IMqttPublisher mqttPublisher,
-        IPrintService printService)
+        IPrintService printService,
+        IMqttPublisherStatusRepository mqttPublisherStatusRepository)
     {
         _processLogRepository = processLogRepository;
         _issueRepository = issueRepository;
@@ -48,6 +50,7 @@ public class ProcessLogService : IProcessLogService
         _issueService = issueService;
         _mqttPublisher = mqttPublisher;
         _printService = printService;
+        _mqttPublisherStatusRepository = mqttPublisherStatusRepository;
     }
 
     public async Task<PagedResult<ProcessLogListDto>> GetProcessLogsAsync(
@@ -122,14 +125,19 @@ public class ProcessLogService : IProcessLogService
         var allProcesses = await _processRepository.GetAllWithParametersAsync(cancellationToken);
 
         var snIds = new List<int>();
+        var snCodes = new List<string>();
         if (log.SerialNumber != null)
         {
             snIds.Add(log.SerialNumber.Id);
+            snCodes.Add(log.SerialNumber.SerialNumberCode);
             if (log.SerialNumber.ParentRelations != null)
             {
                 snIds.AddRange(log.SerialNumber.ParentRelations
                     .Where(r => r.ChildSerialNumber != null)
                     .Select(r => r.ChildSerialNumber!.Id));
+                snCodes.AddRange(log.SerialNumber.ParentRelations
+                    .Where(r => r.ChildSerialNumber != null)
+                    .Select(r => r.ChildSerialNumber!.SerialNumberCode));
             }
         }
 
@@ -137,7 +145,14 @@ public class ProcessLogService : IProcessLogService
             ? await _processLogRepository.GetHistoriesBySerialNumberIdsAsync(snIds, cancellationToken)
             : new List<ProcessLogHistory>();
 
-        return MapToDto(log, allProcesses, histories);
+        var disabledMqttStatuses = snCodes.Count > 0
+            ? await _mqttPublisherStatusRepository.GetByReferenceCodesAsync(
+                snCodes,
+                MqttPublisherReferenceTypes.ProcessLog,
+                cancellationToken)
+            : new List<MqttPublisherStatus>();
+
+        return MapToDto(log, allProcesses, histories, disabledMqttStatuses);
     }
 
     private static readonly HashSet<string> OverallProcessCodes =
@@ -154,6 +169,7 @@ public class ProcessLogService : IProcessLogService
         var allProcesses = await _processRepository.GetAllWithParametersAsync(cancellationToken);
 
         var snIds = new List<int>();
+        var snCodes = new List<string> { serialNumber };
         if (log.SerialNumber != null)
         {
             snIds.Add(log.SerialNumber.Id);
@@ -162,6 +178,9 @@ public class ProcessLogService : IProcessLogService
                 snIds.AddRange(log.SerialNumber.ParentRelations
                     .Where(r => r.ChildSerialNumber != null)
                     .Select(r => r.ChildSerialNumber!.Id));
+                snCodes.AddRange(log.SerialNumber.ParentRelations
+                    .Where(r => r.ChildSerialNumber != null)
+                    .Select(r => r.ChildSerialNumber!.SerialNumberCode));
             }
         }
 
@@ -169,7 +188,12 @@ public class ProcessLogService : IProcessLogService
             ? await _processLogRepository.GetHistoriesBySerialNumberIdsAsync(snIds, cancellationToken)
             : new List<ProcessLogHistory>();
 
-        return MapToDto(log, allProcesses, histories);
+        var disabledMqttStatuses = await _mqttPublisherStatusRepository.GetByReferenceCodesAsync(
+            snCodes,
+            MqttPublisherReferenceTypes.ProcessLog,
+            cancellationToken);
+
+        return MapToDto(log, allProcesses, histories, disabledMqttStatuses);
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
@@ -634,7 +658,8 @@ public class ProcessLogService : IProcessLogService
     private static ProcessLogDto MapToDto(
         ProcessLog log, 
         List<Process>? masterProcesses = null, 
-        List<ProcessLogHistory>? histories = null)
+        List<ProcessLogHistory>? histories = null,
+        List<MqttPublisherStatus>? disabledMqttStatuses = null)
     {
         var sn = log.SerialNumber;
         if (sn == null) return new ProcessLogDto();
@@ -672,7 +697,7 @@ public class ProcessLogService : IProcessLogService
             CreatedAt        = log.CreatedAt,
             UpdatedAt        = log.UpdatedAt,
             Issues           = issues,
-            Processes        = MapDetails(allDetails, masterProcesses, isParent, histories)
+            Processes        = MapDetails(allDetails, masterProcesses, isParent, histories, disabledMqttStatuses)
         };
     }
 
@@ -692,7 +717,8 @@ public class ProcessLogService : IProcessLogService
         ICollection<ProcessLogDetail>? details, 
         List<Process>? masterProcesses = null, 
         bool isParent = true, 
-        List<ProcessLogHistory>? histories = null)
+        List<ProcessLogHistory>? histories = null,
+        List<MqttPublisherStatus>? disabledMqttStatuses = null)
     {
         if (masterProcesses == null || masterProcesses.Count == 0)
         {
@@ -702,36 +728,49 @@ public class ProcessLogService : IProcessLogService
                 .Where(d => d.Parameter == null || d.Parameter.ShowInDisplay)
                 .GroupBy(d => new { Id = d.Process?.Id ?? 0, Code = d.Process?.Code, Name = d.Process?.Name })
                 .OrderBy(g => g.Key.Id)
-                .Select(g => new ProcessGroupDto
+                .Select(g =>
                 {
-                    ProcessCode = g.Key.Code ?? "UNKNOWN",
-                    ProcessName = g.Key.Name ?? "Unknown Process",
-                    Result      = !g.Any(d => d.Parameter?.DataType == "boolean" && d.ValueBoolean == false),
-                    Parameters  = g.Select(d => new ProcessParameterValueDto
+                    var matchedStatus = disabledMqttStatuses?.FirstOrDefault(s =>
+                        string.Equals(s.ProcessCode, g.Key.Code, StringComparison.OrdinalIgnoreCase) && !s.IsPublisher);
+
+                    bool isPublisher = matchedStatus == null;
+                    string? status = !isPublisher ? (matchedStatus?.Status ?? "Disabled") : null;
+                    string? reason = !isPublisher ? (matchedStatus?.Reason ?? $"Process '{g.Key.Code}' MQTT publisher is disabled by configuration.") : null;
+
+                    return new ProcessGroupDto
                     {
-                        ParameterCode = d.Parameter?.Code,
-                        ParameterName = d.Parameter?.Name,
-                        Value = d.Parameter?.DataType switch
+                        ProcessCode = g.Key.Code ?? "UNKNOWN",
+                        ProcessName = g.Key.Name ?? "Unknown Process",
+                        IsMqttPublisher = isPublisher,
+                        MqttPublisherStatus = status,
+                        Reason = reason,
+                        Result      = !g.Any(d => d.Parameter?.DataType == "boolean" && d.ValueBoolean == false),
+                        Parameters  = g.Select(d => new ProcessParameterValueDto
                         {
-                            "boolean" => d.ValueBoolean,
-                            "number"  => d.ValueNumber,
-                            _         => d.ValueText
-                        },
-                        Status = d.Status
-                    }).ToList(),
-                    History = (histories ?? Enumerable.Empty<ProcessLogHistory>())
-                        .Where(h => (g.Key.Id != 0 && h.ProcessId == g.Key.Id) || string.Equals(h.Process?.Code, g.Key.Code, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(h => h.CreatedAt)
-                        .ThenBy(h => h.Id)
-                        .Select(h => new ProcessHistoryItemDto
-                        {
-                            Id            = h.Id,
-                            ParameterCode = h.Parameter?.Code ?? string.Empty,
-                            ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
-                            Value         = h.Value,
-                            Status        = DetermineHistoryStatus(h.Parameter, h.Value),
-                            CreatedAt     = h.CreatedAt
-                        }).ToList()
+                            ParameterCode = d.Parameter?.Code,
+                            ParameterName = d.Parameter?.Name,
+                            Value = d.Parameter?.DataType switch
+                            {
+                                "boolean" => d.ValueBoolean,
+                                "number"  => d.ValueNumber,
+                                _         => d.ValueText
+                            },
+                            Status = d.Status
+                        }).ToList(),
+                        History = (histories ?? Enumerable.Empty<ProcessLogHistory>())
+                            .Where(h => (g.Key.Id != 0 && h.ProcessId == g.Key.Id) || string.Equals(h.Process?.Code, g.Key.Code, StringComparison.OrdinalIgnoreCase))
+                            .OrderBy(h => h.CreatedAt)
+                            .ThenBy(h => h.Id)
+                            .Select(h => new ProcessHistoryItemDto
+                            {
+                                Id            = h.Id,
+                                ParameterCode = h.Parameter?.Code ?? string.Empty,
+                                ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
+                                Value         = h.Value,
+                                Status        = DetermineHistoryStatus(h.Parameter, h.Value),
+                                CreatedAt     = h.CreatedAt
+                            }).ToList()
+                    };
                 }).ToList();
         }
 
@@ -801,10 +840,20 @@ public class ProcessLogService : IProcessLogService
                 })
                 .ToList();
 
+            var matchedStatus = disabledMqttStatuses?.FirstOrDefault(s =>
+                string.Equals(s.ProcessCode, proc.Code, StringComparison.OrdinalIgnoreCase) && !s.IsPublisher);
+
+            bool isPublisher = proc.IsMqttPublisher && matchedStatus == null;
+            string? status = !isPublisher ? (matchedStatus?.Status ?? "Disabled") : null;
+            string? reason = !isPublisher ? (matchedStatus?.Reason ?? $"Process '{proc.Code}' MQTT publisher is disabled by configuration.") : null;
+
             result.Add(new ProcessGroupDto
             {
                 ProcessCode = proc.Code,
                 ProcessName = proc.Name,
+                IsMqttPublisher = isPublisher,
+                MqttPublisherStatus = status,
+                Reason = reason,
                 Result = paramDtos.All(p => p.Value is string s && s == "-" ? true : p.Status),
                 Parameters = paramDtos,
                 History = procHistories
@@ -1013,6 +1062,8 @@ public class ProcessLogService : IProcessLogService
             paramValues,
             cancellationToken);
 
+        await SyncMqttPublisherStatusAsync(request.SerialNumber, cancellationToken);
+
         // Ambil log yang baru dibuat beserta relasi detailnya untuk dikembalikan sebagai DTO
         return await GetProcessLogByIdAsync(processLog.Id, cancellationToken);
     }
@@ -1184,6 +1235,8 @@ public class ProcessLogService : IProcessLogService
 
         _processLogRepository.Update(processLog);
         await _processLogRepository.SaveChangesAsync(cancellationToken);
+
+        await SyncMqttPublisherStatusAsync(request.SerialNumber, cancellationToken);
 
         return await GetProcessLogByIdAsync(processLog.Id, cancellationToken);
     }
@@ -1536,5 +1589,33 @@ public class ProcessLogService : IProcessLogService
         if (processLog == null) return false;
 
         return processLog.IsFinished && !processLog.Status;
+    }
+
+    private async Task SyncMqttPublisherStatusAsync(string serialNumberCode, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(serialNumberCode)) return;
+
+        try
+        {
+            var masterProcesses = await _processRepository.GetAllAsync(cancellationToken);
+            if (masterProcesses == null || !masterProcesses.Any()) return;
+
+            bool isParent = serialNumberCode.StartsWith("PVRA", StringComparison.OrdinalIgnoreCase) ||
+                            serialNumberCode.StartsWith("CC", StringComparison.OrdinalIgnoreCase);
+
+            var relevantProcesses = isParent
+                ? masterProcesses.Where(p => p.IsActive && (IsClinchingProcess(p.Code) || OverallProcessCodes.Contains(p.Code)))
+                : masterProcesses.Where(p => p.IsActive && IsMFanProcess(p.Code));
+
+            await _mqttPublisherStatusRepository.SyncDisabledProcessesAsync(
+                serialNumberCode,
+                MqttPublisherReferenceTypes.ProcessLog,
+                relevantProcesses,
+                cancellationToken);
+        }
+        catch
+        {
+            // Abaikan agar tidak mengganggu transaksi utama pembuatan log proses
+        }
     }
 }

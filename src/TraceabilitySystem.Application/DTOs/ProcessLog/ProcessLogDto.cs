@@ -115,6 +115,9 @@ public class ProcessLogMFanDetailDto
         public string? ProcessCode { get; set; }
         public string? ProcessName { get; set; }
         public bool Result { get; set; }
+        public bool IsMqttPublisher { get; set; } = true;
+        public string? MqttPublisherStatus { get; set; }
+        public string? Reason { get; set; }
         public List<ProcessParameterValueDto> Parameters { get; set; } = new();
 
         [JsonPropertyName("history")]
