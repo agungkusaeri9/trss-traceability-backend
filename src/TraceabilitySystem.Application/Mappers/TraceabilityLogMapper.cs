@@ -545,14 +545,38 @@ public static class TraceabilityLogMapper
                             sectionCode.Contains(h.Process.Code, StringComparison.OrdinalIgnoreCase))))
             .OrderByDescending(h => h.CreatedAt)
             .ThenByDescending(h => h.Id)
-            .Select(h => new ProcessHistoryItemDto
+            .Select(h =>
             {
-                Id = h.Id,
-                ParameterCode = h.Parameter?.Code ?? string.Empty,
-                ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
-                Value = h.Value,
-                Status = ProcessLogService.DetermineHistoryStatus(h.Parameter, h.Value),
-                CreatedAt = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
+                var param = h.Parameter ?? masterProcesses?
+                    .SelectMany(p => p.ProcessParameters ?? Enumerable.Empty<ProcessParameter>())
+                    .Select(pp => pp.Parameter)
+                    .FirstOrDefault(p => p != null && (p.Id == h.ParameterId || string.Equals(p.Code, h.Parameter?.Code, StringComparison.OrdinalIgnoreCase)));
+
+                var typeVal = param?.TypeValue;
+                if (string.IsNullOrEmpty(typeVal))
+                {
+                    if (string.Equals(param?.DataType, "boolean", StringComparison.OrdinalIgnoreCase) ||
+                        param?.Code?.EndsWith("_RESULT", StringComparison.OrdinalIgnoreCase) == true ||
+                        param?.Code?.EndsWith("_STATUS", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        typeVal = "ok_ng";
+                    }
+                }
+
+                var (formattedVal, status) = ParseAndFormatParameterValue(
+                    typeVal,
+                    h.Value,
+                    ProcessLogService.DetermineHistoryStatus(param, h.Value));
+
+                return new ProcessHistoryItemDto
+                {
+                    Id = h.Id,
+                    ParameterCode = param?.Code ?? h.Parameter?.Code ?? string.Empty,
+                    ParameterName = !string.IsNullOrWhiteSpace(param?.Description) ? param.Description : (param?.Name ?? h.Parameter?.Description ?? h.Parameter?.Name ?? string.Empty),
+                    Value = formattedVal?.ToString(),
+                    Status = status ?? ProcessLogService.DetermineHistoryStatus(param, h.Value),
+                    CreatedAt = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
+                };
             })
             .ToList();
     }

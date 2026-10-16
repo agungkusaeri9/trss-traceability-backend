@@ -745,30 +745,55 @@ public class ProcessLogService : IProcessLogService
                         MqttPublisherStatus = status,
                         Reason = reason,
                         Result      = !g.Any(d => d.Parameter?.DataType == "boolean" && d.ValueBoolean == false),
-                        Parameters  = g.Select(d => new ProcessParameterValueDto
+                        Parameters  = g.Select(d =>
                         {
-                            ParameterCode = d.Parameter?.Code,
-                            ParameterName = d.Parameter?.Name,
-                            Value = d.Parameter?.DataType switch
+                            object? rawVal = d.Parameter?.DataType switch
                             {
                                 "boolean" => d.ValueBoolean,
                                 "number"  => d.ValueNumber,
-                                _         => d.ValueText
-                            },
-                            Status = d.Status
+                                _         => d.ValueText ?? d.DisplayValue
+                            };
+                            var typeVal = d.Parameter?.TypeValue;
+                            if (string.IsNullOrEmpty(typeVal) && (
+                                string.Equals(d.Parameter?.DataType, "boolean", StringComparison.OrdinalIgnoreCase) ||
+                                d.Parameter?.Code?.EndsWith("_RESULT", StringComparison.OrdinalIgnoreCase) == true ||
+                                d.Parameter?.Code?.EndsWith("_STATUS", StringComparison.OrdinalIgnoreCase) == true))
+                            {
+                                typeVal = "ok_ng";
+                            }
+                            var (fmtVal, fmtStatus) = TraceabilityLogMapper.ParseAndFormatParameterValue(typeVal, rawVal, d.Status);
+                            return new ProcessParameterValueDto
+                            {
+                                ParameterCode = d.Parameter?.Code,
+                                ParameterName = d.Parameter?.Name,
+                                Value = fmtVal,
+                                Status = fmtStatus ?? d.Status
+                            };
                         }).ToList(),
                         History = (histories ?? Enumerable.Empty<ProcessHistory>())
                             .Where(h => (g.Key.Id != 0 && h.ProcessId == g.Key.Id) || string.Equals(h.Process?.Code, g.Key.Code, StringComparison.OrdinalIgnoreCase))
                             .OrderByDescending(h => h.CreatedAt)
                             .ThenByDescending(h => h.Id)
-                            .Select(h => new ProcessHistoryItemDto
+                            .Select(h =>
                             {
-                                Id            = h.Id,
-                                ParameterCode = h.Parameter?.Code ?? string.Empty,
-                                ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
-                                Value         = h.Value,
-                                Status        = DetermineHistoryStatus(h.Parameter, h.Value),
-                                CreatedAt     = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
+                                var typeVal = h.Parameter?.TypeValue;
+                                if (string.IsNullOrEmpty(typeVal) && (
+                                    string.Equals(h.Parameter?.DataType, "boolean", StringComparison.OrdinalIgnoreCase) ||
+                                    h.Parameter?.Code?.EndsWith("_RESULT", StringComparison.OrdinalIgnoreCase) == true ||
+                                    h.Parameter?.Code?.EndsWith("_STATUS", StringComparison.OrdinalIgnoreCase) == true))
+                                {
+                                    typeVal = "ok_ng";
+                                }
+                                var (fmtVal, fmtStatus) = TraceabilityLogMapper.ParseAndFormatParameterValue(typeVal, h.Value, DetermineHistoryStatus(h.Parameter, h.Value));
+                                return new ProcessHistoryItemDto
+                                {
+                                    Id            = h.Id,
+                                    ParameterCode = h.Parameter?.Code ?? string.Empty,
+                                    ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
+                                    Value         = fmtVal?.ToString(),
+                                    Status        = fmtStatus ?? DetermineHistoryStatus(h.Parameter, h.Value),
+                                    CreatedAt     = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
+                                };
                             }).ToList()
                     };
                 }).ToList();
@@ -800,17 +825,28 @@ public class ProcessLogService : IProcessLogService
 
                 if (matched != null)
                 {
+                    object? rawVal = param.DataType switch
+                    {
+                        "boolean" => matched.ValueBoolean,
+                        "number"  => matched.ValueNumber,
+                        _         => matched.ValueText ?? matched.DisplayValue
+                    };
+                    var typeVal = param.TypeValue;
+                    if (string.IsNullOrEmpty(typeVal) && (
+                        string.Equals(param.DataType, "boolean", StringComparison.OrdinalIgnoreCase) ||
+                        param.Code?.EndsWith("_RESULT", StringComparison.OrdinalIgnoreCase) == true ||
+                        param.Code?.EndsWith("_STATUS", StringComparison.OrdinalIgnoreCase) == true))
+                    {
+                        typeVal = "ok_ng";
+                    }
+                    var (fmtVal, fmtStatus) = TraceabilityLogMapper.ParseAndFormatParameterValue(typeVal, rawVal, matched.Status);
+
                     paramDtos.Add(new ProcessParameterValueDto
                     {
                         ParameterCode = param.Code,
                         ParameterName = !string.IsNullOrWhiteSpace(param.Description) ? param.Description : param.Name,
-                        Value = param.DataType switch
-                        {
-                            "boolean" => matched.ValueBoolean,
-                            "number"  => matched.ValueNumber,
-                            _         => matched.ValueText ?? matched.DisplayValue
-                        },
-                        Status = matched.Status
+                        Value = fmtVal,
+                        Status = fmtStatus ?? matched.Status
                     });
                 }
                 else
@@ -829,14 +865,27 @@ public class ProcessLogService : IProcessLogService
                 .Where(h => h.ProcessId == proc.Id || string.Equals(h.Process?.Code, proc.Code, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(h => h.CreatedAt)
                 .ThenByDescending(h => h.Id)
-                .Select(h => new ProcessHistoryItemDto
+                .Select(h =>
                 {
-                    Id            = h.Id,
-                    ParameterCode = h.Parameter?.Code ?? string.Empty,
-                    ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
-                    Value         = h.Value,
-                    Status        = DetermineHistoryStatus(h.Parameter, h.Value),
-                    CreatedAt     = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
+                    var p = h.Parameter ?? procParams.FirstOrDefault(pp => pp.Id == h.ParameterId || string.Equals(pp.Code, h.Parameter?.Code, StringComparison.OrdinalIgnoreCase));
+                    var typeVal = p?.TypeValue;
+                    if (string.IsNullOrEmpty(typeVal) && (
+                        string.Equals(p?.DataType, "boolean", StringComparison.OrdinalIgnoreCase) ||
+                        p?.Code?.EndsWith("_RESULT", StringComparison.OrdinalIgnoreCase) == true ||
+                        p?.Code?.EndsWith("_STATUS", StringComparison.OrdinalIgnoreCase) == true))
+                    {
+                        typeVal = "ok_ng";
+                    }
+                    var (fmtVal, fmtStatus) = TraceabilityLogMapper.ParseAndFormatParameterValue(typeVal, h.Value, DetermineHistoryStatus(p, h.Value));
+                    return new ProcessHistoryItemDto
+                    {
+                        Id            = h.Id,
+                        ParameterCode = p?.Code ?? h.Parameter?.Code ?? string.Empty,
+                        ParameterName = !string.IsNullOrWhiteSpace(p?.Description) ? p.Description : (p?.Name ?? h.Parameter?.Description ?? h.Parameter?.Name ?? string.Empty),
+                        Value         = fmtVal?.ToString(),
+                        Status        = fmtStatus ?? DetermineHistoryStatus(p, h.Value),
+                        CreatedAt     = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
+                    };
                 })
                 .ToList();
 
