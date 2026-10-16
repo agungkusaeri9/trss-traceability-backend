@@ -91,7 +91,7 @@ public class PrintService : IPrintService
         // Gunakan Date dari SerialNumber (bukan DateTime.Today)
         string dateFormat = serialNumber.Date.ToString("ddMMyyyy");
         string mitsubishiCode = "21400C000P";
-        string trssCode = "BM57200000";
+        string trssCode = "BM57100000";
         string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
 
         string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
