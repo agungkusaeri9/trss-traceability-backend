@@ -4,6 +4,14 @@ Dokumen ini mencatat ringkasan perubahan dan pembaruan sistem pada Backend TRSS 
 
 ---
 
+## [v0.2.3] - 16 Oktober 2026
+
+### Perbaikan & Penyesuaian
+- **Penyesuaian Posisi Teks Label Clinching (ZPL)**:
+  - Menggeser posisi koordinat Y teks `mitsubishiCode` (dari 16 ke 18) dan `trssCode` (dari 42 ke 45) pada template label besar ZPL agar tata letak teks lebih presisi dan rapi.
+
+---
+
 ## [v0.2.2] - 16 Oktober 2026
 
 ### Perbaikan & Penyesuaian

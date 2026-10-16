@@ -141,8 +141,8 @@ public class PrintService : IPrintService
 
             ^FO357,72^BQN,3,3^FDQA,{qrCodeString}^FS
 
-            ^FO20,16^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
-            ^FO20,42^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS
+            ^FO20,18^A0N,32,60^FB424,1,0,C^FD{mitsubishiCode}^FS
+            ^FO20,45^A0N,32,60^FB424,1,0,C^FD{trssCode}^FS
 
             ^FO20,84^A0N,24,26^FD{serialNumberCode}^FS
 
