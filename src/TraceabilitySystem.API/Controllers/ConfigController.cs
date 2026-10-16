@@ -329,11 +329,15 @@ public class ConfigController : ControllerBase
        var clinchingCategory = new ProcessCategory
        {
            Name = "clinching",
+           PartNumber = "BM57100000",
+           PartNumberCustomer = "21400C000P",
            CreatedAt = DateTime.UtcNow
        };
        var mfanCategory = new ProcessCategory
        {
            Name = "mfan",
+           PartNumber = "BM57200000",
+           PartNumberCustomer = "21580C000P",
            CreatedAt = DateTime.UtcNow
        };
        await _context.ProcessCategories.AddRangeAsync(clinchingCategory, mfanCategory);

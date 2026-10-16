@@ -26,6 +26,7 @@ public class ProcessLogService : IProcessLogService
     private readonly IMqttPublisher _mqttPublisher;
     private readonly IPrintService _printService;
     private readonly IMqttPublisherStatusRepository _mqttPublisherStatusRepository;
+    private readonly IProcessCategoryRepository _processCategoryRepository;
 
     public ProcessLogService(
         IProcessLogRepository processLogRepository,
@@ -38,7 +39,8 @@ public class ProcessLogService : IProcessLogService
         IIssueService issueService,
         IMqttPublisher mqttPublisher,
         IPrintService printService,
-        IMqttPublisherStatusRepository mqttPublisherStatusRepository)
+        IMqttPublisherStatusRepository mqttPublisherStatusRepository,
+        IProcessCategoryRepository processCategoryRepository)
     {
         _processLogRepository = processLogRepository;
         _issueRepository = issueRepository;
@@ -51,6 +53,7 @@ public class ProcessLogService : IProcessLogService
         _mqttPublisher = mqttPublisher;
         _printService = printService;
         _mqttPublisherStatusRepository = mqttPublisherStatusRepository;
+        _processCategoryRepository = processCategoryRepository;
     }
 
     public async Task<PagedResult<ProcessLogListDto>> GetProcessLogsAsync(
@@ -987,6 +990,11 @@ public class ProcessLogService : IProcessLogService
         }
 
         // 7. Publish MQTT ke topic data/process/clinching-short-side/process-scan
+        var clinchingCategory = await _processCategoryRepository.GetByClinchingWithPartsAsync(cancellationToken);
+        var clinchingPartNumber = !string.IsNullOrWhiteSpace(clinchingCategory?.PartNumber)
+            ? clinchingCategory.PartNumber
+            : "BM57100000";
+
         var coreIssueNo      = mappedParams.TryGetValue("CORE_ASM_VALUE", out var c) ? c?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
         var upperTankIssueNo = mappedParams.TryGetValue("UPPER_TANK_ASM_VALUE", out var u) ? u?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
         var lowerTankIssueNo = mappedParams.TryGetValue("LOWER_TANK_ASM_VALUE", out var l) ? l?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
@@ -998,6 +1006,7 @@ public class ProcessLogService : IProcessLogService
         var mqttPayload = new
         {
             serial_number     = clinchingSerialNumberCode,
+            part_number       = clinchingPartNumber,
             operator_username = request.OperatorUsername ?? "MQTT_CLINCHING",
             is_printed        = isPrinted,
             timestamp         = DateTime.UtcNow,
@@ -1374,6 +1383,11 @@ public class ProcessLogService : IProcessLogService
         }
 
         // 6. Publish MQTT ke topic data/process/m-fan-assy/process-scan
+        var mfanCategory = await _processCategoryRepository.GetByMfanWithPartsAsync(cancellationToken);
+        var mfanPartNumber = !string.IsNullOrWhiteSpace(mfanCategory?.PartNumber)
+            ? mfanCategory.PartNumber
+            : "BM57200000";
+
         var fanAsmIssueNo      = mappedMfanParams.TryGetValue("FAN_ASM_RESULT", out var f) ? f?.ToString() : (issueNumbers.Count > 0 ? issueNumbers[0] : null);
         var fanMotorAsmIssueNo = mappedMfanParams.TryGetValue("MOTOR_ASM_RESULT", out var m) ? m?.ToString() : (issueNumbers.Count > 1 ? issueNumbers[1] : null);
         var fanGuideAsmIssueNo = mappedMfanParams.TryGetValue("GUIDE_ASM_RESULT", out var g) ? g?.ToString() : (issueNumbers.Count > 2 ? issueNumbers[2] : null);
@@ -1385,6 +1399,7 @@ public class ProcessLogService : IProcessLogService
         var mqttPayload = new
         {
             serial_number     = mfSerialNumberCode,
+            part_number       = mfanPartNumber,
             operator_username = request.OperatorUsername ?? "MQTT_M_FAN_ASSY",
             is_printed        = isPrinted,
             timestamp         = DateTime.UtcNow,

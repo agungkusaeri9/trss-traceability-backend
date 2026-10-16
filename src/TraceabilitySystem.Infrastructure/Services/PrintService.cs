@@ -79,6 +79,7 @@ public class PrintService : IPrintService
 
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
+        var processCategoryRepository = scope.ServiceProvider.GetRequiredService<IProcessCategoryRepository>();
 
         // Ambil serial number entity untuk mendapatkan Date yang sudah tersimpan saat create
         var serialNumber = await serialNumberRepository.GetByCodeAsync(serialNumberCode, cancellationToken);
@@ -90,8 +91,15 @@ public class PrintService : IPrintService
 
         // Gunakan Date dari SerialNumber (bukan DateTime.Today)
         string dateFormat = serialNumber.Date.ToString("ddMMyyyy");
-        string mitsubishiCode = "21400C000P";
-        string trssCode = "BM57100000";
+
+        var clinchingCategory = await processCategoryRepository.GetByClinchingWithPartsAsync(cancellationToken);
+        string mitsubishiCode = !string.IsNullOrWhiteSpace(clinchingCategory?.PartNumberCustomer)
+            ? clinchingCategory.PartNumberCustomer
+            : "21400C000P";
+        string trssCode = !string.IsNullOrWhiteSpace(clinchingCategory?.PartNumber)
+            ? clinchingCategory.PartNumber
+            : "BM57100000";
+
         string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
 
         string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
@@ -594,6 +602,7 @@ public class PrintService : IPrintService
     {
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
+        var processCategoryRepository = scope.ServiceProvider.GetRequiredService<IProcessCategoryRepository>();
 
         var serialNumber = await serialNumberRepository.GetByCodeAsync(serialNumberCode, cancellationToken);
         if (serialNumber == null)
@@ -603,8 +612,15 @@ public class PrintService : IPrintService
         }
 
         string dateFormat = serialNumber.Date.ToString("ddMMyyyy");
-        string mitsubishiCode = "21400C000P";
-        string trssCode = "BM57200000";
+
+        var mfanCategory = await processCategoryRepository.GetByMfanWithPartsAsync(cancellationToken);
+        string mitsubishiCode = !string.IsNullOrWhiteSpace(mfanCategory?.PartNumberCustomer)
+            ? mfanCategory.PartNumberCustomer
+            : "21580C000P";
+        string trssCode = !string.IsNullOrWhiteSpace(mfanCategory?.PartNumber)
+            ? mfanCategory.PartNumber
+            : "BM57200000";
+
         string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
 
         // Cek apakah mode test print ke printer Stock In aktif

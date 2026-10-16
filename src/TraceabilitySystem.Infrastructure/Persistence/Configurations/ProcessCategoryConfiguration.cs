@@ -14,6 +14,16 @@ public class ProcessCategoryConfiguration : IEntityTypeConfiguration<ProcessCate
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(x => x.PartNumber)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("");
+
+        builder.Property(x => x.PartNumberCustomer)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("");
+
         if (!AppDbContext.IsInMemory)
         {
             builder.Property(x => x.CreatedAt)
