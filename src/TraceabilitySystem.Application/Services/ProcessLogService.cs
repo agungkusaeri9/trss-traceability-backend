@@ -650,8 +650,8 @@ public class ProcessLogService : IProcessLogService
             SerialNumberCode = sn.SerialNumberCode,
             Status           = log.Status,
             IsFinished       = log.IsFinished,
-            CreatedAt        = log.CreatedAt,
-            UpdatedAt        = log.UpdatedAt
+            CreatedAt        = DateTime.SpecifyKind(log.CreatedAt, DateTimeKind.Utc),
+            UpdatedAt        = log.UpdatedAt.HasValue ? DateTime.SpecifyKind(log.UpdatedAt.Value, DateTimeKind.Utc) : null
         };
     }
 
@@ -694,8 +694,8 @@ public class ProcessLogService : IProcessLogService
             IsParent         = isParent,
             SerialNumberCode = sn.SerialNumberCode,
             Type             = sn.Type,
-            CreatedAt        = log.CreatedAt,
-            UpdatedAt        = log.UpdatedAt,
+            CreatedAt        = DateTime.SpecifyKind(log.CreatedAt, DateTimeKind.Utc),
+            UpdatedAt        = log.UpdatedAt.HasValue ? DateTime.SpecifyKind(log.UpdatedAt.Value, DateTimeKind.Utc) : null,
             Issues           = issues,
             Processes        = MapDetails(allDetails, masterProcesses, isParent, histories, disabledMqttStatuses)
         };
@@ -768,7 +768,7 @@ public class ProcessLogService : IProcessLogService
                                 ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
                                 Value         = h.Value,
                                 Status        = DetermineHistoryStatus(h.Parameter, h.Value),
-                                CreatedAt     = h.CreatedAt
+                                CreatedAt     = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
                             }).ToList()
                     };
                 }).ToList();
@@ -836,7 +836,7 @@ public class ProcessLogService : IProcessLogService
                     ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
                     Value         = h.Value,
                     Status        = DetermineHistoryStatus(h.Parameter, h.Value),
-                    CreatedAt     = h.CreatedAt
+                    CreatedAt     = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
                 })
                 .ToList();
 
@@ -903,7 +903,7 @@ public class ProcessLogService : IProcessLogService
 
         var clinchingSerialNumberCode = generatedSns[0].SerialNumberCode;
 
-        // 4. Set serial number ke request dan panggil CreateProcessLogWithDetailsAsync
+        // 4. Set serial number ke request dan panggil CreateProcessLogDetailOnlyAsync
         request.SerialNumber = clinchingSerialNumberCode;
         if (string.IsNullOrWhiteSpace(request.ProcessCode))
         {
@@ -922,7 +922,7 @@ public class ProcessLogService : IProcessLogService
             }
         }
 
-        var result = await CreateProcessLogWithDetailsAsync(request, cancellationToken);
+        var result = await CreateProcessLogDetailOnlyAsync(request, recordHistory: false, cancellationToken);
 
         // 6. Print barcode label clinching short side
         // isPrinted: 0 = masih process/printing, 1 = berhasil, 2 = gagal
@@ -1117,14 +1117,14 @@ public class ProcessLogService : IProcessLogService
                 IsActive = true,
                 Status = true,
                 IsFinished = shouldFinish,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             await _processLogRepository.AddAsync(processLog, cancellationToken);
             await _processLogRepository.SaveChangesAsync(cancellationToken);
         }
         else
         {
-            processLog.UpdatedAt = DateTime.Now;
+            processLog.UpdatedAt = DateTime.UtcNow;
             processLog.IsFinished = shouldFinish;
             _processLogRepository.Update(processLog);
             await _processLogRepository.SaveChangesAsync(cancellationToken);
@@ -1163,7 +1163,7 @@ public class ProcessLogService : IProcessLogService
                 existingDetail.ValueText = param.valueText;
                 existingDetail.ValueBoolean = param.valueBoolean;
                 existingDetail.Status = param.status;
-                existingDetail.UpdatedAt = DateTime.Now;
+                existingDetail.UpdatedAt = DateTime.UtcNow;
             }
             else
             {
@@ -1176,7 +1176,7 @@ public class ProcessLogService : IProcessLogService
                     ValueText = param.valueText,
                     ValueBoolean = param.valueBoolean,
                     Status = param.status,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
                 processLog.Details.Add(detail);
             }
@@ -1310,7 +1310,7 @@ public class ProcessLogService : IProcessLogService
         
         request.SerialNumber = mfSerialNumberCode;
         
-        var result = await CreateProcessLogDetailOnlyAsync(request, recordHistory: true, cancellationToken);
+        var result = await CreateProcessLogDetailOnlyAsync(request, recordHistory: false, cancellationToken);
 
         // 5. Print barcode / label M-Fan Assy
         int isPrinted = 0;

@@ -45,7 +45,8 @@ try
      {
          options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
          options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-
+         options.JsonSerializerOptions.Converters.Add(new TraceabilitySystem.Shared.Helpers.UtcDateTimeJsonConverter());
+         options.JsonSerializerOptions.Converters.Add(new TraceabilitySystem.Shared.Helpers.NullableUtcDateTimeJsonConverter());
      });
 
     builder.Services.Configure<ApiBehaviorOptions>(options =>

@@ -23,6 +23,6 @@ public class ProcessLogDetail
     public string? DisplayValue => ValueNumber?.ToString() ?? ValueText ?? ValueBoolean?.ToString() ?? string.Empty;
     public bool Status { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 }

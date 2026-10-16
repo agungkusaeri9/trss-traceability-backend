@@ -357,14 +357,14 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                 IsActive = true,
                 Status = isOk,
                 IsFinished = shouldFinish,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
             await AddAsync(processLog, cancellationToken);
             await SaveChangesAsync(cancellationToken);
         }
         else
         {
-            processLog.UpdatedAt = DateTime.Now;
+            processLog.UpdatedAt = DateTime.UtcNow;
             processLog.IsFinished = shouldFinish;
             processLog.Status = isOk;
             Update(processLog);
@@ -393,7 +393,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                 existingDetail.ValueText = param.valueText;
                 existingDetail.ValueBoolean = param.valueBoolean;
                 existingDetail.Status = param.status;
-                existingDetail.UpdatedAt = DateTime.Now;
+                existingDetail.UpdatedAt = DateTime.UtcNow;
                 _context.ProcessLogDetails.Update(existingDetail);
             }
             else
@@ -407,7 +407,7 @@ public class ProcessLogRepository : BaseRepository<ProcessLog>, IProcessLogRepos
                     ValueText = param.valueText,
                     ValueBoolean = param.valueBoolean,
                     Status = param.status,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
                 await _context.ProcessLogDetails.AddAsync(detail, cancellationToken);
             }

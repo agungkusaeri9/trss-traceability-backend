@@ -12,7 +12,7 @@ public class Process
     public bool IsActive { get; set; } = true;
     public bool IsMqttPublisher { get; set; } = true;
     
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
     public ICollection<ProcessParameter> ProcessParameters { get; set; } = new List<ProcessParameter>();

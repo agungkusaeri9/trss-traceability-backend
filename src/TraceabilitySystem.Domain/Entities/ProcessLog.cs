@@ -13,7 +13,7 @@ public class ProcessLog
     public bool IsActive { get; set; }
     public bool Status { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
     public ICollection<ProcessLogDetail> Details { get; set; } = new List<ProcessLogDetail>();

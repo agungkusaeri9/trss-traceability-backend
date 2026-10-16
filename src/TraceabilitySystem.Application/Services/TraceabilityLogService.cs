@@ -127,8 +127,8 @@ public class TraceabilityLogService : ITraceabilityLogService
             SerialNumberCode = log.SerialNumber.SerialNumberCode,
             Status = calculatedFullStatus,
             IsFinished = log.IsFinished,
-            CreatedAt = log.CreatedAt,
-            UpdatedAt = log.UpdatedAt
+            CreatedAt = DateTime.SpecifyKind(log.CreatedAt, DateTimeKind.Utc),
+            UpdatedAt = log.UpdatedAt.HasValue ? DateTime.SpecifyKind(log.UpdatedAt.Value, DateTimeKind.Utc) : null
         };
 
         var parentIssues = log.SerialNumber?.Issues?
@@ -946,8 +946,8 @@ public class TraceabilityLogService : ITraceabilityLogService
                 SerialNumberMFan = mfanSn,
                 Status = fallbackLog.Status,
                 IsFinish = fallbackLog.IsFinished,
-                CreatedAt = fallbackLog.CreatedAt,
-                UpdatedAt = fallbackLog.UpdatedAt,
+                CreatedAt = DateTime.SpecifyKind(fallbackLog.CreatedAt, DateTimeKind.Utc),
+                UpdatedAt = fallbackLog.UpdatedAt.HasValue ? DateTime.SpecifyKind(fallbackLog.UpdatedAt.Value, DateTimeKind.Utc) : null,
                 Details = new List<TraceabilityLogDetail>()
             };
         }

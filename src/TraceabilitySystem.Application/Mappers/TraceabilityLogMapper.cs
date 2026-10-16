@@ -552,7 +552,7 @@ public static class TraceabilityLogMapper
                 ParameterName = !string.IsNullOrWhiteSpace(h.Parameter?.Description) ? h.Parameter.Description : (h.Parameter?.Name ?? string.Empty),
                 Value = h.Value,
                 Status = ProcessLogService.DetermineHistoryStatus(h.Parameter, h.Value),
-                CreatedAt = h.CreatedAt
+                CreatedAt = DateTime.SpecifyKind(h.CreatedAt, DateTimeKind.Utc)
             })
             .ToList();
     }

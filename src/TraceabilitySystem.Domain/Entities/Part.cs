@@ -10,6 +10,6 @@ public class Part
     public string? CategoryProcess { get; set; } = string.Empty;
     public int QtyStandart { get; set; } = 0;
     public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 }

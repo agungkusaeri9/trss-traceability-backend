@@ -97,7 +97,7 @@ public class PrintService : IPrintService
         string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
         var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, qrLabelSize);
 
-        await SendViaTcpAsync(printerIp, printerPort, zpl);
+        await SendViaTcpAsync(printerIp, printerPort, zpl, cancellationToken);
     }
 
 
@@ -206,16 +206,21 @@ public class PrintService : IPrintService
         });
     }
 
-    private Task SendViaTcpAsync(string ipAddress, int port, string zplData)
+    private async Task SendViaTcpAsync(string ipAddress, int port, string zplData, CancellationToken cancellationToken = default)
     {
-        return Task.Run(() =>
-        {
-            // Set maxTimeoutForRead=3000ms, timeToWaitForMoreData=1000ms to avoid hanging
-            Zebra.Sdk.Comm.Connection connection = new TcpConnection(ipAddress, port, 3000, 1000);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(3));
 
-            try
+        Zebra.Sdk.Comm.Connection? connection = null;
+
+        try
+        {
+            var printTask = Task.Run(() =>
             {
-                _logger.LogInformation("Connecting to Zebra printer via TCP/IP '{IpAddress}:{Port}'...", ipAddress, port);
+                // Set maxTimeoutForRead=3000ms, timeToWaitForMoreData=1000ms to avoid hanging
+                connection = new TcpConnection(ipAddress, port, 3000, 1000);
+
+                _logger.LogInformation("Connecting to Zebra printer via TCP/IP '{IpAddress}:{Port}' (Timeout: 3s)...", ipAddress, port);
 
                 connection.Open();
 
@@ -240,27 +245,35 @@ public class PrintService : IPrintService
                 connection.Write(bytes);
 
                 _logger.LogInformation("Print via TCP/IP completed successfully.");
-            }
-            catch (ConnectionException ex)
-            {
-                _logger.LogError("Failed to connect/communicate with printer '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
-                throw;
-            }
-            catch (Zebra.Sdk.Printer.ZebraPrinterLanguageUnknownException ex)
-            {
-                _logger.LogError("Unknown printer language for printer '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Unexpected error while printing to '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
-                throw;
-            }
-            finally
-            {
-                connection.Close();
-            }
-        });
+            }, cts.Token);
+
+            await printTask.WaitAsync(cts.Token);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogError("Failed to connect/communicate with printer '{IpAddress}:{Port}': Connection timed out after 3 seconds.", ipAddress, port);
+            try { connection?.Close(); } catch { }
+            throw new TimeoutException($"Connection to Zebra printer '{ipAddress}:{port}' timed out after 3 seconds.");
+        }
+        catch (ConnectionException ex)
+        {
+            _logger.LogError("Failed to connect/communicate with printer '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
+            throw;
+        }
+        catch (Zebra.Sdk.Printer.ZebraPrinterLanguageUnknownException ex)
+        {
+            _logger.LogError("Unknown printer language for printer '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Unexpected error while printing to '{IpAddress}:{Port}': {Message}", ipAddress, port, ex.Message);
+            throw;
+        }
+        finally
+        {
+            try { connection?.Close(); } catch { }
+        }
     }
 
     
@@ -609,7 +622,7 @@ public class PrintService : IPrintService
         string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
         var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, qrLabelSize);
 
-        await SendViaTcpAsync(printerIp, printerPort, zpl);
+        await SendViaTcpAsync(printerIp, printerPort, zpl, cancellationToken);
     }
 
     /// <summary>
