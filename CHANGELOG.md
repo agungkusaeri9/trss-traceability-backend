@@ -4,7 +4,7 @@ Dokumen ini mencatat ringkasan perubahan dan pembaruan sistem pada Backend TRSS 
 
 ---
 
-## [Belum Dirilis] (Unreleased)
+## [v0.2.1] - 16 Oktober 2026
 
 ### Pembaruan
 - **Format Hasil Pengecekan (OK / NG)**:
