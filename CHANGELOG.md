@@ -4,6 +4,22 @@ Dokumen ini mencatat ringkasan perubahan dan pembaruan sistem pada Backend TRSS 
 
 ---
 
+## [v0.2.4] - 20 Oktober 2026
+
+### Fitur Baru & Otomatisasi (CI/CD)
+- **Otomatisasi Build & GitHub Release (CI/CD Pipeline)**:
+  - Menambahkan workflow GitHub Actions (`.github/workflows/release.yml`) yang otomatis terpicu saat pembuatan tag versi (`v*`).
+  - Memaketkan hasil publish binary untuk platform Windows (`win-x64`) ke dalam file arsip `.zip` siap pakai:
+    - `TraceabilitySystem.API` (`trss-backend-api-*.zip`)
+    - `TraceabilitySystem.Worker` (`trss-backend-worker-*.zip`)
+    - `TraceabilitySystem.Backup` (`trss-backend-backup-*.zip`)
+  - Ekstraksi catatan rilis otomatis langsung dari file `CHANGELOG.md` sesuai tag rilis.
+  - Otomatis menyertakan template konfigurasi `appsettings.json` dan `appsettings.Production.json` di dalam paket rilis secara aman.
+- **Pembaruan `.gitignore`**:
+  - Menambahkan `appsettings.Production.json` serta direktori `dist/` dan `publish/` ke dalam `.gitignore` untuk mencegah kebocoran kredensial dan file build lokal.
+
+---
+
 ## [v0.2.3] - 16 Oktober 2026
 
 ### Perbaikan & Penyesuaian
