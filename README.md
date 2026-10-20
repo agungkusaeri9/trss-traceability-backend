@@ -117,6 +117,26 @@ Setelah aplikasi berjalan, panggil endpoint berikut via Swagger atau Postman:
 POST /api/config/seed-all
 ```
 
+## 🏷️ Versioning & Tagging
+
+Catatan perubahan setiap versi disimpan di [CHANGELOG.md](CHANGELOG.md). Penomoran versi menggunakan format Semantic Versioning (`vMAJOR.MINOR.PATCH`) dengan suffix tahapan pra-rilis (*pre-release*).
+
+### Tahapan Rilis (Release Lifecycle)
+
+Untuk memastikan stabilitas sistem backend sebelum diterapkan pada lini produksi aktif, penamaan versi dan tag Git mengikuti tahapan berikut:
+
+| Tahapan (*Stage*) | Format Tag | Deskripsi & Tujuan Penggunaan |
+|---|---|---|
+| **alpha** | `vMAJOR.MINOR.PATCH-alpha.X`<br>*(contoh: `v0.2.6-alpha.1`)* | **Development Aktif:** Pengujian internal tim developer. Fitur atau migrasi database baru sedang dikembangkan, wajar jika belum stabil. |
+| **preview** | `vMAJOR.MINOR.PATCH-preview.X`<br>*(contoh: `v0.2.6-preview.1`)* | **Demo & Review Customer:** Paket build khusus untuk demonstrasi atau peninjauan (*review*) fitur baru kepada customer atau manajemen pabrik. |
+| **beta** | `vMAJOR.MINOR.PATCH-beta.X`<br>*(contoh: `v0.2.6-beta.1`)* | **Pengujian Sebelum Release:** Pengujian menyeluruh (*UAT / User Acceptance Testing*) dan integrasi perangkat IoT/PLC/MQTT di lingkungan staging/lab pabrik. |
+| **rc** | `vMAJOR.MINOR.PATCH-rc.X`<br>*(contoh: `v0.2.6-rc.1`)* | **Validasi Akhir (*Release Candidate*):** Tahap pembekuan kode (*code-freeze*), hanya perbaikan bug kritis sebelum rilis resmi produksi. |
+| **stable** | `vMAJOR.MINOR.PATCH`<br>*(contoh: `v0.2.6`)* | **Versi Production:** Rilis resmi dan stabil tanpa suffix, siap dioperasikan penuh pada server produksi dan Windows Service. |
+
+#### Alur Penggunaan Praktis:
+- **Rilis Besar / Milestone Fitur Baru:** `alpha` ➔ `preview` ➔ `beta` ➔ `rc` ➔ `stable`
+- **Rilis Cepat / Perbaikan Ringan (*Patch*):** `preview` (verifikasi perubahan) ➔ `stable`
+
 ## 📝 Lisensi
 
 This project is licensed under the MIT License.
