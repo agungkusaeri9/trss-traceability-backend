@@ -89,4 +89,5 @@ src/TraceabilitySystem.Worker/logging/
 
 # Build and Release artifacts
 dist/
-publish/
+publish/
+scripts/
