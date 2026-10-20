@@ -4,6 +4,17 @@ Dokumen ini mencatat ringkasan perubahan dan pembaruan sistem pada Backend TRSS 
 
 ---
 
+## [v0.2.5-preview.1] - 20 Oktober 2026
+
+### Pembaruan Staging & Otomatisasi Deployment
+- **Otomatisasi Staging & Pre-release (Preview Pipeline)**:
+  - Penambahan skrip build staging lokal (`scripts/preview.bat` dan `scripts/build-preview.ps1`) dengan penandaan rilis GitHub `--prerelease`.
+  - Dukungan visualisasi label `[PREVIEW / STAGING]` pada tool deployment pelanggan (`scripts/deploy-customer.bat`).
+  - Pembaruan default direktori target deployment pelanggan ke `D:\trss\traceability\publish\Backend`.
+  - Penyesuaian `.gitignore` untuk mengecualikan direktori `scripts/`, `dist/`, dan `publish/`.
+
+---
+
 ## [v0.2.4] - 20 Oktober 2026
 
 ### Fitur Baru & Otomatisasi (CI/CD)
