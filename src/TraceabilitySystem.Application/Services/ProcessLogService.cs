@@ -133,15 +133,6 @@ public class ProcessLogService : IProcessLogService
         {
             snIds.Add(log.SerialNumber.Id);
             snCodes.Add(log.SerialNumber.SerialNumberCode);
-            if (log.SerialNumber.ParentRelations != null)
-            {
-                snIds.AddRange(log.SerialNumber.ParentRelations
-                    .Where(r => r.ChildSerialNumber != null)
-                    .Select(r => r.ChildSerialNumber!.Id));
-                snCodes.AddRange(log.SerialNumber.ParentRelations
-                    .Where(r => r.ChildSerialNumber != null)
-                    .Select(r => r.ChildSerialNumber!.SerialNumberCode));
-            }
         }
 
         var histories = snIds.Count > 0
@@ -158,12 +149,6 @@ public class ProcessLogService : IProcessLogService
         return MapToDto(log, allProcesses, histories, disabledMqttStatuses);
     }
 
-    private static readonly HashSet<string> OverallProcessCodes =
-[
-    "ECM_ASSY",
-    "FINAL_INSPECTION"
-];
-
     public async Task<ProcessLogDto> GetProcessLogBySerialNumberAsync(string serialNumber, CancellationToken cancellationToken = default)
     {
         var log = await _processLogRepository.GetLogBySerialNumberAsync(serialNumber, cancellationToken);
@@ -176,15 +161,6 @@ public class ProcessLogService : IProcessLogService
         if (log.SerialNumber != null)
         {
             snIds.Add(log.SerialNumber.Id);
-            if (log.SerialNumber.ParentRelations != null)
-            {
-                snIds.AddRange(log.SerialNumber.ParentRelations
-                    .Where(r => r.ChildSerialNumber != null)
-                    .Select(r => r.ChildSerialNumber!.Id));
-                snCodes.AddRange(log.SerialNumber.ParentRelations
-                    .Where(r => r.ChildSerialNumber != null)
-                    .Select(r => r.ChildSerialNumber!.SerialNumberCode));
-            }
         }
 
         var histories = snIds.Count > 0
@@ -678,16 +654,6 @@ public class ProcessLogService : IProcessLogService
         if (log.Details != null)
             allDetails.AddRange(log.Details);
 
-        if (isParent && sn.ParentRelations != null)
-        {
-            var childSns = sn.ParentRelations.Select(r => r.ChildSerialNumber).Where(c => c != null);
-            foreach (var childSn in childSns)
-            {
-                issues.AddRange(MapIssues(childSn!.Issues, "CHILD"));
-                if (childSn.ProcessLogs != null)
-                    allDetails.AddRange(childSn.ProcessLogs.SelectMany(pl => pl.Details ?? new List<ProcessLogDetail>()));
-            }
-        }
 
         return new ProcessLogDto
         {
@@ -728,7 +694,8 @@ public class ProcessLogService : IProcessLogService
             if (details == null) return new List<ProcessGroupDto>();
 
             return details
-                .Where(d => d.Parameter == null || d.Parameter.ShowInDisplay)
+                .Where(d => (d.Parameter == null || d.Parameter.ShowInDisplay) &&
+                            (isParent ? IsClinchingProcess(d.Process?.Code) : IsMFanProcess(d.Process?.Code)))
                 .GroupBy(d => new { Id = d.Process?.Id ?? 0, Code = d.Process?.Code, Name = d.Process?.Name })
                 .OrderBy(g => g.Key.Id)
                 .Select(g =>
@@ -806,7 +773,7 @@ public class ProcessLogService : IProcessLogService
         var result = new List<ProcessGroupDto>();
 
         var relevantProcesses = isParent
-            ? masterProcesses.Where(p => IsClinchingProcess(p.Code) || OverallProcessCodes.Contains(p.Code))
+            ? masterProcesses.Where(p => IsClinchingProcess(p.Code))
             : masterProcesses.Where(p => IsMFanProcess(p.Code));
 
         foreach (var proc in relevantProcesses.Where(p => p.IsActive).OrderBy(p => p.Order ?? int.MaxValue).ThenBy(p => p.Id))
@@ -1688,7 +1655,7 @@ public class ProcessLogService : IProcessLogService
                             serialNumberCode.StartsWith("CC", StringComparison.OrdinalIgnoreCase);
 
             var relevantProcesses = isParent
-                ? masterProcesses.Where(p => p.IsActive && (IsClinchingProcess(p.Code) || OverallProcessCodes.Contains(p.Code)))
+                ? masterProcesses.Where(p => p.IsActive && IsClinchingProcess(p.Code))
                 : masterProcesses.Where(p => p.IsActive && IsMFanProcess(p.Code));
 
             await _mqttPublisherStatusRepository.SyncDisabledProcessesAsync(

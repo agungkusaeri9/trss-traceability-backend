@@ -4,6 +4,34 @@ Dokumen ini mencatat ringkasan perubahan dan pembaruan sistem pada Backend TRSS 
 
 ---
 
+## [v0.2.6-preview.1] - 22 Oktober 2026
+
+### Fitur Baru
+- **Label M-Fan Assy Khusus (Printer Zebra)**:
+  - Menambahkan template ZPL baru untuk label M-Fan Assy dengan ukuran **25 mm × 15 mm** (200 × 120 dots @ 203 dpi).
+  - Tata letak label: QR code di sisi kiri, lalu Part Number (dari Process Category M-Fan) dan Serial Number di bawahnya pada sisi kanan QR code.
+  - Konten QR code sama dengan label Clinching (`Mitsubishi Code`, `TRSS Code`, `Tanggal`, `Serial Number`).
+  - Label M-Fan Assy tidak lagi bergantung pada konfigurasi ukuran QR label Clinching.
+
+### Perbaikan & Penyesuaian
+- **Konversi Waktu & Timezone Log MQTT (`LogService`)**:
+  - Mengonversi timestamp log MQTT (`ReceivedAt`, `ProcessedAt`, `CreatedAt`, `UpdatedAt`) dari waktu lokal database (WIB / UTC+7) ke UTC sebelum diserialisasi JSON agar penanda waktu ISO-8601 (`Z`) akurat saat dikonsumsi client.
+  - Mengatur default rentang filter tanggal pencarian log MQTT agar mengacu pada zona waktu Jakarta (`DateTimeHelper.GetJakartaNow()`).
+- **Penyaringan Proses Detail Process Log (`ProcessLogService`)**:
+  - Menyesuaikan detail Process Log per nomor seri agar hanya memuat proses yang relevan sesuai jenis nomor serinya (nomor seri Clinching hanya proses Clinching, nomor seri M-Fan hanya proses M-Fan).
+  - Menghapus proses `ECM_ASSY` dan `FINAL_INSPECTION` pada nomor seri Clinching karena tidak memiliki relasi hirarki parent-child pada Process Log.
+  - Menghapus pembacaan relasi parent-child (`ParentRelations`) pada pemetaan DTO detail Process Log.
+
+### Peningkatan & Refactor
+- **Penyatuan Alur Cetak Label Zebra (Clinching & M-Fan Assy)**:
+  - Pengambilan data label (serial number, tanggal, dan part number dari Process Category) disatukan dalam helper `GetZebraLabelDataAsync` agar tidak terjadi duplikasi kode.
+  - Mengambil format tanggal label dari `serialNumber.Date` database (bukan `DateTime.Today`).
+  - Menyesuaikan koordinat elemen ZPL label M-Fan Assy agar hasil cetak presisi dan rapi.
+  - Part number default Clinching dan M-Fan Assy dipindahkan ke konstanta.
+  - Konten QR code dibangun dari satu sumber (`ZebraLabelData`) sehingga format QR konsisten di kedua proses.
+
+---
+
 ## [v0.2.5-preview.1] - 20 Oktober 2026
 
 ### Pembaruan Staging & Otomatisasi Deployment

@@ -13,6 +13,7 @@ using MySqlConnector;
 using TraceabilitySystem.Application.DTOs.MqttLog;
 using TraceabilitySystem.Application.DTOs.SystemLog;
 using TraceabilitySystem.Application.Interfaces;
+using TraceabilitySystem.Shared.Helpers;
 using TraceabilitySystem.Shared.Models;
 
 namespace TraceabilitySystem.Infrastructure.Services;
@@ -76,7 +77,7 @@ public class LogService : ILogService
             parameters.Add(new MySqlParameter("@isOk", filter.IsOk.Value));
         }
 
-        var effectiveStartDate = filter.StartDate ?? (filter.EndDate.HasValue ? filter.EndDate.Value.Date.AddDays(-6) : DateTime.Now.Date.AddDays(-6));
+        var effectiveStartDate = filter.StartDate ?? (filter.EndDate.HasValue ? filter.EndDate.Value.Date.AddDays(-6) : DateTimeHelper.GetJakartaNow().Date.AddDays(-6));
         whereClauses.Add("received_at >= @startDate");
         parameters.Add(new MySqlParameter("@startDate", effectiveStartDate));
 
@@ -219,10 +220,10 @@ LIMIT 1;";
             Payload = reader.IsDBNull(payloadOrdinal) ? null : reader.GetValue(payloadOrdinal)?.ToString(),
             Status = reader.GetValue(statusOrdinal)?.ToString() ?? string.Empty,
             ErrorMessage = reader.IsDBNull(errorMsgOrdinal) ? null : reader.GetValue(errorMsgOrdinal)?.ToString(),
-            ReceivedAt = reader.GetDateTime(receivedAtOrdinal),
-            ProcessedAt = reader.IsDBNull(processedAtOrdinal) ? null : reader.GetDateTime(processedAtOrdinal),
-            CreatedAt = reader.GetDateTime(createdAtOrdinal),
-            UpdatedAt = reader.GetDateTime(updatedAtOrdinal)
+            ReceivedAt = reader.GetDateTime(receivedAtOrdinal).ToUtcFromJakarta(),
+            ProcessedAt = reader.IsDBNull(processedAtOrdinal) ? null : reader.GetDateTime(processedAtOrdinal).ToUtcFromJakarta(),
+            CreatedAt = reader.GetDateTime(createdAtOrdinal).ToUtcFromJakarta(),
+            UpdatedAt = reader.GetDateTime(updatedAtOrdinal).ToUtcFromJakarta()
         };
     }
 

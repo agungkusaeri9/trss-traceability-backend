@@ -71,12 +71,54 @@ public class PrintService : IPrintService
         _mqttPublisher = mqttPublisher;
     }
 
-    
+    // Part number default jika belum dikonfigurasi pada ProcessCategory
+    private const string DefaultClinchingMitsubishiCode = "21400C000P";
+    private const string DefaultClinchingTrssCode = "BM57100000";
+    private const string DefaultMFanAssyMitsubishiCode = "21580C000P";
+    private const string DefaultMFanAssyTrssCode = "BM57200000";
+
+    /// <summary>
+    /// Data yang dicetak pada label Zebra (Clinching / M-Fan Assy).
+    /// </summary>
+    private sealed record ZebraLabelData(string MitsubishiCode, string TrssCode, string SerialNumberCode, string DateFormat)
+    {
+        public string QrCodeString => $"{MitsubishiCode} {TrssCode} {DateFormat} {SerialNumberCode}";
+    }
+
     private async Task PrintClinchingLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
+        var label = await GetZebraLabelDataAsync(
+            serialNumberCode,
+            repo => repo.GetByClinchingWithPartsAsync(cancellationToken),
+            DefaultClinchingMitsubishiCode,
+            DefaultClinchingTrssCode,
+            cancellationToken);
+
+        string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
+        string zpl = BuildZplLabelClinching(
+            label.MitsubishiCode,
+            label.TrssCode,
+            label.SerialNumberCode,
+            label.DateFormat,
+            label.QrCodeString,
+            qrLabelSize);
+
         string printerIp = await _configRepository.GetPrinterClinchingIpAsync(cancellationToken);
         int printerPort = await _configRepository.GetPrinterClinchingPortAsync(cancellationToken);
 
+        await SendViaTcpAsync(printerIp, printerPort, zpl, cancellationToken);
+    }
+
+    /// <summary>
+    /// Mengambil data label dari serial number dan part number pada ProcessCategory terkait.
+    /// </summary>
+    private async Task<ZebraLabelData> GetZebraLabelDataAsync(
+        string serialNumberCode,
+        Func<IProcessCategoryRepository, Task<ProcessCategory?>> getProcessCategory,
+        string defaultMitsubishiCode,
+        string defaultTrssCode,
+        CancellationToken cancellationToken)
+    {
         using var scope = _serviceScopeFactory.CreateScope();
         var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
         var processCategoryRepository = scope.ServiceProvider.GetRequiredService<IProcessCategoryRepository>();
@@ -89,23 +131,79 @@ public class PrintService : IPrintService
             throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
         }
 
-        // Gunakan Date dari SerialNumber (bukan DateTime.Today)
-        string dateFormat = serialNumber.Date.ToString("ddMMyyyy");
+        var category = await getProcessCategory(processCategoryRepository);
 
-        var clinchingCategory = await processCategoryRepository.GetByClinchingWithPartsAsync(cancellationToken);
-        string mitsubishiCode = !string.IsNullOrWhiteSpace(clinchingCategory?.PartNumberCustomer)
-            ? clinchingCategory.PartNumberCustomer
-            : "21400C000P";
-        string trssCode = !string.IsNullOrWhiteSpace(clinchingCategory?.PartNumber)
-            ? clinchingCategory.PartNumber
-            : "BM57100000";
+        return new ZebraLabelData(
+            MitsubishiCode: ValueOrDefault(category?.PartNumberCustomer, defaultMitsubishiCode),
+            TrssCode: ValueOrDefault(category?.PartNumber, defaultTrssCode),
+            SerialNumberCode: serialNumberCode,
+            // Gunakan Date dari SerialNumber (bukan DateTime.Today)
+            DateFormat: serialNumber.Date.ToString("ddMMyyyy"));
+    }
 
-        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
+    private static string ValueOrDefault(string? value, string defaultValue) =>
+        string.IsNullOrWhiteSpace(value) ? defaultValue : value;
 
-        string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
-        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, qrLabelSize);
+    /// <summary>
+    /// Label M-Fan Assy: 25 mm × 15 mm @ 203 dpi (8 dots/mm) → 200 × 120 dots.
+    /// QR code (konten sama dengan Clinching) di kiri; Part Number dan Serial Number di kanan QR.
+    /// </summary>
+    private static string BuildZplLabelMFanAssy(ZebraLabelData label)
+    {
+        const int labelW = 200;
+        const int labelH = 120;
 
-        await SendViaTcpAsync(printerIp, printerPort, zpl, cancellationToken);
+        // Padding atas & bawah sejajar dengan QR code (8 dots)
+        const int paddingY = 8;
+
+        // Kolom teks di samping QR (QR magnification 3 ≈ 87–99 dots)
+        const int textX = 104;
+        const int textW = labelW - textX - 4;
+
+        const int fontH = 22;
+        const int fontW = 16;
+
+        // Part Number di bagian atas, sejajar padding atas QR (Y = 8)
+        const int partNumberY = paddingY;
+
+        // Serial Number di bagian bawah, sejajar padding bawah QR (selesai di Y = 112)
+        // Format SN MFan (13 char) wrap ke 2 baris (tinggi 2 * fontH + gap = 46 dots)
+        const int serialNumberY = labelH - paddingY - (fontH * 2 + 2) - 3;
+
+        // return $"""
+        //     ^XA
+        //     ^POI
+        //     ^MD25
+        //     ^PR2
+        //     ^PW{labelW}
+        //     ^LL{labelH}
+        //     ^LH0,0
+        //     ^CI28
+
+        //     ^FO4,{paddingY}^BQN,2,3^FDQA,{label.QrCodeString}^FS
+
+        //     ^FO{textX},{partNumberY}^A0N,{fontH},{fontW}^FB{textW},2,2,L^FD{label.TrssCode}^FS
+        //     ^FO{textX},{serialNumberY}^A0N,{fontH},{fontW}^FB{textW},2,2,L^FD{label.SerialNumberCode}^FS
+
+        //     ^XZ
+        //     """;
+         return $"""
+        ^XA
+        ^POI
+        ^MD25
+        ^PR2
+        ^PW200
+        ^LL120
+        ^LH0,0
+        ^CI28
+
+        ^FO4,18^BQN,2,2^FDQA,{label.QrCodeString}^FS
+
+        ^FO70,35^A0N,22,16^FB92,2,2,L^FD{label.TrssCode}^FS
+        ^FO70,61^A0N,22,12^FB92,2,2,L^FD{label.SerialNumberCode}^FS
+
+        ^XZ
+        """;
     }
 
 
@@ -600,43 +698,28 @@ public class PrintService : IPrintService
 
     private async Task PrintMFanAssyLabelWithSdkAsync(string serialNumberCode, CancellationToken cancellationToken = default)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var serialNumberRepository = scope.ServiceProvider.GetRequiredService<ISerialNumberRepository>();
-        var processCategoryRepository = scope.ServiceProvider.GetRequiredService<IProcessCategoryRepository>();
-
-        var serialNumber = await serialNumberRepository.GetByCodeAsync(serialNumberCode, cancellationToken);
-        if (serialNumber == null)
-        {
-            _logger.LogWarning("Serial number [{SerialNumberCode}] not found. Skipping print job.", serialNumberCode);
-            throw new KeyNotFoundException($"Serial number [{serialNumberCode}] not found.");
-        }
-
-        string dateFormat = serialNumber.Date.ToString("ddMMyyyy");
-
-        var mfanCategory = await processCategoryRepository.GetByMfanWithPartsAsync(cancellationToken);
-        string mitsubishiCode = !string.IsNullOrWhiteSpace(mfanCategory?.PartNumberCustomer)
-            ? mfanCategory.PartNumberCustomer
-            : "21580C000P";
-        string trssCode = !string.IsNullOrWhiteSpace(mfanCategory?.PartNumber)
-            ? mfanCategory.PartNumber
-            : "BM57200000";
-
-        string qrCodeString = mitsubishiCode + " " + trssCode + " " + dateFormat + " " + serialNumberCode;
+        var label = await GetZebraLabelDataAsync(
+            serialNumberCode,
+            repo => repo.GetByMfanWithPartsAsync(cancellationToken),
+            DefaultMFanAssyMitsubishiCode,
+            DefaultMFanAssyTrssCode,
+            cancellationToken);
 
         // Cek apakah mode test print ke printer Stock In aktif
         bool isTestMode = await _configRepository.GetIsTestModeMFanAssyAsync(cancellationToken);
         if (isTestMode)
         {
             _logger.LogInformation("[TEST PRINT] Mode test aktif. Mengirim print label M-Fan Assy ke printer Stock In untuk SN: {SerialNumberCode}", serialNumberCode);
-            await PrintMFanAssyLabelTestWithStockInPrinterAsync(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, cancellationToken);
+            await PrintMFanAssyLabelTestWithStockInPrinterAsync(
+                label.MitsubishiCode, label.TrssCode, label.SerialNumberCode, label.DateFormat, label.QrCodeString, cancellationToken);
             return;
         }
 
-        // Mode normal / produksi: Kirim via TCP socket (ZPL)
+        // Mode normal / produksi: Kirim ke printer Zebra via TCP (ZPL)
+        string zpl = BuildZplLabelMFanAssy(label);
+
         string printerIp = await _configRepository.GetPrinterMFanAssyIpAsync(cancellationToken);
         int printerPort = await _configRepository.GetPrinterMFanAssyPortAsync(cancellationToken);
-        string qrLabelSize = await _configRepository.GetQrLabelClinching(cancellationToken);
-        var zpl = BuildZplLabelClinching(mitsubishiCode, trssCode, serialNumberCode, dateFormat, qrCodeString, qrLabelSize);
 
         await SendViaTcpAsync(printerIp, printerPort, zpl, cancellationToken);
     }
